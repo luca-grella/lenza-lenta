@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Core sandbox — Lenza Lenta 2</title>
+  <link rel="icon" href="data:,">
+  <script type="importmap">
+  { "imports": { "three": "../vendor/three.module.min.js", "three/addons/": "../vendor/addons/" } }
+  </script>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #a9e4f2; font: 13px/1.35 system-ui, -apple-system, sans-serif; color: #17324a; touch-action: none; }
+    #game { position: fixed; inset: 0; }
+    #panel { position: fixed; top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right)); width: 290px; max-height: calc(100% - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      overflow: auto; background: rgba(255, 252, 244, .9); border-radius: 14px; box-shadow: 0 6px 24px rgba(20, 50, 70, .25); padding: 10px 12px; box-sizing: border-box; touch-action: pan-y; }
+    #panel.collapsed > :not(#toggle) { display: none; }
+    #panel.collapsed { width: auto; padding: 6px; background: transparent; box-shadow: none; }
+    #toggle { position: sticky; top: 0; float: right; border: 0; background: #1d6f9a; color: #fff; border-radius: 8px; padding: 3px 9px; cursor: pointer; }
+    h3 { margin: 12px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #1d6f9a; }
+    h3:first-of-type { margin-top: 2px; }
+    label { display: grid; grid-template-columns: 78px 1fr 40px; align-items: center; gap: 6px; margin: 3px 0; }
+    label.chk { grid-template-columns: 18px 1fr; }
+    input[type=range] { width: 100%; }
+    .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+    button.b { border: 1px solid #b9d7e2; background: #fff; border-radius: 7px; padding: 3px 7px; cursor: pointer; font-size: 12px; color: #17324a; }
+    button.b.on { background: #1d6f9a; color: #fff; border-color: #1d6f9a; }
+    button.b:active { transform: scale(.97); }
+    #stats { font: 11px/1.3 ui-monospace, Menlo, monospace; white-space: pre; color: #345; }
+    select { width: 100%; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="panel">
+    <button id="toggle">–</button>
+    <h3>Time</h3>
+    <label>hour <input id="hour" type="range" min="0" max="24" step="0.05"><span id="hourV"></span></label>
+    <div class="row" id="speeds"></div>
+    <label>overcast <input id="overcast" type="range" min="0" max="1" step="0.05" value="0"><span id="overcastV">0</span></label>
+    <h3>Post</h3>
+    <label class="chk"><input id="postOn" type="checkbox" checked><span>post-processing enabled</span></label>
+    <label class="chk"><input id="postAuto" type="checkbox" checked><span>time-of-day grade (auto)</span></label>
+    <div id="postSliders"></div>
+    <h3>Quality / camera</h3>
+    <div class="row" id="tiers"></div>
+    <div class="row" id="modes"></div>
+    <label>zoom <input id="zoom" type="range" min="0.7" max="1.6" step="0.01" value="1"><span id="zoomV">1</span></label>
+    <div class="row"><button class="b" id="shake">shake</button><button class="b" id="lang">lang: it</button></div>
+    <h3>Audio</h3>
+    <div class="row"><button class="b" id="unlock">unlock audio</button></div>
+    <div class="row" id="moods"></div>
+    <div id="ambient"></div>
+    <div id="vols"></div>
+    <div class="row" id="sfx"></div>
+    <h3>Stats</h3>
+    <div id="stats"></div>
+  </div>
+  <script type="module">
+    import { createCore } from '../src/core/index.js';
+    const ctx = await createCore({ canvasParent: document.getElementById('game'), debug: true });
+    const { THREE } = ctx;
+    const stage = ctx.createTestStage({ island: true, dummy: true });
+
+    // ---- test objects near the shore: materials, emissive (bloom), metal ----
+    const g = new THREE.Group(); g.position.set(-3, 0, 18); ctx.scene.add(g);
+    const mats = [
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }),
+      new THREE.MeshStandardMaterial({ color: 0xe2553f, roughness: 0.7 }),
+      new THREE.MeshStandardMaterial({ color: 0x3fd0c9, roughness: 0.4 }),
+      new THREE.MeshStandardMaterial({ color: 0xd8b25a, roughness: 0.3, metalness: 0.8 }),
+      new THREE.MeshLambertMaterial({ color: 0x86c454 }),
+      new THREE.MeshStandardMaterial({ color: 0xffe2a0, emissive: 0xffb050, emissiveIntensity: 3 }),
+    ];
+    const geos = [new THREE.SphereGeometry(0.55, 32, 20), new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.ConeGeometry(0.5, 1.1, 24), new THREE.TorusKnotGeometry(0.35, 0.12, 80, 12)];
+    mats.forEach((m, i) => {
+      const mesh = new THREE.Mesh(geos[i % geos.length], m);
+      const x = (i - 2.5) * 1.5, z = (i % 2) * 1.2;
+      mesh.position.set(x, stage.heightAt(g.position.x + x, g.position.z + z) + 0.6, z);
+      mesh.castShadow = mesh.receiveShadow = true;
+      g.add(mesh);
+    });
+    ctx.loop.add((dt, t) => { g.children.forEach((m, i) => { m.rotation.y = t * 0.4 + i; }); }, 30);
+    ctx.debug.teleport(2, 19);
+
+    // ---- UI panel (dev tool: plain English, not player-facing) ----
+    const $ = id => document.getElementById(id);
+    const btn = (parent, label, fn, cls = 'b') => { const b = document.createElement('button'); b.className = cls; b.textContent = label; b.onclick = () => { ctx.audio.unlock(); fn(b); }; $(parent).appendChild(b); return b; };
+    const slider = (parent, name, min, max, step, value, fn) => {
+      const l = document.createElement('label'); l.innerHTML = `${name} <input type="range" min="${min}" max="${max}" step="${step}" value="${value}"><span>${value}</span>`;
+      const inp = l.querySelector('input'), sp = l.querySelector('span');
+      inp.oninput = () => { sp.textContent = (+inp.value).toFixed(2); fn(+inp.value); };
+      $(parent).appendChild(l); return inp;
+    };
+    $('toggle').onclick = () => { $('panel').classList.toggle('collapsed'); $('toggle').textContent = $('panel').classList.contains('collapsed') ? '☰' : '–'; };
+    if (innerWidth < 700) $('toggle').onclick();
+
+    const hour = $('hour');
+    hour.oninput = () => ctx.time.set(+hour.value);
+    const speeds = { pause: 0, 'x1': 60, 'x60': 1, 'x240': 0.25 };
+    const sb = {};
+    for (const [k, v] of Object.entries(speeds)) sb[k] = btn('speeds', k, () => { ctx.time.paused = v === 0; if (v) ctx.time.scale = v; for (const b of Object.values(sb)) b.classList.remove('on'); sb[k].classList.add('on'); });
+    sb.x60.onclick();
+    $('overcast').oninput = e => { stage.overcast = +e.target.value; $('overcastV').textContent = e.target.value; };
+
+    $('postOn').onchange = e => ctx.post.setEnabled(e.target.checked);
+    $('postAuto').onchange = e => { ctx.post.auto = e.target.checked; };
+    const P = ctx.post.params;
+    slider('postSliders', 'tilt-shift', 0, 3, 0.05, P.tilt, v => ctx.post.tiltShift(v));
+    slider('postSliders', 'bloom', 0, 1.5, 0.01, P.bloom, v => ctx.post.bloom(v));
+    for (const [k, mn, mx] of [['warmth', -1, 1], ['saturation', 0, 2], ['vignette', 0, 1], ['exposure', 0.3, 2], ['contrast', 0, 1], ['split', 0, 2]])
+      slider('postSliders', k, mn, mx, 0.01, P[k], v => ctx.post.grade({ [k]: v }));
+
+    const tb = {};
+    for (const t of ['auto', 'low', 'mid', 'high']) tb[t] = btn('tiers', t, () => ctx.quality.set(t, { persist: false }));
+    const mb = {};
+    for (const m of ['explore', 'fishing', 'boat', 'dialog']) mb[m] = btn('modes', m, () => { ctx.cameraRig.setMode(m); ctx.cameraRig.setFocus(m === 'fishing' ? new THREE.Vector3(1, 0, 22) : m === 'dialog' ? new THREE.Vector3(3, 1.5, 13) : null); });
+    $('zoom').oninput = e => { ctx.cameraRig.zoom = +e.target.value; $('zoomV').textContent = e.target.value; };
+    $('shake').onclick = () => ctx.cameraRig.shake(0.5);
+    $('lang').onclick = () => { ctx.i18n.setLang(ctx.i18n.lang === 'it' ? 'en' : 'it'); };
+    ctx.i18n.onChange(l => { $('lang').textContent = 'lang: ' + l + ' — ' + ctx.i18n.t('time.phase.' + ctx.time.phase); });
+    $('lang').textContent = 'lang: ' + ctx.i18n.lang + ' — ' + ctx.i18n.t('time.phase.' + ctx.time.phase);
+
+    $('unlock').onclick = () => { ctx.audio.unlock(); };
+    const moodB = {};
+    for (const m of ['auto', 'day', 'dusk', 'night', 'rain', 'cave', 'off']) moodB[m] = btn('moods', m, () => ctx.audio.setMusic(m));
+    for (const l of ctx.audio.layers) slider('ambient', l, 0, 1, 0.01, 0, v => ctx.audio.setAmbient(l, v));
+    slider('vols', 'music vol', 0, 1, 0.01, ctx.audio.volumes.music, v => ctx.audio.setVolumes({ music: v }));
+    slider('vols', 'sfx vol', 0, 1, 0.01, ctx.audio.volumes.sfx, v => ctx.audio.setVolumes({ sfx: v }));
+    for (const s of ctx.audio.sfxNames) btn('sfx', s, () => ctx.audio.sfx(s));
+
+    // live state
+    setInterval(() => {
+      hour.value = ctx.time.hours; $('hourV').textContent = ctx.time.format();
+      for (const [k, b] of Object.entries(tb)) b.classList.toggle('on', ctx.quality.setting === k);
+      for (const [k, b] of Object.entries(mb)) b.classList.toggle('on', ctx.cameraRig.mode === k);
+      for (const [k, b] of Object.entries(moodB)) b.classList.toggle('on', ctx.audio.mood === k || (k === 'auto' && false));
+      $('unlock').textContent = ctx.audio.unlocked ? 'audio: ' + ctx.audio.context.state : 'unlock audio';
+      const i = ctx.renderer.info;
+      $('stats').textContent = `fps ${ctx.loop.fps.toFixed(0)}  tier ${ctx.quality.tier} @${ctx.quality.pixelRatio.toFixed(2)}x\n` +
+        `calls ${i.render.calls}  tris ${(i.render.triangles / 1000).toFixed(1)}k\n${ctx.time.format()} ${ctx.time.phase} day ${ctx.time.day}  mood ${ctx.audio.mood}\n` +
+        `gpu ${ctx.quality.detected.gpu.slice(0, 40)}`;
+    }, 250);
+
+    ctx.loop.start();
+    ctx.bus.emit('game:ready', { ctx });
+  </script>
+</body>
+</html>

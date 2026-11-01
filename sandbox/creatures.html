@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Creatures sandbox — Lenza Lenta 2</title>
+  <link rel="icon" href="data:,">
+  <script type="importmap">
+  { "imports": { "three": "../vendor/three.module.min.js", "three/addons/": "../vendor/addons/" } }
+  </script>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #a9e4f2; font: 13px/1.35 system-ui, -apple-system, sans-serif; color: #17324a; touch-action: none; }
+    #game { position: fixed; inset: 0; }
+    #labels { position: fixed; inset: 0; pointer-events: none; }
+    #labels div { position: absolute; transform: translate(-50%, 0); font: 600 11px/1.1 system-ui, sans-serif; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); white-space: nowrap; }
+    #panel { position: fixed; top: calc(8px + env(safe-area-inset-top)); left: calc(8px + env(safe-area-inset-left)); background: rgba(255, 252, 244, .9); border-radius: 12px; padding: 8px 10px; box-shadow: 0 6px 24px rgba(20,50,70,.25); max-width: 300px; }
+    #panel a { color: #1d6f9a; margin-right: 6px; }
+    #thumbs { position: fixed; inset: 0; overflow: auto; display: none; padding: 60px 12px 12px; box-sizing: border-box; background: linear-gradient(#fdf6e6, #f3e6c8); touch-action: pan-y; }
+    #thumbs .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+    #thumbs figure { margin: 0; background: rgba(255,255,255,.65); border-radius: 12px; padding: 4px; text-align: center; font: 600 11px system-ui; color: #4a3a2a; }
+    #thumbs img { width: 100%; height: auto; display: block; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="labels"></div>
+  <div id="thumbs"><div class="grid"></div></div>
+  <div id="panel">
+    <b>Creatures</b><br>
+    <a href="?view=fish">fish grid</a><a href="?view=thumbs">thumbnails</a><a href="?view=pond">pond</a><a href="?view=zoo">zoo</a><a href="?view=cat">cat</a><a href="?view=aquarium">aquarium</a>
+    <div id="info"></div>
+  </div>
+  <script type="module">
+    import { createCore } from '../src/core/index.js';
+    import { loadData } from '../src/data/index.js';
+    import { createFishModels } from '../src/actors/fishModels.js';
+
+    const params = new URLSearchParams(location.search);
+    const view = params.get('view') || 'fish';
+    const ctx = await createCore({ canvasParent: document.getElementById('game'), debug: true });
+    await loadData(ctx);
+    ctx.fishModels = createFishModels(ctx);
+    const THREE = ctx.THREE;
+    const L = window.__lenza;
+    L.sandbox = { view };
+
+    if (view === 'fish') {
+      ctx.createTestStage({ ground: true, dummy: false });
+      ctx.stage.group.getObjectByName('ground').material.color.set(0x7fb6c4);
+      const filter = params.get('only');
+      let ids = ctx.fishModels.ids();
+      if (filter) ids = ids.filter(id => filter.split(',').some(f => id.includes(f)));
+      const cols = +(params.get('cols') || Math.ceil(Math.sqrt(ids.length * 1.4)));
+      const sp = 1.25, rows = Math.ceil(ids.length / cols);
+      const items = [];
+      ids.forEach((id, i) => {
+        const c = i % cols, r = Math.floor(i / cols);
+        const f = ctx.fishModels.create(id, { scale: 1 });
+        f.object.position.set((c - (cols - 1) / 2) * sp, 0.55, (r - (rows - 1) / 2) * sp * 0.95);
+        f.object.rotation.y = -Math.PI / 2 + 0.35;
+        ctx.scene.add(f.object);
+        items.push(f);
+      });
+      const swim = +(params.get('swim') ?? 1);
+      ctx.loop.add((dt) => { for (const f of items) f.animate(dt, swim, 0); }, 20);
+      const w = cols * sp, h = rows * sp;
+      ctx.cameraRig.setMode('cinematic');
+      ctx.cameraRig.setShot({ position: new THREE.Vector3(0, Math.max(w, h) * 1.05, Math.max(w, h) * 0.62), lookAt: new THREE.Vector3(0, 0, 0.3), fov: 40 });
+      ctx.cameraRig.snap();
+      ctx.post.tiltShift(0);
+      // labels
+      const lab = document.getElementById('labels');
+      const tags = items.map(f => { const d = document.createElement('div'); d.textContent = ctx.i18n.t(f.species.nameKey || f.id); lab.appendChild(d); return d; });
+      const pv = new THREE.Vector3();
+      ctx.loop.add(() => { items.forEach((f, i) => { pv.copy(f.object.position); pv.z += 0.42; const s = ctx.cameraRig.toScreen(pv); tags[i].style.left = (s.x * 100) + '%'; tags[i].style.top = (s.y * 100) + '%'; }); }, 60);
+      L.sandbox.items = items;
+    }
+
+    if (view === 'thumbs') {
+      ctx.createTestStage({ ground: true, dummy: false });
+      document.getElementById('thumbs').style.display = 'block';
+      const grid = document.querySelector('#thumbs .grid');
+      const size = +(params.get('size') || 128);
+      const sil = params.has('sil');
+      const t0 = performance.now();
+      const only = params.get('only');
+      let ids = ctx.fishModels.ids();
+      if (only) ids = ids.filter(id => only.split(',').some(f => id.includes(f)));
+      grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${Math.min(size, 300)}px, 1fr))`;
+      for (const id of ids) {
+        const fig = document.createElement('figure');
+        const img = new Image(); img.src = sil ? ctx.fishModels.silhouette(id, size) : ctx.fishModels.thumbnail(id, size);
+        fig.append(img, document.createTextNode(ctx.i18n.t('fish.' + id + '.name')));
+        grid.appendChild(fig);
+      }
+      L.sandbox.thumbMs = performance.now() - t0;
+    }
+
+    if (view === 'catclips') {
+      const { createEnv } = await import('../src/actors/creatures/env.js');
+      const { createFx } = await import('../src/actors/creatures/fx.js');
+      const { createCat } = await import('../src/actors/creatures/cat.js');
+      ctx.createTestStage({ ground: true, dummy: false });
+      const env = createEnv(ctx), root = new THREE.Group(); ctx.scene.add(root);
+      const fx = createFx(ctx, root);
+      const clips = (params.get('clips') || 'idle,walk,trot,sit,groom,loaf,sleep,eat').split(',');
+      const cats = clips.map((c, i) => {
+        const cat = createCat(ctx, env, root, fx, ctx.data.creatures.find(d => d.id === 'cat'));
+        cat.object.position.set((i - (clips.length - 1) / 2) * 1.3, 0, 0);
+        cat.object.rotation.y = +(params.get('yaw') ?? 0.9);
+        cat.play(c, 0);
+        return cat;
+      });
+      ctx.loop.add(dt => { for (const c of cats) c.mixer.update(dt); fx.update(dt); }, 20);
+      ctx.cameraRig.setMode('cinematic');
+      const w = clips.length * 1.3;
+      const cz = +(params.get('cam') || 1);
+      ctx.cameraRig.setShot({ position: new THREE.Vector3(0, (w * 0.3 + 0.5) * cz, (w * 0.62 + 0.6) * cz), lookAt: new THREE.Vector3(0, 0.25, 0), fov: 32 });
+      ctx.cameraRig.snap(); ctx.post.tiltShift(0);
+      L.sandbox.cats = cats;
+    }
+
+    ctx.loop.start();
+    ctx.bus.emit('game:ready');
+  </script>
+</body>
+</html>

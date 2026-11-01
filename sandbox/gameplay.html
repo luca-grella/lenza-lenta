@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Gameplay sandbox — Lenza Lenta 2</title>
+  <link rel="icon" href="data:,">
+  <script type="importmap">
+  { "imports": { "three": "../vendor/three.module.min.js", "three/addons/": "../vendor/addons/" } }
+  </script>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #a9e4f2; font: 12px/1.35 system-ui, -apple-system, sans-serif; color: #17324a; touch-action: none; -webkit-user-select: none; user-select: none; }
+    #game { position: fixed; inset: 0; }
+    #panel { position: fixed; left: calc(8px + env(safe-area-inset-left)); bottom: calc(8px + env(safe-area-inset-bottom)); width: 250px; max-height: 60%;
+      overflow: auto; background: rgba(255, 252, 244, .92); border-radius: 12px; box-shadow: 0 6px 24px rgba(20, 50, 70, .25); padding: 8px 10px; z-index: 60; touch-action: pan-y; }
+    #panel.collapsed > :not(#toggle) { display: none; } #panel.collapsed { width: auto; background: transparent; box-shadow: none; padding: 0; }
+    #toggle { float: right; border: 0; background: #1d6f9a; color: #fff; border-radius: 7px; padding: 2px 8px; }
+    h3 { margin: 8px 0 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #1d6f9a; }
+    .row { display: flex; flex-wrap: wrap; gap: 4px; }
+    button.b { border: 1px solid #b9d7e2; background: #fff; border-radius: 6px; padding: 2px 6px; font-size: 11px; color: #17324a; }
+    select, input[type=range] { width: 100%; }
+    #stats { font: 10px/1.3 ui-monospace, Menlo, monospace; white-space: pre; color: #345; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="panel">
+    <button id="toggle">–</button>
+    <h3>Time</h3>
+    <input id="hour" type="range" min="0" max="24" step="0.1">
+    <div class="row" id="weather"></div>
+    <h3>Habitat (placeholder island)</h3>
+    <select id="habitat"><option value="">auto</option></select>
+    <h3>Give</h3>
+    <div class="row" id="give"></div>
+    <h3>Story</h3>
+    <select id="story"></select>
+    <h3>Go to</h3>
+    <div class="row" id="go"></div>
+    <h3>State</h3>
+    <div id="stats"></div>
+  </div>
+<script type="module">
+import { createCore } from '../src/core/index.js';
+
+const params = new URLSearchParams(location.search);
+async function load(path) { try { return await import(path); } catch (e) { if (!/Failed to fetch|404|error loading/i.test(String(e?.message))) console.warn('[sandbox] ' + path, e); return null; } }
+async function initMod(path, ctx) {
+  const m = await load(path); if (!m) return null;
+  const f = m.init || m.default?.init || (typeof m.default === 'function' ? m.default : null);
+  try { return f ? (await f(ctx)) ?? null : null; } catch (e) { console.warn('[sandbox] init failed ' + path, e); return null; }
+}
+
+const ctx = await createCore({ canvasParent: document.getElementById('game'), debug: true });
+const data = await load('../src/data/index.js');
+if (data?.loadData) await data.loadData(ctx);
+// The world can be skipped (?stage) to test on the core placeholder island.
+if (!params.has('stage')) ctx.world = await initMod('../src/world/index.js', ctx);
+if (!ctx.world) ctx.createTestStage({ island: true, dummy: true });
+if (!params.has('nofish')) ctx.fishModels = await initMod('../src/actors/fishModels.js', ctx);
+if (!params.has('noplayer')) ctx.player = await initMod('../src/actors/player.js', ctx);
+if (ctx.player?.object) { if (ctx.stage?.dummy) ctx.stage.dummy.visible = false; ctx.cameraRig.follow(ctx.player.object); }
+if (!params.has('nonpc')) ctx.npcs = await initMod('../src/actors/npc.js', ctx);
+if (!params.has('nocreatures')) ctx.creatures = await initMod('../src/actors/creatures/index.js', ctx);
+ctx.systems = await initMod('../src/systems/index.js', ctx);
+if (params.has('ui')) ctx.ui = await initMod('../src/ui/index.js', ctx);
+ctx.bus.emit('save:loaded', { state: ctx.save.state });
+const S = ctx.systems;
+
+// start position: the home dock (or the placeholder dock)
+const dock = S.env.poi('dock_home');
+if (dock && !params.has('nostart')) { ctx.debug.teleport(dock.x, dock.z - 0.5); S.env.face(dock.facing ?? 0); }
+ctx.loop.start();
+ctx.bus.emit('game:ready', { ctx });
+
+// ---- panel ----
+const $ = id => document.getElementById(id);
+const btn = (parent, label, fn) => { const b = document.createElement('button'); b.className = 'b'; b.textContent = label; b.onclick = fn; parent.append(b); return b; };
+$('toggle').onclick = () => $('panel').classList.toggle('collapsed');
+$('hour').value = ctx.time.hours; $('hour').oninput = e => ctx.debug.setTime(+e.target.value);
+for (const w of ['clear', 'cloudy', 'rain', 'fog', 'storm']) btn($('weather'), w, () => ctx.debug.setWeather(w));
+for (const h of ['pond', 'river', 'shore', 'harbor', 'deep', 'reef', 'cave']) { const o = document.createElement('option'); o.value = o.textContent = h; $('habitat').append(o); }
+$('habitat').value = S.env.habitatOverride || '';
+$('habitat').onchange = e => { S.env.habitatOverride = e.target.value || null; };
+for (const [id, n] of [['coins', 1000], ['bait_shrimp', 10], ['bait_corn', 10], ['bait_squid', 8], ['bait_golden', 3], ['ing_rosemary', 3], ['ing_driftwood', 3], ['lantern', 1]]) btn($('give'), `${id} ${n}`, () => ctx.debug.give(id, n));
+btn($('give'), 'rod_master', () => { S.inventory.add('rod_master'); S.inventory.equip('rod', 'rod_master'); });
+btn($('give'), 'random fish', () => { const f = ctx.data.fish[Math.floor(Math.random() * 20)]; S.inventory.add(f.id, 1); });
+for (const q of ctx.data.quests || []) { const o = document.createElement('option'); o.value = o.textContent = q.id; $('story').append(o); }
+$('story').value = S.quests.current?.id || '';
+$('story').onchange = e => S.quests.jumpTo(e.target.value);
+for (const id of ['dock_home', 'boat_mooring_home', 'village_pescheria', 'village_bottega', 'village_trattoria', 'village_aquarium', 'home_campfire', 'home_bed', 'dock_village', 'waterfall_pond', 'river_bridge']) {
+  btn($('go'), id.replace('village_', ''), () => { const p = S.env.poi(id); if (p) ctx.debug.teleport(p.x, p.z); });
+}
+btn($('go'), 'reset save', () => { ctx.save.reset(); location.reload(); });
+setInterval(() => {
+  const f = S.fishing, r = f.reel;
+  $('stats').textContent = [
+    `time ${ctx.time.format()} ${ctx.time.phase} day ${ctx.time.day}  weather ${S.env.weather()}`,
+    `fishing ${f.state}${f.session ? ' ' + (f.session.species || '') + ' @' + f.session.habitat : ''}`,
+    r ? `reel prog ${r.progress.toFixed(2)} tens ${r.tensionN.toFixed(2)} ${r.phase}` : '',
+    `coins ${S.economy.coins}  basket ${S.inventory.basketCount}/${S.inventory.capacity}  bait ${S.inventory.bait}`,
+    `quest ${S.quests.current?.id || '-'}  action ${S.interact.current?.label || '-'}`,
+    `boat ${S.boat.active ? 'on ' + S.boat.speed.toFixed(1) : 'off'}  journal ${S.journal.count}`,
+  ].filter(Boolean).join('\n');
+}, 250);
+</script>
+</body>
+</html>

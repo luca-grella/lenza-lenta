@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>UI sandbox — Lenza Lenta 2</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/hud.css">
+  <link rel="stylesheet" href="../css/sheets.css">
+  <script type="importmap">
+  { "imports": { "three": "../vendor/three.module.min.js", "three/addons/": "../vendor/addons/" } }
+  </script>
+  <style>
+    /* dev panel (developer tool, plain English, not player-facing) */
+    #dev { position: fixed; z-index: 100; left: calc(8px + env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); max-height: 70%; overflow: auto; touch-action: pan-y;
+      background: rgba(20, 30, 40, .82); color: #fff; border-radius: 12px; padding: 8px; font: 12px/1.3 system-ui, sans-serif; display: flex; flex-direction: column; gap: 4px; width: 132px; }
+    #dev.collapsed > :not(#devToggle) { display: none; }
+    #dev.collapsed { width: auto; background: rgba(20, 30, 40, .5); }
+    #dev button { border: 0; border-radius: 6px; padding: 4px 6px; background: #2f6f8a; color: #fff; font: inherit; text-align: left; cursor: pointer; }
+    #dev b { opacity: .7; font-size: 10px; text-transform: uppercase; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="dev" class="collapsed"><button id="devToggle">UI dev ☰</button></div>
+  <script type="module">
+    // Keep the sandbox from touching the real save (same origin as the game on GitHub Pages).
+    const mem = new Map();
+    const memStorage = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: k => mem.delete(k), clear: () => mem.clear(), key: i => [...mem.keys()][i] ?? null, get length() { return mem.size; } };
+    try { Object.defineProperty(window, 'localStorage', { configurable: true, get: () => memStorage }); } catch (e) { console.warn('sandbox: could not isolate localStorage', e); }
+
+    const params = new URLSearchParams(location.search);
+    const { createCore } = await import('../src/core/index.js');
+    const { loadData } = await import('../src/data/index.js');
+    const mocks = await import('../src/ui/dev/mocks.js');
+    const ctx = await createCore({ canvasParent: document.getElementById('game'), debug: true });
+    await loadData(ctx);
+    if (params.get('lang')) ctx.i18n.setLang(params.get('lang'));
+    else if (!ctx.save.state.lang) ctx.save.state.lang = ctx.i18n.lang;
+    ctx.createTestStage({ island: true, dummy: true });
+    ctx.time.set(params.has('hour') ? +params.get('hour') : 10.5);
+    ctx.time.paused = true;
+
+    // optional real modules from other areas when present (fish thumbnails)
+    if (!params.has('nofish')) {
+      try { const fm = await import('../src/actors/fishModels.js'); const init = fm.init || fm.default?.init || fm.default; if (typeof init === 'function') ctx.fishModels = await init(ctx); }
+      catch (e) { /* Creatures not built yet: the UI paints 2D fish */ }
+    }
+    if (!params.has('empty')) mocks.seedDemoState(ctx);
+    ctx.systems = mocks.createMockSystems(ctx);
+    ctx.npcs = mocks.addMockNpcs(ctx, [['gino', 3.5, 15], ['rosa', -2.5, 13.5]]);
+    // a tiny World stand-in so shop signs and the map have POIs
+    const POI = { village_bottega: { x: -6, z: 3 }, village_pescheria: { x: 8, z: 4 }, dock_home: { x: 4, z: 22 }, home_bed: { x: -6, z: 3 }, lighthouse_top: { x: 12, z: -14 } };
+    if (params.has('world')) ctx.world = { poi: id => POI[id] || null, heightAt: (x, z) => ctx.stage.heightAt(x, z), zoneAt: (x, z) => (x < 0 ? 'home_beach' : 'village'), weather: { type: 'clear' } };
+
+    const { init } = await import('../src/ui/index.js');
+    const ui = await init(ctx);
+    ctx.debug.teleport(2, 19);
+    ctx.loop.start();
+    ctx.bus.emit('game:ready', { ctx });
+
+    // ---- test hooks ----
+    const A = ui.adapter;
+    const demo = {
+      catch(id = 'koi', o = {}) { const f = ctx.data.items[id]; return ui.sheet('catch', { speciesId: id, size: o.size ?? Math.round((f.size?.[1] || 30) * 0.85), price: o.price ?? f.price, isNew: o.isNew ?? true, isRecord: o.isRecord ?? false, ...o }); },
+      dialog(id = 'gino', choices = true) { const n = ctx.data.npcById[id]; return ui.dialog(id, [...n.dialogKeys.hello.slice(0, 2)], choices ? [{ id: 'yes', label: ctx.i18n.t('ui.misc.yes') }, { id: 'no', label: ctx.i18n.t('ui.misc.no') }] : null); },
+      letter() { return ui.dialog('letter', ctx.data.quests[0].dialogKeys.offer); },
+      banner(kind = 'quest') {
+        if (kind === 'species') return ui.banner('ui.banner.new_species', A.name('koi'), { kind: 'species', image: ui.fishImage('koi', 256) });
+        if (kind === 'legend') return ui.banner('ui.banner.legend', A.name('legend_dawn_koi'), { kind: 'legend', image: ui.fishImage('legend_dawn_koi', 256) });
+        return ui.banner('ui.banner.quest_done', ctx.i18n.t('q.q_harbor.title'), { kind: 'quest', icon: 'flag' });
+      },
+      reel(tension = 0.55, progress = 0.4, extra = {}) { ui.meter('reel', { tension, progress, ...extra }); },
+      interact(icon = 'cast', labelKey = 'ui.act.cast', hold = true) { ctx.systems.interact.current = icon ? { icon, labelKey, hold } : null; ui.refresh(); },
+      bite() { const p = ctx.stage.dummy.position; ui.worldLabel('bite', { x: p.x + 1.5, y: 0, z: p.z + 3 }, '!', { kind: 'bite' }); },
+      toasts() { ui.toast('ui.toast.bought', { item: A.name('bait_corn') }, { icon: 'coin', kind: 'good' }); ui.toast('ui.toast.not_enough', null, { icon: 'coin', kind: 'warn' }); ui.toast('ui.toast.day', { n: 4 }, { icon: 'sun' }); },
+      tip() { ui.onboarding.show('demo', 'ui.tip.cast', { force: true, ms: 60000 }); },
+      zone(z = 'pine_forest') { ctx.bus.emit('zone:enter', { zone: z }); },
+      catchFlow() { ctx.bus.emit('fishing:catch', { speciesId: 'mackerel', size: 38, price: 20, isNew: false, isRecord: true, prevBest: 31 }); },
+    };
+    window.__ui = { ui, ctx, A, demo, open: (n, d) => ui.sheet(n, d), close: () => ui.closeSheet(), lang: l => ctx.i18n.setLang(l) };
+
+    // dev panel
+    const dev = document.getElementById('dev');
+    document.getElementById('devToggle').onclick = () => dev.classList.toggle('collapsed');
+    const add = (label, fn) => { const b = document.createElement('button'); b.textContent = label; b.onclick = () => { ctx.audio.unlock(); fn(); }; dev.append(b); };
+    const sec = t => { const b = document.createElement('b'); b.textContent = t; dev.append(b); };
+    sec('sheets');
+    for (const n of ['menu', 'journal', 'aquarium', 'inventory', 'quests', 'map', 'settings']) add(n, () => ui.sheet(n));
+    for (const s of ['bottega', 'pescheria', 'falegname', 'trattoria']) add('shop ' + s, () => ui.sheet('shop', { shopId: s }));
+    add('aquarium donate', () => ui.sheet('aquarium', { donate: true }));
+    add('cook (campfire)', () => ui.sheet('cook', { station: 'campfire' }));
+    add('language', () => ui.sheet('language'));
+    add('title', () => ui.sheet('title'));
+    sec('moments');
+    add('catch card', () => demo.catch());
+    add('catch legendary', () => demo.catch('legend_dawn_koi', { isNew: true }));
+    add('dialog', () => demo.dialog());
+    add('letter', () => demo.letter());
+    add('banner quest', () => demo.banner());
+    add('banner species', () => demo.banner('species'));
+    add('reel meter', () => { let t = 0; const iv = setInterval(() => { t += 0.05; demo.reel(0.5 + 0.45 * Math.sin(t * 2), Math.min(1, t / 8), { pulling: Math.sin(t * 2) > 0.6 }); if (t > 8) { clearInterval(iv); ui.meter('reel', null); } }, 50); });
+    add('bite !', () => demo.bite());
+    add('toasts', () => demo.toasts());
+    add('tip', () => demo.tip());
+    add('zone title', () => demo.zone());
+    add('interact: cast', () => demo.interact('cast', 'ui.act.cast'));
+    add('interact: talk', () => demo.interact('talk', 'ui.act.talk', false));
+    add('interact: none', () => demo.interact(null));
+    add('+50 coins', () => ctx.systems.economy.earn(50));
+    add('lang it/en', () => ctx.i18n.setLang(ctx.i18n.lang === 'it' ? 'en' : 'it'));
+  </script>
+</body>
+</html>

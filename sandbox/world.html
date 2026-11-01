@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>World sandbox — Lenza Lenta 2</title>
+  <link rel="icon" href="data:,">
+  <script type="importmap">
+  { "imports": { "three": "../vendor/three.module.min.js", "three/addons/": "../vendor/addons/" } }
+  </script>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #a9e4f2; font: 13px/1.35 system-ui, -apple-system, sans-serif; color: #17324a; touch-action: none; }
+    #game { position: fixed; inset: 0; }
+    #panel { position: fixed; top: calc(8px + env(safe-area-inset-top)); right: calc(8px + env(safe-area-inset-right)); width: 300px; max-height: calc(100% - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+      overflow: auto; background: rgba(255, 252, 244, .92); border-radius: 14px; box-shadow: 0 6px 24px rgba(20, 50, 70, .25); padding: 10px 12px; box-sizing: border-box; touch-action: pan-y; }
+    #panel.collapsed > :not(#toggle) { display: none; }
+    #panel.collapsed { width: auto; padding: 6px; background: transparent; box-shadow: none; }
+    #toggle { position: sticky; top: 0; float: right; border: 0; background: #1d6f9a; color: #fff; border-radius: 8px; padding: 3px 9px; cursor: pointer; }
+    h3 { margin: 10px 0 5px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #1d6f9a; }
+    h3:first-of-type { margin-top: 2px; }
+    label { display: grid; grid-template-columns: 60px 1fr 44px; align-items: center; gap: 6px; margin: 3px 0; }
+    input[type=range] { width: 100%; }
+    .row { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+    button.b { border: 1px solid #b9d7e2; background: #fff; border-radius: 7px; padding: 3px 7px; cursor: pointer; font-size: 12px; color: #17324a; }
+    button.b.on { background: #1d6f9a; color: #fff; border-color: #1d6f9a; }
+    #stats { font: 11px/1.3 ui-monospace, Menlo, monospace; white-space: pre; color: #345; }
+    #map { width: 100%; border-radius: 10px; display: none; margin-top: 6px; image-rendering: auto; }
+    #hint { position: fixed; left: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); background: rgba(255,252,244,.8); border-radius: 10px; padding: 6px 9px; font-size: 12px; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="game"></div>
+  <div id="panel">
+    <button id="toggle">–</button>
+    <h3>Teleport</h3>
+    <div class="row" id="presets"></div>
+    <h3>Camera</h3>
+    <div class="row" id="cams"></div>
+    <h3>Time</h3>
+    <label>hour <input id="hour" type="range" min="0" max="24" step="0.05"><span id="hourV"></span></label>
+    <div class="row" id="times"></div>
+    <h3>Weather</h3>
+    <div class="row" id="weathers"></div>
+    <h3>World</h3>
+    <div class="row" id="worldBtns"></div>
+    <h3>Quality</h3>
+    <div class="row" id="tiers"></div>
+    <h3>Stats</h3>
+    <div id="stats"></div>
+    <img id="map" alt="map">
+  </div>
+  <div id="hint">WASD walk · drag to orbit (free cam) · wheel zoom</div>
+  <script type="module">
+    import { createCore } from '../src/core/index.js';
+    import { init as initWorld } from '../src/world/index.js';
+    const ctx = await createCore({ canvasParent: document.getElementById('game'), debug: true });
+    const { THREE } = ctx;
+    const params = ctx.params;
+    // optional data strings (zone names) if Content exists
+    try { const m = await import('../src/data/index.js'); await m.loadData?.(ctx); } catch (e) { console.info('no data module', e?.message); }
+    const world = await initWorld(ctx);
+    ctx.world = world;
+
+    // ---- test walker (scale reference + collision test). Not the real player. ----
+    const dummy = new THREE.Group(); dummy.name = 'SandboxWalker';
+    {
+      const m = c => world.materials.world(new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 }));
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.36, 0.45, 6, 12), m(0x3f7fbf)); body.position.y = 0.95; body.castShadow = true; dummy.add(body);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 12), m(0xf2c29b)); head.position.y = 1.62; head.castShadow = true; dummy.add(head);
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.74, 0.05, 24), m(0xe8c66a)); brim.position.y = 1.86; brim.castShadow = true; dummy.add(brim);
+      const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.35, 0.26, 18), m(0xe8c66a)); crown.position.y = 2.0; crown.castShadow = true; dummy.add(crown);
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(0.355, 0.355, 0.07, 18), m(0xb8623b)); band.position.y = 1.92; dummy.add(band);
+      for (const s of [-1, 1]) { const e = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshBasicMaterial({ color: 0x2a1d14 })); e.position.set(0.11 * s, 1.66, 0.3); dummy.add(e); }
+    }
+    ctx.scene.add(dummy);
+    let facing = 0, speed = 0;
+    const place = (x, z, f = facing) => { const y = world.groundY(x, z); dummy.position.set(x, y, z); facing = f; dummy.rotation.y = f; };
+    ctx.player = { object: dummy, get position() { return dummy.position; }, teleport(x, z) { place(x, z); ctx.cameraRig.snap(); world.foliage.invalidate(); }, state: 'idle',
+      sitAt(p) { place(p.x, p.z, p.facing); console.info('[sandbox] sit at', p.id); } };
+    ctx.cameraRig.follow(dummy);
+    ctx.loop.add(function walker(dt) {
+      if (cam.free) return;
+      const mv = ctx.input.move;
+      speed = ctx.math.damp(speed, mv.mag * 3.2, 7, dt);
+      if (mv.mag > 0.05) facing = ctx.math.angleDamp(facing, Math.atan2(mv.x, mv.z), 10, dt);
+      if (speed > 0.01) {
+        const to = { x: dummy.position.x + Math.sin(facing) * speed * dt, z: dummy.position.z + Math.cos(facing) * speed * dt };
+        const r = world.resolveMove(dummy.position, to, 0.35);
+        dummy.position.x = r.x; dummy.position.z = r.z;
+      }
+      dummy.position.y = ctx.math.damp(dummy.position.y, world.groundY(dummy.position.x, dummy.position.z), 18, dt);
+      dummy.rotation.y = facing;
+      if (ctx.input.pressed('interact')) { const it = world.interactables.nearest(dummy.position); it?.onInteract?.(ctx); }
+    }, 20);
+
+    // ---- free camera (orbit around a target), applied after the core rig ----
+    const cam = { free: false, target: new THREE.Vector3(), yaw: 0.6, pitch: 0.55, dist: 60 };
+    ctx.loop.add(function freeCam(dt) {
+      if (!cam.free) return;
+      const k = new THREE.Vector3(), c = ctx.camera;
+      // WASD pans the target
+      const keys = freeKeys;
+      const f = new THREE.Vector3(-Math.sin(cam.yaw), 0, -Math.cos(cam.yaw)), r = new THREE.Vector3(Math.cos(cam.yaw), 0, -Math.sin(cam.yaw));
+      const sp = cam.dist * 0.8 * dt;
+      if (keys.KeyW || keys.ArrowUp) cam.target.addScaledVector(f, sp);
+      if (keys.KeyS || keys.ArrowDown) cam.target.addScaledVector(f, -sp);
+      if (keys.KeyD || keys.ArrowRight) cam.target.addScaledVector(r, sp);
+      if (keys.KeyA || keys.ArrowLeft) cam.target.addScaledVector(r, -sp);
+      cam.target.y = Math.max(0, world.heightAt(cam.target.x, cam.target.z));
+      c.position.set(cam.target.x + Math.sin(cam.yaw) * Math.cos(cam.pitch) * cam.dist, cam.target.y + Math.sin(cam.pitch) * cam.dist, cam.target.z + Math.cos(cam.yaw) * Math.cos(cam.pitch) * cam.dist);
+      c.position.y = Math.max(c.position.y, world.heightAt(c.position.x, c.position.z) + 1.5);
+      if (Math.abs(c.fov - (cam.fov || 40)) > 0.01) { c.fov = cam.fov || 40; c.updateProjectionMatrix(); }
+      c.lookAt(cam.target);
+      c.updateMatrixWorld();
+      ctx.cameraRig.lookTarget.copy(cam.target);
+    }, 41);
+    const freeKeys = {};
+    addEventListener('keydown', e => { freeKeys[e.code] = true; });
+    addEventListener('keyup', e => { freeKeys[e.code] = false; });
+    const canvas = ctx.renderer.domElement;
+    let drag = null;
+    canvas.addEventListener('pointerdown', e => { if (cam.free) drag = { x: e.clientX, y: e.clientY }; });
+    addEventListener('pointerup', () => { drag = null; });
+    addEventListener('pointermove', e => { if (!drag) return; cam.yaw -= (e.clientX - drag.x) * 0.005; cam.pitch = Math.min(1.45, Math.max(0.05, cam.pitch + (e.clientY - drag.y) * 0.004)); drag = { x: e.clientX, y: e.clientY }; });
+    canvas.addEventListener('wheel', e => { if (cam.free) cam.dist = Math.min(400, Math.max(4, cam.dist * Math.exp(e.deltaY * 0.001))); }, { passive: true });
+
+    function setFree(v, shot) {
+      cam.free = v;
+      ctx.post.setFocus(v ? cam.target : null);
+      if (v) {
+        if (shot) Object.assign(cam, shot, { target: new THREE.Vector3(...(shot.target || [0, 0, 0])) });
+        else cam.target.copy(dummy.position);
+      } else { ctx.camera.fov = 33; ctx.camera.updateProjectionMatrix(); ctx.cameraRig.snap(); }
+      world.foliage.invalidate();
+      ui();
+    }
+
+    // ---- presets ----
+    const P = id => world.poi(id);
+    const PRESETS = {
+      home: () => [world.spawn.x, world.spawn.z, 0],
+      campfire: () => [P('home_campfire').x - 1, P('home_campfire').z + 2, Math.PI],
+      dock: () => [P('dock_home').x, P('dock_home').z - 2, 0],
+      village: () => [P('bench_village').x + 1, P('bench_village').z + 3, Math.PI],
+      harbor: () => [P('dock_village').x, P('dock_village').z - 3, 0],
+      shops: () => [P('village_bottega').x + 3, P('village_bottega').z + 2, -Math.PI / 2],
+      aquarium: () => [P('village_aquarium').x, P('village_aquarium').z + 2, Math.PI],
+      forest: () => [-38, 14, Math.PI],
+      bridge: () => [P('river_bridge').x + 2, P('river_bridge').z + 4, Math.PI],
+      stones: () => [-60, 22, Math.PI],
+      waterfall: () => [P('waterfall_pond').x + 1, P('waterfall_pond').z + 3, Math.PI],
+      meadow: () => [P('bench_meadow').x + 1, P('bench_meadow').z + 3, Math.PI],
+      lighthouse: () => [P('bench_lighthouse').x + 1, P('bench_lighthouse').z + 2.5, Math.PI],
+      cave: () => [P('cave_pool').x + 2, P('cave_pool').z + 1.5, -Math.PI / 2],
+      palm_islet: () => [P('palm_islet_beach').x + 1, P('palm_islet_beach').z + 2, -Math.PI / 2],
+      turtle_isle: () => [P('treasure').x - 1, P('treasure').z + 3, Math.PI],
+    };
+    const FREE_SHOTS = {
+      overview: { target: [-5, 0, 0], yaw: 0.0, pitch: 1.1, dist: 300, fov: 40 },
+      island: { target: [-5, 0, 10], yaw: 0.35, pitch: 0.62, dist: 165, fov: 40 },
+      harbor_wide: { target: [44, 0, 42], yaw: 0.5, pitch: 0.5, dist: 42, fov: 40 },
+      waterfall_wide: { target: [-16, 4, -46], yaw: 0.3, pitch: 0.32, dist: 34, fov: 45 },
+      lighthouse_wide: { target: [56, 8, -60], yaw: -0.4, pitch: 0.3, dist: 48, fov: 40 },
+      home_wide: { target: [-6, 1, 62], yaw: 0.2, pitch: 0.42, dist: 34, fov: 40 },
+    };
+    function preset(name) {
+      if (FREE_SHOTS[name]) { setFree(true, FREE_SHOTS[name]); return name; }
+      const p = PRESETS[name]?.(); if (!p) return null;
+      if (cam.free) setFree(false);
+      ctx.player.teleport(p[0], p[1]); facing = p[2]; dummy.rotation.y = facing;
+      return p;
+    }
+    window.__world = { world, preset, setFree, cam, PRESETS, FREE_SHOTS, dummy };
+
+    // ---- panel ----
+    const $ = id => document.getElementById(id);
+    const btn = (parent, label, fn) => { const b = document.createElement('button'); b.className = 'b'; b.textContent = label; b.onclick = () => { fn(b); ui(); }; $(parent).appendChild(b); return b; };
+    for (const k of Object.keys(PRESETS)) btn('presets', k, () => preset(k));
+    const camB = {};
+    camB.follow = btn('cams', 'follow', () => setFree(false));
+    for (const k of Object.keys(FREE_SHOTS)) camB[k] = btn('cams', k, () => preset(k));
+    camB.free = btn('cams', 'free here', () => setFree(true));
+    const hour = $('hour'); hour.oninput = () => ctx.time.set(+hour.value);
+    for (const [k, h] of [['dawn', 6.4], ['morning', 9.5], ['noon', 13], ['golden', 17.6], ['dusk', 19.3], ['night', 23]]) btn('times', k, () => ctx.time.set(h));
+    btn('times', 'pause', b => { ctx.time.paused = !ctx.time.paused; b.classList.toggle('on', ctx.time.paused); });
+    const wB = {};
+    for (const w of ['clear', 'cloudy', 'rain', 'fog', 'storm']) wB[w] = btn('weathers', w, () => world.setWeather(w, { instant: true }));
+    btn('weathers', 'smooth→rain', () => world.setWeather('rain'));
+    const tierB = [0, 1, 2].map(t => btn('worldBtns', ['tent', 'cabin', 'cottage'][t], () => world.setHomeTier(t)));
+    const litB = btn('worldBtns', 'lighthouse lit', () => world.setLighthouse(!world.lighthouseLit));
+    btn('worldBtns', 'chest', () => world.treasure.setOpen(!world.treasure.open));
+    btn('worldBtns', 'map', () => { const m = $('map'); if (m.style.display !== 'block') { m.src = world.minimap({ size: 512 }).canvas.toDataURL(); m.style.display = 'block'; } else m.style.display = 'none'; });
+    btn('worldBtns', 'post on/off', () => ctx.post.setEnabled(!ctx.post.enabled));
+    const qB = {};
+    for (const t of ['low', 'mid', 'high']) qB[t] = btn('tiers', t, () => ctx.quality.set(t, { persist: false }));
+    $('toggle').onclick = () => { $('panel').classList.toggle('collapsed'); $('toggle').textContent = $('panel').classList.contains('collapsed') ? '☰' : '–'; };
+    if (innerWidth < 700 || params.has('nopanel')) $('toggle').onclick();
+    if (params.has('nopanel')) { $('panel').style.display = 'none'; $('hint').style.display = 'none'; }
+    function ui() {
+      for (const [k, b] of Object.entries(wB)) b.classList.toggle('on', world.weather.type === k);
+      tierB.forEach((b, i) => b.classList.toggle('on', world.homeTier === i));
+      litB.classList.toggle('on', world.lighthouseLit);
+      for (const [k, b] of Object.entries(qB)) b.classList.toggle('on', ctx.quality.tier === k);
+      camB.follow.classList.toggle('on', !cam.free);
+    }
+    setInterval(() => {
+      hour.value = ctx.time.hours; $('hourV').textContent = ctx.time.format();
+      const i = ctx.renderer.info, p = dummy.position;
+      $('stats').textContent = `fps ${ctx.loop.fps.toFixed(0)}  tier ${ctx.quality.tier} @${ctx.quality.pixelRatio.toFixed(2)}x\n` +
+        `calls ${i.render.calls}  tris ${(i.render.triangles / 1000).toFixed(1)}k  foliage ${world.foliage.visible}\n` +
+        `pos ${p.x.toFixed(1)}, ${p.y.toFixed(2)}, ${p.z.toFixed(1)}  zone ${world.zone}\n` +
+        `ground ${world.groundY(p.x, p.z).toFixed(2)}  hab(front) ${world.nearestWaterAlong(p, { x: Math.sin(facing), z: Math.cos(facing) }, 10)?.habitat ?? '-'}\n` +
+        `weather ${world.weather.type} rain ${world.weather.rain.toFixed(2)} wind ${world.weather.wind.strength.toFixed(2)}\n` +
+        `${ctx.time.format()} ${ctx.time.phase}  init ${world.stats.initMs}ms`;
+      ui();
+    }, 400);
+
+    // ---- URL params: ?zone=village&t=18.5&w=rain&cam=island&tier=1&lit=1 ----
+    ctx.time.paused = params.has('t') || params.has('pause');
+    if (params.has('t')) ctx.time.set(+params.get('t'));
+    if (params.has('w')) world.setWeather(params.get('w'), { instant: true });
+    if (params.has('tier')) world.setHomeTier(+params.get('tier'));
+    if (params.has('lit')) world.setLighthouse(params.get('lit') === '1');
+    const z = params.get('zone') || 'home';
+    if (FREE_SHOTS[params.get('cam')]) preset(params.get('cam')); else preset(z);
+    ui();
+    ctx.loop.start();
+    ctx.bus.emit('game:ready');
+  </script>
+</body>
+</html>
