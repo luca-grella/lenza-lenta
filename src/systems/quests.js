@@ -90,6 +90,8 @@ export function createQuests(ctx, env) {
   function say(npc, lines, opts = {}) {
     return new Promise(resolve => { queue.push({ npc, lines: lines.filter(Boolean), resolve, ...opts }); });
   }
+  let dialogOpen = false;
+  ctx.bus.on('ui:dialog', e => { dialogOpen = !!e?.open; });
   async function runQueue() {
     if (running || !queue.length) return;
     if (env.uiOpen() || sys().fishing?.busy || env.busy.sleep) return;
@@ -100,7 +102,7 @@ export function createQuests(ctx, env) {
     try {
       const n = d.npc && d.npc !== 'letter' && d.npc !== 'cat' ? env.npc(d.npc) : null;
       if (n) { try { n.lookAt?.(env.playerPos()); n.play?.('talk', { loop: true }); } catch { /* optional */ } }
-      if (d.npc && d.npc !== 'letter' && env.npc(d.npc)) ctx.cameraRig?.setMode?.('dialog');
+      // camera framing on the speaker is handled (and restored) by ui.dialog itself
       ctx.time.paused = true;
       if (d.sfx) env.sfx(d.sfx);
       const r = await env.dialog(d.npc, d.lines, d.choices);
@@ -108,7 +110,6 @@ export function createQuests(ctx, env) {
       if (n) { try { n.play?.('idle', { loop: true }); } catch { /* optional */ } }
     } catch (e) { console.warn('[quests] dialog failed', e); d.resolve?.(); }
     ctx.time.paused = false;
-    if (!queue.length && !sys().boat?.active && !sys().fishing?.busy) ctx.cameraRig?.setMode?.('explore');
     running = false;
   }
 
@@ -289,6 +290,13 @@ export function createQuests(ctx, env) {
     update(dt) {
       quests._tickStart?.(dt);
       runQueue();
+      // safety net: never leave the camera stuck in a close-up once no dialogue is on screen
+      const rig = ctx.cameraRig;
+      const talking = ctx.ui?.isOpen ? ctx.ui.isOpen() : dialogOpen;
+      if (rig && (rig.mode === 'dialog' || rig.mode === 'cinematic') && !talking) {
+        rig.setFocus?.(null);
+        rig.setMode?.(sys().boat?.active ? 'boat' : sys().fishing?.busy ? 'fishing' : 'explore');
+      }
       // zone tracker (in case World does not emit zone:enter)
       zoneT -= dt;
       if (zoneT <= 0) {
