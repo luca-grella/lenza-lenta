@@ -71,7 +71,7 @@ body { position: fixed; inset: 0; font-family: var(--font); color: var(--ink); }
 :where(#ui) .ic { width: 1em; height: 1em; display: block; flex: none; overflow: visible; }
 :where(#ui) .ic.mono { color: currentColor; }
 #ui .layer { position: absolute; inset: 0; pointer-events: none; }
-#ui .layer > * { pointer-events: auto; }
+:where(#ui .layer) > * { pointer-events: auto; } /* zero specificity: hosts that set pointer-events:none must win */
 #ui .hidden { display: none !important; }
 #ui .scroll { overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }
 #ui .scroll-x { overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-x; scrollbar-width: none; }
