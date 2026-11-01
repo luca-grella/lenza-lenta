@@ -69,7 +69,9 @@ export function createCameraRig({ camera, ctx, dom }) {
       // portrait: wider vertical fov, a bit further and higher so the player sees around
       const portrait = clamp((1.15 - aspect) / 0.7, 0, 1);
       const zoom = clamp(rig.zoom, rig.zoomMin, rig.zoomMax);
-      const goalDist = m.dist * zoom * lerp(1, 1.04, portrait);
+      // [Fix] short landscape phones (~390 px tall): come a bit closer so the fisherman is not a 20 px speck
+      const shortH = typeof innerHeight === 'number' && aspect > 1.2 && rig.mode !== 'dialog' && rig.mode !== 'cinematic' ? clamp((560 - innerHeight) / 200, 0, 1) : 0;
+      const goalDist = m.dist * zoom * lerp(1, 1.04, portrait) * lerp(1, 0.8, shortH);
       const goalPitch = m.pitch + portrait * 4;
       const hfovMin = 27 * DEG; // keep at least this horizontal view in portrait
       const fovForWidth = 2 * Math.atan(Math.tan(hfovMin / 2) / aspect) / DEG;

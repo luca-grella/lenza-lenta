@@ -54,7 +54,7 @@ export function createSheets(ui) {
         const title = h('div.sheet-title.plank', h('span.st-ic', { html: icon(spec.icon || 'sparkle') }), h('span.st-txt', spec.title || ''));
         const closeBtn = h('button.round.coral.sheet-close', { type: 'button', 'aria-label': ctx.i18n.t('ui.sheet.close'), html: icon('close') });
         onTap(closeBtn, () => close());
-        head.append(parent ? back : null, title, spec.headExtra || null);
+        head.append(...[parent ? back : null, title, spec.headExtra].filter(Boolean));
         sheet.append(head, closeBtn);
         if (spec.tabs?.length) {
           const tabs = h('div.tabs.scroll-x');

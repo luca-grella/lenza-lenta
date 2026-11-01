@@ -33,7 +33,7 @@ void main(){
     vec3 cell = floor(sp);
     float r = hash13(cell);
     vec3 f = fract(sp) - 0.5;
-    float star = step(0.985, r) * smoothstep(0.18, 0.0, length(f)) * (0.6 + 0.4 * sin(uTime * (1.5 + r * 4.0) + r * 50.0));
+    float star = step(0.985, r) * (1.0 - smoothstep(0.0, 0.18, length(f))) * (0.6 + 0.4 * sin(uTime * (1.5 + r * 4.0) + r * 50.0));
     col += vec3(0.95, 0.97, 1.0) * star * uNight * smoothstep(0.0, 0.2, h) * (1.0 - uCloud);
   }
   // moon
@@ -150,8 +150,11 @@ export function createSky(ctx, U) {
       if (!scene.fog) scene.fog = new THREE.Fog(0xffffff, 40, 180);
       scene.fog.color.copy(fogCol);
       const dd = ctx.quality?.drawDistance ?? 1;
-      scene.fog.near = lerp(lerp(46, 26, env.rain), 5, env.fog);
-      scene.fog.far = lerp(lerp(210, 120, env.rain), 62, env.fog) * lerp(0.8, 1, dd);
+      // far cameras (map/overview/cinematic) push the fog out so the island stays readable
+      const lt = ctx.cameraRig?.lookTarget;
+      const camExtra = lt && ctx.camera ? Math.max(0, ctx.camera.position.distanceTo(lt) - 34) : 0;
+      scene.fog.near = lerp(lerp(46, 26, env.rain), 5, env.fog) + camExtra * 0.9;
+      scene.fog.far = lerp(lerp(210, 120, env.rain), 62, env.fog) * lerp(0.8, 1, dd) + camExtra * 1.2;
       if (!scene.background?.isColor) scene.background = new THREE.Color();
       scene.background.copy(fogCol);
     },

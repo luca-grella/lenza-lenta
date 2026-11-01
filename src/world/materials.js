@@ -113,6 +113,9 @@ export function patchMaterial(mat, U, o = {}) {
   if (wind) {
     mat.userData.windUniforms = { uWindAmp: { value: wind.amount }, uWindHeight: { value: wind.height }, uFlutter: { value: wind.flutter } };
   }
+  // tall swaying foliage (trees, palms) dithers away where it hides the player from the camera
+  const occ = !!wind && wind.height >= 2.5 && o.occlude !== false;
+  if (occ && !U.uOccPos) { U.uOccPos = { value: new THREE.Vector3(0, -999, 0) }; U.uOccCam = { value: new THREE.Vector3(0, 50, 0) }; U.uOccOn = { value: 0 }; }
   mat.onBeforeCompile = (shader, renderer) => {
     prev?.call(mat, shader, renderer);
     Object.assign(shader.uniforms, U);
@@ -135,11 +138,24 @@ export function patchMaterial(mat, U, o = {}) {
       shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
         diffuseColor.rgb *= 1.0 - 0.22 * uWet * smoothstep(-0.2, 0.6, vWorldPosW.y);`);
     }
+    if (occ) {
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uOccPos, uOccCam; uniform float uOccOn;')
+        .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+        {
+          vec3 ab = uOccPos - uOccCam;
+          float tt = clamp(dot(vWorldPosW - uOccCam, ab) / max(dot(ab, ab), 1e-3), 0.0, 1.0);
+          float dd = length(vWorldPosW - (uOccCam + ab * tt));
+          float fade = (1.0 - smoothstep(1.4, 3.0, dd)) * (1.0 - smoothstep(0.86, 0.95, tt)) * smoothstep(0.25, 0.5, tt) * uOccOn;
+          float ign = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));
+          if (ign < fade * 0.82) discard;
+        }`);
+    }
     o.extra?.(shader);
   };
   // worldpos_vertex only runs when needed; force it on with a define
   mat.defines = { ...(mat.defines || {}), USE_WORLD_FEATURES: '' };
-  const key = `w${wind ? `${wind.amount}_${wind.height}_${wind.flutter}` : 0}c${+cloud}${o.key || ''}`;
+  const key = `w${wind ? `${wind.amount}_${wind.height}_${wind.flutter}` : 0}c${+cloud}${occ ? 'o' : ''}${o.key || ''}`;
   mat.customProgramCacheKey = () => key;
   mat.needsUpdate = true;
   return mat;

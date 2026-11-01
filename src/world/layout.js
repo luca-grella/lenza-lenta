@@ -163,7 +163,7 @@ export const PATHS = [
 // ---------------------------------------------------------------- landmarks
 export const HOME = { x: -15, z: 52, rot: 0.08 };            // cabin footprint centre, faces south (+z)
 export const CAMPFIRE = { x: -4.5, z: 59.5 };
-export const SPAWN = { x: -6, z: 63, facing: 0 };
+export const SPAWN = { x: 1.2, z: 62.6, facing: 0.75 };  // [Fix] next to the home dock, facing it (was by the campfire)
 export const HOME_DOCK = { x: 4.5, z0: 64, z1: 84, w: 2.4, y: 1.15 };   // runs south into the sea
 export const LIGHTHOUSE = { x: 58, z: -62, base: 0 };      // base filled from terrain
 export const WINDMILL = { x: 24, z: -22 };
@@ -354,7 +354,7 @@ export function zoneAt(x, z) {
   if (d('turtle_isle') < 34) return 'turtle_isle';
   if (d('palm_islet') < 42) return 'palm_islet';
   if (d('sea_cave') < 13) return 'sea_cave';
-  if (Math.hypot((x - 40) / 30, (z - 34) / 28) < 1) return 'village';
+  if (Math.hypot((x - 40) / 30, (z - 34) / 28) < 1 || Math.hypot(x - BAY.x, z - BAY.z) < BAY.r + 14) return 'village';
   if (d('lighthouse') < 30 || (x > 30 && z < -38)) return 'lighthouse';
   if (d('waterfall') < 20 || plateau(x, z) > 0.5) return 'waterfall';
   if (d('home_beach') < 26 && z > 36) return 'home_beach';
@@ -375,11 +375,11 @@ export function zoneAt(x, z) {
 export function forestness(x, z) {
   const base = smoothstep(-2, -22, x + 0.25 * z + 4 * N.noise2(x * 0.03, z * 0.03));
   const pl = plateau(x, z) * 0.85;
-  const clear = (1 - smoothstep(8, 18, Math.hypot(x - BRIDGE.x, z - BRIDGE.z))) * 0.6
+  const clear = (1 - smoothstep(4, 11, Math.hypot(x - BRIDGE.x, z - BRIDGE.z))) * 0.6  // [Fix] denser pines around the bridge
     + (1 - smoothstep(10, 22, Math.hypot(x - POND.x, z - POND.z)))
     + (1 - smoothstep(12, 22, Math.hypot(x - CAVE.x, z - CAVE.z)));
   const patches = smoothstep(0.1, 0.5, N2.fbm(x * 0.03 + 40, z * 0.03, 3));
-  return clamp(Math.max(base, pl) * (0.55 + 0.45 * patches) - clear, 0, 1);
+  return clamp(Math.max(base, pl) * (0.72 + 0.28 * patches) - clear, 0, 1);
 }
 
 export const noise = N;

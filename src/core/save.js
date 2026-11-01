@@ -78,6 +78,7 @@ export function createSave({ bus, debounceMs = 800, key = SAVE_KEY }) {
   function write() {
     clearTimeout(timer); timer = 0;
     if (!ls) return false;
+    bus?.emit('save:before', { state: save.state }); // modules write their last-moment values (player position)
     try {
       save.state.meta.saved = Date.now();
       ls.setItem(key, JSON.stringify(save.state));

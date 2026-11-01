@@ -100,7 +100,7 @@ export async function init(ctx) {
     root.classList.toggle('portrait', portrait);
     root.classList.toggle('landscape', !portrait);
     root.classList.toggle('compact', !portrait && hh < 520);
-    root.classList.toggle('narrow', w < 380);
+    root.classList.toggle('narrow', w < 440);
     root.classList.toggle('short', portrait && hh < 700);
     root.classList.toggle('wide', w >= 900 && hh >= 600);
     root.classList.toggle('touch', !!ctx.input?.isTouch);
@@ -185,7 +185,7 @@ export async function init(ctx) {
   const on = (e, f) => ctx.bus.on(e, p => { try { f(p || {}); } catch (err) { console.error('[ui] handler', e, err); } });
   on('resize', layout);
   on('lang:change', () => {
-    ui.hud.applyLang(); ui.meters.applyLang(); ui.labels.applyLang(); ui.controls.refresh(true); ui.sheets.applyLang();
+    ui.hud.applyLang(); ui.meters.applyLang(); ui.labels.applyLang(); ui.controls.refresh(true); ui.sheets.applyLang(); ui.dialogs?.applyLang?.();
     document.title = ctx.i18n.t('ui.title.name') + ' 2';
     requestAnimationFrame(layout);
   });

@@ -144,7 +144,7 @@ export function createBoat(ctx, env, fx) {
 
   /** Is there a place to step ashore near the boat? → {x, z} or null. */
   function landingSpot() {
-    let best = null, bd = 6.5;
+    let best = null, bd = 8.5;
     for (const id of LANDINGS) {
       const p = env.poi(id);
       if (!p) continue;
@@ -153,7 +153,7 @@ export function createBoat(ctx, env, fx) {
     }
     if (best) return best;
     const surf = pos.y;
-    for (let r = 1.4; r <= 3.6; r += 0.55) {
+    for (let r = 1.4; r <= 5.2; r += 0.55) {
       for (let k = 0; k < 16; k++) {
         const a = heading + (k / 16) * Math.PI * 2;
         const x = pos.x + Math.sin(a) * r, z = pos.z + Math.cos(a) * r;
@@ -207,6 +207,8 @@ export function createBoat(ctx, env, fx) {
     /** Distance from a point to the boat (for interact). */
     distanceTo(p) { return Math.hypot(p.x - pos.x, p.z - pos.z); },
     canLeave() { return active && !!landingSpot(); },
+    /** Where the player would step ashore ({x, z}) or null. */
+    landingSpot() { return active ? landingSpot() : null; },
     landingSpot,
     applyItem(it) {
       if (!it) return;
@@ -298,7 +300,10 @@ export function createBoat(ctx, env, fx) {
         fwd.set(Math.sin(heading), 0, Math.cos(heading));
         const nx = pos.x + fwd.x * speed * dt, nz = pos.z + fwd.z * speed * dt;
         const bowX = nx + fwd.x * LEN * Math.sign(speed || 1), bowZ = nz + fwd.z * LEN * Math.sign(speed || 1);
-        if (env.boatWaterOK(nx, nz) && env.boatWaterOK(bowX, bowZ)) { pos.x = nx; pos.z = nz; }
+        const dep = (x, z) => env.waterDepth?.(x, z) ?? 0;
+        // a boat that drifted into the shallows (waves, landing) may always row toward deeper water
+        const escape = !env.boatWaterOK(pos.x, pos.z) && dep(bowX, bowZ) >= dep(pos.x, pos.z) - 0.02 && dep(nx, nz) > 0.05;
+        if ((env.boatWaterOK(nx, nz) && env.boatWaterOK(bowX, bowZ)) || escape) { pos.x = nx; pos.z = nz; }
         else {
           if (bumpT <= 0) { ctx.cameraRig?.shake?.(0.08); env.sfx('footstep_wood', { pos, vol: 0.5, pitch: 0.6 }); bumpT = 0.8; fx.ripple({ x: bowX, y: pos.y, z: bowZ }, 0.7); }
           speed *= -0.25;

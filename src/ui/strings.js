@@ -105,7 +105,7 @@ export const it = {
   'ui.dialog.letter': 'Lettera',
 
   // ── menu ──
-  'ui.menu.title': 'Zaino',
+  'ui.menu.title': 'Pausa',
   'ui.menu.resume': 'Torna a pescare',
   'ui.menu.day': 'Giorno {n}',
   'ui.menu.playtime': 'In gioco da {t}',
@@ -412,7 +412,7 @@ export const en = {
   'ui.dialog.close': 'Close',
   'ui.dialog.letter': 'Letter',
 
-  'ui.menu.title': 'Backpack',
+  'ui.menu.title': 'Paused',
   'ui.menu.resume': 'Back to fishing',
   'ui.menu.day': 'Day {n}',
   'ui.menu.playtime': 'Played for {t}',

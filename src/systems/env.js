@@ -143,7 +143,8 @@ export function createEnv(ctx) {
     const w = W();
     let ids = [];
     if (w) {
-      if (typeof w.listPois === 'function') {
+      if (typeof w.poiList === 'function') ids = (w.poiList(prefix) || []).map(e => (typeof e === 'string' ? e : e.id));
+      else if (typeof w.listPois === 'function') {
         const r = w.listPois(prefix);
         ids = (Array.isArray(r) ? r : Object.keys(r || {})).map(e => (typeof e === 'string' ? e : e.id));
       } else if (w.pois) ids = w.pois instanceof Map ? [...w.pois.keys()] : Array.isArray(w.pois) ? w.pois.map(p => p.id) : Object.keys(w.pois);
@@ -195,10 +196,22 @@ export function createEnv(ctx) {
       else if (p === dummy && p.object) p.object.rotation.y = angle;
     }
   }
+  const ONE_SHOT_STATE = { crouch_pick: 'forage', pet: 'pet', eat: 'eat' };
+  const ONE_SHOT_DUR = { crouch_pick: 1.1, pet: 1.6, eat: 1.8 };
   /** Play an animation (missing names are tolerated by the player module). */
   function play(name, opts) {
     const p = player();
-    try { p.play?.(name, opts); } catch (e) { console.warn('[systems] player.play failed', name, e); }
+    let r;
+    try { r = p.play?.(name, opts); } catch (e) { console.warn('[systems] player.play failed', name, e); }
+    // one-shot "chore" clips put the player in a state (forage/pet/eat); return to idle when the clip ends
+    const st = ONE_SHOT_STATE[name];
+    if (st && !opts?.loop) {
+      const back = () => { if (p.state === st) setPlayerState('idle'); };
+      if (r && typeof r.then === 'function') r.then(back, back);
+      const dur = ONE_SHOT_DUR[name] || 1.5; let tt = 0;
+      const off = ctx.loop.add(dt => { tt += dt; if (tt > dur + 0.6) { off(); back(); } }, ctx.ORDER?.systems ?? 10);
+    }
+    return r;
   }
   function setControl(v) { try { player().setControl?.(v); } catch { /* ignore */ } }
   function setPlayerState(st) {

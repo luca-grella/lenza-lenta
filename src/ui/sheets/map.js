@@ -70,11 +70,13 @@ function parchment(ctx, base, size = 900) {
   // sea hatching (seeded so it never changes)
   const rng = ctx.math?.rng ? ctx.math.rng('ui-map-waves') : Math.random;
   c.strokeStyle = 'rgba(255,255,255,.45)'; c.lineWidth = 2; c.lineCap = 'round';
-  let probe = null;
-  try { probe = base.getContext?.('2d', { willReadFrequently: true }) || null; } catch { probe = null; }
-  for (let n = 0; probe && n < 420; n++) {
+  // [Fix] one readback of the whole base map (420 single-pixel reads triggered Chrome's willReadFrequently warning)
+  let img = null;
+  try { img = base.getContext?.('2d')?.getImageData(0, 0, base.width, base.height) || null; } catch { img = null; }
+  for (let n = 0; img && n < 420; n++) {
     const x = rng() * size, y = rng() * size;
-    const px = probe.getImageData(Math.floor(x / size * base.width), Math.floor(y / size * base.height), 1, 1).data;
+    const o = (Math.min(base.height - 1, Math.floor(y / size * base.height)) * base.width + Math.min(base.width - 1, Math.floor(x / size * base.width))) * 4;
+    const px = img.data.subarray(o, o + 4);
     if (!(px[2] > px[0] + 25)) continue; // only on water (blue-ish)
     c.beginPath(); c.moveTo(x - 7, y); c.quadraticCurveTo(x - 3.5, y - 4, x, y); c.quadraticCurveTo(x + 3.5, y + 4, x + 7, y); c.stroke();
   }

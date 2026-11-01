@@ -55,7 +55,7 @@ export function createDebug(ctx, expose) {
     setTime(h, day) { ctx.time.set(h, day); ctx.audioAuto?.update(); return ctx.time.format(); },
     /** Set weather: clear|cloudy|rain|fog|storm (needs World; otherwise only emits the event). */
     setWeather(w) {
-      if (ctx.world?.setWeather) ctx.world.setWeather(w);
+      if (ctx.world?.setWeather) ctx.world.setWeather(w, { instant: true });  // [Fix] tests see the full weather look at once
       else { ctx.save.state.weather = { type: w }; ctx.bus.emit('weather:change', { type: w }); }
       if (ctx.stage) ctx.stage.overcast = w === 'clear' ? 0 : w === 'cloudy' ? 0.5 : 0.8;
       ctx.audioAuto?.update();

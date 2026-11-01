@@ -53,7 +53,9 @@ export function createInteract(ctx, env) {
     const fishing = sys().fishing;
     // on the boat: only leaving (and casting below)
     if (boat?.active) {
-      if (boat.speed < 1.2 && boat.canLeave()) out.push({ id: 'boat:leave', kind: 'leave_boat', d: 0.5, priority: 2, icon: 'leave', labelKey: 'sys.act.leave_boat', run: () => boat.leave() });
+      // the landing competes with casting by direction: facing the shore → leave, facing open water → cast
+      const ls = boat.speed < 1.2 && (boat.landingSpot?.() || (boat.canLeave() ? p : null));
+      if (ls) out.push({ id: 'boat:leave', kind: 'leave_boat', d: Math.min(1.2, Math.hypot(ls.x - p.x, ls.z - p.z) * 0.3), at: ls, priority: 2, icon: 'leave', labelKey: 'sys.act.leave_boat', run: () => boat.leave() });
       return out;
     }
     // villagers
@@ -134,13 +136,16 @@ export function createInteract(ctx, env) {
 
   /** Score = priority, minus distance, minus how far you'd have to turn to face it. Cast competes with CAST_SCORE. */
   const CAST_SCORE = 2.6;
+  const SOFT = new Set(['sit', 'talk', 'pet', 'inspect', 'use']);
   function choose(list, p, castOK) {
     const face = env.playerFacing();
     let best = null, bs = castOK ? CAST_SCORE : -Infinity;
     for (const e of list) {
       let off = 0;
       if (e.at && e.d > 0.6) off = Math.abs(Math.atan2(Math.sin(Math.atan2(e.at.x - p.x, e.at.z - p.z) - face), Math.cos(Math.atan2(e.at.x - p.x, e.at.z - p.z) - face)));
-      const s = e.priority * 2 - e.d - off * 1.1;
+      let s = e.priority * 2 - e.d - off * 1.1;
+      // [Fix] facing open water, casting wins over idle chores (sit, talk, pet...) unless the target is right in front and close
+      if (castOK && SOFT.has(e.kind) && !(off < 0.35 && e.d < 1.1)) s = Math.min(s, CAST_SCORE - 0.01);
       if (s > bs) { bs = s; best = e; }
     }
     return best;
@@ -223,7 +228,7 @@ export function createInteract(ctx, env) {
         return;
       }
       const p = env.playerPos();
-      const castOK = !!fishing?.aim;
+      const castOK = !!fishing?.aim && !fishing.aim.reason;
       const pick = choose(candidates(p), p, castOK);
       if (pick) current = label(pick);
       else if (fishing?.aim) current = label({ id: 'cast', kind: 'cast', icon: 'cast', hold: true, labelKey: fishing.aim.reason === 'dark' ? 'sys.act.too_dark' : 'sys.act.cast', disabled: fishing.aim.reason === 'dark', run: () => {} });

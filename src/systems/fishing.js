@@ -148,7 +148,17 @@ export function createFishing(ctx, env, fx) {
   }
 
   function beginCast() {
-    const L = landingFor(aimAngle, power, v.land);
+    let L = landingFor(aimAngle, power, v.land);
+    if (!L.ok && L.reason !== 'dark') {
+      // [Fix] cozy assist: snap to the nearest power that lands in water (small pond / narrow river overshoots)
+      let best = -1;
+      for (let k = 1; k <= 20 && best < 0; k++) for (const sg of [-1, 1]) {
+        const pw = power + sg * k * 0.05;
+        if (pw < 0 || pw > 1 || best >= 0) continue;
+        if (landingFor(aimAngle, pw, v.tmp).ok) best = pw;
+      }
+      if (best >= 0) { power = best; L = landingFor(aimAngle, power, v.land); }
+    }
     if (!L.ok) { abortCharge(L.reason); return; }
     const sp = pickCatch(L.habitat, L.zone);
     session = {
@@ -442,6 +452,8 @@ export function createFishing(ctx, env, fx) {
       ctx.bus.emit('catch:resolve', { choice, speciesId: c.speciesId, size: c.size });
       if (c.junk && c.speciesId === 'junk_bottle' && choice === 'keep') sys().quests?.readBottle?.();
       session.resolveT = 0;
+      // resolved from code (cancel/sleep/boarding) while the real catch card is still up: close it
+      if (session.cardOpen) { try { const u = env.ui(); if (u?.sheets?.current === 'catch' || u?.isOpen?.()) u?.closeSheet?.(choice); } catch { /* ignore */ } }
       session.cardOpen = false;
       if (choice === 'release') {
         // toss the fish back
@@ -678,6 +690,7 @@ export function createFishing(ctx, env, fx) {
           } else if (fishMesh) {
             fishMesh.animate?.(dt, 1.5, 0.45);
           }
+          if (!o) session.held = true; // no fish model available: still show the card
           if (session.held && !session.cardShown && stateT > 1.0) { session.cardShown = true; openCard(); if (!session) break; }
           // release: the fish flies back into the water
           if (session.tossFrom && fishMesh) {

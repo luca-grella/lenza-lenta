@@ -17,12 +17,16 @@
 
 .sheet-head { position: relative; display: flex; align-items: center; gap: 10px; padding: 14px 70px 8px 16px; flex: none; min-width: 0; }
 .sheet-title { font-size: 19px; max-width: 100%; min-width: 0; padding-right: 18px; }
-.sheet-title .st-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-title .st-txt { min-width: 0; overflow: hidden; white-space: normal; line-height: 1.08; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 .sheet-title .st-ic .ic { width: 26px; height: 26px; }
 .sheet-back { width: 42px; height: 42px; }
 .sheet-close { position: absolute; top: 10px; right: 12px; width: 46px; height: 46px; z-index: 3; }
 .sheet-head .chip { font-size: 15px; padding: 5px 12px 5px 6px; background: #fffaf0; box-shadow: inset 0 0 0 2px var(--paper-edge); color: var(--ink); flex: none; }
 .sheet-head .chip .ic, .chip-ic .ic { width: 22px; height: 22px; }
+#ui.narrow .sheet-title { font-size: 15.5px; }
+#ui.narrow .sheet-title .st-ic .ic { width: 22px; height: 22px; }
+#ui.narrow .sheet-head { gap: 7px; }
+#ui.narrow .sheet-head .chip { font-size: 14px; padding: 4px 9px 4px 4px; }
 .chip-ic { display: flex; }
 
 .tabs { display: flex; gap: 6px; padding: 4px 16px 10px; flex: none; border-bottom: 2px dashed rgba(201, 167, 122, .55); }
@@ -45,7 +49,7 @@
 /* phone on its side: use the width, tabs share the header row */
 #ui.compact .sheet-wrap { padding: calc(var(--gt) + 2px) var(--gr) calc(var(--gb) + 2px) var(--gl); }
 #ui.compact .sheet { width: 100%; border-radius: 20px; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-#ui.compact .sheet-wrap:not(.tall) .sheet { grid-template-rows: auto auto; }
+/* (rows stay "auto minmax(0,1fr)": with max-height the fr row shrinks and the body scrolls) */
 #ui.compact .sheet-head { grid-column: 1; grid-row: 1; padding: 8px 8px 6px 12px; }
 #ui.compact .tabs { grid-column: 2; grid-row: 1; align-self: center; padding: 6px 64px 6px 4px; border-bottom: 0; }
 #ui.compact .sheet-body { grid-column: 1 / -1; grid-row: 2; padding: 8px 14px 12px; border-top: 2px dashed rgba(201, 167, 122, .55); }
@@ -351,11 +355,11 @@
 
 /* ───────────── cooking ───────────── */
 .recipes { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
-.recipe { display: flex; gap: 12px; padding: 12px; align-items: flex-start; }
+.recipe { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px; align-items: flex-start; }
 .recipe.ready { box-shadow: inset 0 0 0 2px #9ccc78, 0 2px 0 var(--paper-edge); }
 .rec-ic { flex: none; width: 64px; height: 64px; border-radius: 50%; background: var(--paper-2); display: flex; align-items: center; justify-content: center; }
 .rec-ic .ic { width: 54px; height: 54px; }
-.rec-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.rec-main { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .rec-main b { font-size: 16px; line-height: 1.15; }
 .rec-desc { margin: 0; font-size: 13px; color: var(--ink-2); line-height: 1.3; }
 .needs-row { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -364,8 +368,9 @@
 .need.miss { background: #fbe1da; color: var(--coral-d); }
 .need-ic .ic { width: 14px; height: 14px; }
 .rec-eff { display: flex; flex-wrap: wrap; gap: 4px; }
+.rec-eff .chip { white-space: normal; max-width: 100%; text-align: left; }
 .rec-eff .chip .ic { width: 16px; height: 16px; }
-.rec-act { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.rec-act { flex: none; margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 @container (max-width: 420px) {
   .recipe { flex-wrap: wrap; }
   .rec-main { flex-basis: calc(100% - 80px); }
@@ -442,6 +447,10 @@
 .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 15px; background: var(--paper-3); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .1); }
 .seg-btn { min-height: 40px; padding: 7px 15px; border-radius: 11px; font-weight: 800; font-size: 15px; color: var(--ink-2); white-space: nowrap; transition: background .15s; }
 .seg-btn.on { background: #fffcf4; color: var(--ink); box-shadow: 0 2px 0 var(--paper-shadow), inset 0 0 0 2.5px var(--sea); }
+.set-row .seg { flex: 0 1 auto; flex-wrap: nowrap; min-width: 0; }
+.set-row .seg-btn { min-width: 0; padding: 7px 12px; }
+#ui.narrow .set-row .seg-btn { padding: 7px 9px; font-size: 14px; }
+#ui.narrow .set-row { gap: 9px; }
 .slider { flex: 1; min-width: 120px; height: 36px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
 .slider::-webkit-slider-runnable-track { height: 12px; border-radius: 8px; background: linear-gradient(90deg, var(--sea) 0 var(--p, 50%), var(--paper-3) var(--p, 50%)); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .14); }
 .slider::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 32px; margin-top: -10px; border-radius: 50%;

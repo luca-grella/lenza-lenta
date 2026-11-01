@@ -63,7 +63,8 @@ export function buildCharacter(look) {
     const sh = L.shirt, pa = L.pants;
     if (y > 1.255) return skin();
     // pack straps over the shoulders (front + top)
-    if (L.pack && y > 0.86 && Math.abs(ax - 0.15) < 0.032 && (front || y > 1.12)) return col(L.pack.strap);
+    // [Fix] front straps follow lathe columns (angle) so they are straight bands, not a zig-zag next to the vest opening
+    if (L.pack && y > 0.86 && (front ? (Math.abs(Math.atan2(p.x, p.z)) > 0.56 && Math.abs(Math.atan2(p.x, p.z)) < 0.95) : (y > 1.12 && Math.abs(ax - 0.15) < 0.032))) return col(L.pack.strap);
     // apron neck strap and waist tie
     if (L.apron && y > 1.0 && Math.abs(ax - 0.11) < 0.022 && (front || y > 1.16)) return col(L.apron.color);
     if (L.apron && !front && Math.abs(y - 0.8) < 0.018) return col(L.apron.color);
@@ -82,7 +83,9 @@ export function buildCharacter(look) {
       case 'sweater': c = col(sh.color); if (y < waistY + 0.06 || y > 1.2) c = mix(sh.color, '#000', 0.18); break;
       case 'blouse': c = col(sh.color); if (y > 1.18 && front) c = mix(sh.color, '#fff', 0.55); break;
       case 'vest': {
-        const open = front && ax < 0.045 + Math.max(0, y - 0.74) * 0.32;
+        // [Fix] angle-based opening so every row switches on the same lathe column (the old diagonal V gave a saw-tooth edge)
+        const ang = Math.abs(Math.atan2(p.x, p.z));
+        const open = front && ang < (y > 1.04 ? 0.5 : 0.3);
         if (open) c = col(sh.color2);
         else {
           c = col(sh.color);

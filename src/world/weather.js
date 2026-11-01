@@ -41,7 +41,7 @@ void main(){
   vec3 p = mix(head, tail, position.y);
   vec3 camRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
   p += camRight * position.x * uWidth;
-  vA = on * (0.25 + 0.3 * aSeed.y) * (1.0 - position.y * 0.8) * smoothstep(0.0, 0.08, fall) * smoothstep(1.0, 0.85, fall);
+  vA = on * (0.22 + 0.26 * aSeed.y) * (1.0 - position.y * 0.8) * smoothstep(0.0, 0.08, fall) * (1.0 - smoothstep(0.85, 1.0, fall));
   gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0);
 }`;
 const RAIN_FRAG = /* glsl */`
@@ -78,10 +78,10 @@ export function createWeather(ctx, U, q) {
   quad.setAttribute('aSeed', new THREE.InstancedBufferAttribute(seeds, 3));
   quad.instanceCount = MAXDROPS;
   const rainU = {
-    uTime: U.uTime, uBox: { value: 46 }, uHeight: { value: 26 }, uLen: { value: 0.75 }, uWidth: { value: 0.022 },
+    uTime: U.uTime, uBox: { value: 46 }, uHeight: { value: 26 }, uLen: { value: 0.9 }, uWidth: { value: 0.018 },
     uCenter: { value: new THREE.Vector3() }, uWindXZ: { value: new THREE.Vector2() }, uAmount: { value: 0 }, uColor: { value: new THREE.Color(0xdfeaf2) },
   };
-  const rainMesh = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: rainU, vertexShader: RAIN_VERT, fragmentShader: RAIN_FRAG, transparent: true, depthWrite: false }));
+  const rainMesh = new THREE.Mesh(quad, new THREE.ShaderMaterial({ uniforms: rainU, vertexShader: RAIN_VERT, fragmentShader: RAIN_FRAG, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
   rainMesh.frustumCulled = false; rainMesh.renderOrder = 8; rainMesh.name = 'rain'; rainMesh.visible = false;
   group.add(rainMesh);
 
@@ -141,8 +141,10 @@ export function createWeather(ctx, U, q) {
       // storm flashes (soft)
       if (type === 'storm' && Math.random() < dt * 0.06) env.flash = 1;
       env.flash = damp(env.flash, 0, 5, dt);
-      env.sunMul = 1 + env.flash * 0.8;
-      env.hemiMul = 1 + env.flash * 1.6;
+      // rain greys the day further than the core overcast palette (softer shadows, wet dim look)
+      const wetDim = clamp(env.rain, 0, 1);
+      env.sunMul = (1 - 0.45 * wetDim) * (1 + env.flash * 0.8);
+      env.hemiMul = (1 - 0.12 * wetDim) * (1 + env.flash * 1.6);
 
       U.uWind.value.set(windDir.x, windDir.y, env.wind, gust);
       U.uWet.value = damp(U.uWet.value, clamp(env.rain, 0, 1), env.rain > U.uWet.value ? 0.12 : 0.03, dt);

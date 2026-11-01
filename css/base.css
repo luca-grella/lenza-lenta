@@ -68,8 +68,8 @@ body { position: fixed; inset: 0; font-family: var(--font); color: var(--ink); }
 :where(#ui) button:focus { outline: none; }
 :where(#ui) button:focus-visible { outline: 3px solid var(--sea-l); outline-offset: 2px; }
 #ui input[type=range] { touch-action: none; }
-#ui .ic { width: 1em; height: 1em; display: block; flex: none; overflow: visible; }
-#ui .ic.mono { color: currentColor; }
+:where(#ui) .ic { width: 1em; height: 1em; display: block; flex: none; overflow: visible; }
+:where(#ui) .ic.mono { color: currentColor; }
 #ui .layer { position: absolute; inset: 0; pointer-events: none; }
 #ui .layer > * { pointer-events: auto; }
 #ui .hidden { display: none !important; }

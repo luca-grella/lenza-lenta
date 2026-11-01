@@ -67,7 +67,7 @@ float rainRings(vec2 p, float t){
     float ph = fract(t * 0.9 + o.x * 7.0);
     vec2 d = p - (c + o);
     float r = length(d);
-    float ring = smoothstep(0.06, 0.0, abs(r - ph * 0.55)) * (1.0 - ph);
+    float ring = (1.0 - smoothstep(0.0, 0.06, abs(r - ph * 0.55))) * (1.0 - ph);
     acc += ring;
   }
   return acc;
@@ -91,13 +91,14 @@ void main(){
   vec3 N = normalize(vec3(-hx * 7.0, 1.0, -hz * 7.0));
   if (uRain > 0.01) {
     float rr = rainRings(p * 1.6, t) * uRain;
-    N = normalize(N + vec3(rr * 0.6, 0.0, rr * 0.4));
+    N = normalize(N + vec3(rr * 1.3, 0.0, rr * 0.9));
   }
 
   // body colour by depth
-  vec3 col = mix(uShallow, uMid, smoothstep(0.15, 2.4, depth));
+  vec3 col = mix(uShallow, uMid, smoothstep(0.1, 2.0, depth));
   col = mix(col, uDeep, smoothstep(2.2, 7.5, depth));
   col *= 0.95 + 0.1 * h1;
+  col = mix(col, vec3(dot(col, vec3(0.3, 0.59, 0.11))) * vec3(0.78, 0.86, 0.9), uRain * 0.5);  // [Fix] rain: greyer, darker sea
 
   // caustics in the shallows
   vec2 cq = p * 0.32;
@@ -129,6 +130,7 @@ void main(){
   col += uSunCol * (spec * 1.6 + sparkle * 0.35) * shadow;
 
   // lantern / window reflections at night (long wobbly streaks toward the viewer)
+  float caveK = 1.0 - smoothstep(uCave.z - 1.0, uCave.z + 2.0, length(p - uCave.xy));  // [Fix] no long glow streaks across the cave pool
   for (int i = 0; i < ${MAX_GLOWS}; i++) {
     vec3 gp = uGlowPos[i];
     vec2 dv = p - gp.xz;
@@ -136,7 +138,7 @@ void main(){
     float along = dot(dv, tv), across = dot(dv, vec2(-tv.y, tv.x));
     float wob = (texture2D(uNoise, p * 0.4 + t * 0.06).r - 0.5) * 0.8;
     float g = exp(-pow((across + wob) / (0.35 + max(along, 0.0) * 0.08), 2.0)) * exp(-max(along, -along * 4.0) * 0.16);
-    col += uGlowCol[i] * g * 0.55;
+    col += uGlowCol[i] * g * 0.55 * (1.0 - caveK * 0.9);
   }
 
   // shoreline foam: contact line + bands rolling in, broken by noise
@@ -158,11 +160,12 @@ void main(){
     float inPool = 1.0 - smoothstep(uCave.z - 1.0, uCave.z + 2.0, dc);
     float s1 = texture2D(uNoise, p * 0.7 + vec2(t * 0.03, t * 0.02)).r;
     float s2 = step(0.72, texture2D(uNoise, p * 2.1 - t * 0.04).r);
-    vec3 glow = vec3(0.15, 0.85, 1.0) * (0.35 + 0.65 * s1) + vec3(0.6, 1.0, 1.0) * s2 * (0.5 + 0.5 * sin(t * 3.0 + p.x * 5.0));
-    col += glow * inPool * uCave.w;
+    // patchy, softer glow: deep teal with brighter specks (at full strength it read as a flat cyan plane)
+    vec3 glow = vec3(0.08, 0.6, 0.85) * (0.2 + 0.8 * s1 * s1) + vec3(0.6, 1.0, 1.0) * s2 * (0.5 + 0.5 * sin(t * 3.0 + p.x * 5.0));
+    col += glow * inPool * uCave.w * 0.6;
   }
 
-  float alpha = mix(0.55, 0.96, smoothstep(0.0, 2.8, depth));
+  float alpha = mix(0.68, 0.96, smoothstep(0.0, 2.2, depth));  // [Fix] wide islet shelves read turquoise, not washed-out sand
   alpha = max(alpha, foam);
   alpha = mix(alpha, 1.0, smoothstep(5.0, 8.0, depth));
   gl_FragColor = vec4(col, alpha);
@@ -290,9 +293,9 @@ void main(){
   float s2 = texture2D(uNoise, vec2(vUv.x * 3.7 + 0.21, v * 1.1 - t * 1.45)).r;
   float streak = smoothstep(0.45, 0.75, s2 * 0.7 + s1 * 0.5);
   vec3 col = mix(uWater, uFoamCol, 0.35 + streak * 0.55);
-  col = mix(col, uFoamCol, smoothstep(0.75, 1.0, v) * 0.8 + smoothstep(0.08, 0.0, v) * 0.6);
+  col = mix(col, uFoamCol, smoothstep(0.75, 1.0, v) * 0.8 + (1.0 - smoothstep(0.0, 0.08, v)) * 0.6);
   col *= uLight;
-  float edge = smoothstep(0.0, 0.12, vUv.x) * smoothstep(1.0, 0.88, vUv.x);
+  float edge = smoothstep(0.0, 0.12, vUv.x) * (1.0 - smoothstep(0.88, 1.0, vUv.x));
   float alpha = (0.72 + 0.28 * streak) * edge;
   alpha *= smoothstep(0.0, 0.03, v);
   gl_FragColor = vec4(col, alpha);
@@ -321,7 +324,7 @@ uniform vec3 uColor;
 varying float vA;
 void main(){
   vec2 c = gl_PointCoord - 0.5;
-  float a = smoothstep(0.5, 0.0, length(c)) * vA;
+  float a = (1.0 - smoothstep(0.0, 0.5, length(c))) * vA;
   gl_FragColor = vec4(uColor, a * 0.55);
 }`;
 
@@ -332,6 +335,7 @@ function lightUniforms() { return THREE.UniformsUtils.merge([THREE.UniformsLib.l
  * @param {object} U world uniforms
  * @param {object} terrain
  */
+const _grey2 = new THREE.Color();
 export function createWater(ctx, U, terrain) {
   const group = new THREE.Group(); group.name = 'Water';
   const glowPos = Array.from({ length: MAX_GLOWS }, () => new THREE.Vector3(0, -100, 0));
@@ -533,6 +537,8 @@ export function createWater(ctx, U, terrain) {
       // ambient-ish light level for the water body
       _c.copy(Lt.sun).multiplyScalar(0.62 * Lt.sunIntensity / 2.6).add(new THREE.Color().copy(Lt.hemiSky).multiplyScalar(0.5 * Lt.hemiIntensity / 1.05));
       if (Lt.night > 0.5) _c.multiplyScalar(lerp(1, 1.25, Lt.night));
+      // [Fix] warm low sun: keep the sea body teal (warm light x turquoise turned olive); the golden tint comes from the reflection
+      if (Lt.warmth > 0.2) { const g = (_c.r + _c.g + _c.b) / 3, k = Math.min(1, (Lt.warmth - 0.2) / 0.2) * (1 - Lt.night) * 0.7; _c.lerp(_grey2.setRGB(g * 0.95, g, g * 1.08), k); }
       u.uLight.value.copy(_c);
       u.uCave.value.w = env.caveGlow;
       for (const m of flowMats) {

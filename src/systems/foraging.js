@@ -136,7 +136,7 @@ export function createForaging(ctx, env) {
     const pois = env.listPois('forage_');
     const byZone = new Map();
     for (const p of pois) {
-      const zone = p.raw?.zone || env.zoneAt(p.x, p.z);
+      const zone = p.raw?.zone || p.zone || env.zoneAt(p.x, p.z);
       if (!byZone.has(zone)) byZone.set(zone, []);
       byZone.get(zone).push(p);
     }
@@ -167,6 +167,7 @@ export function createForaging(ctx, env) {
     refreshSparkles();
   }
 
+  let cullT = 0;
   function addSpot(id, x, z, zone, itemId, special, y0) {
     const picked = !!F().picked[id];
     const y = Number.isFinite(y0) ? y0 : env.groundY(x, z);
@@ -175,7 +176,7 @@ export function createForaging(ctx, env) {
     const mesh = new THREE.Mesh(geoFor(itemId), it?.model?.glow ? glowMat : mat);
     mesh.position.set(x, y - 0.02, z);
     mesh.rotation.y = (x * 12.9898 + z * 78.233) % 6.28;
-    mesh.castShadow = true; mesh.receiveShadow = true;
+    mesh.castShadow = false; mesh.receiveShadow = true;  // [Fix] tiny pickups: no shadow pass (draw-call budget)
     mesh.visible = !picked;
     mesh.userData.spot = id;
     group.add(mesh);
@@ -256,6 +257,13 @@ export function createForaging(ctx, env) {
       const L = ctx.time.lighting?.();
       spMat.uniforms.night.value = L ? L.night : 0;
       glowMat.emissiveIntensity = 0.6 + (L ? L.night * 1.6 : 0) + Math.sin(t * 2) * 0.2;
+      // [Fix] distance cull: pickups are tiny, only draw the ones near the player (draw-call budget)
+      cullT -= dt;
+      const pp = ctx.player?.object?.position;
+      if (cullT <= 0 && pp) {
+        cullT = 0.4;
+        for (const s of spots.values()) if (!s.popT && !s.pending) s.mesh.visible = !s.picked && Math.hypot(s.x - pp.x, s.z - pp.z) < 34;
+      }
       for (const s of spots.values()) {
         if (s.pending) {
           s.pending.t += dt;

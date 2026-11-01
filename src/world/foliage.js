@@ -490,11 +490,12 @@ export function createFoliage(ctx, U, env) {
     if (h < 1.2 || S(x, z) > 0.6 || excluded(x, z, 0.3) || onPath(x, z, -0.3)) return;
     const zone = L.zoneAt(x, z);
     const n = L.noise.noise2(x * 0.06, z * 0.06);
-    const p = (zone === 'meadow' ? 0.55 : zone === 'waterfall' || zone === 'home_beach' ? 0.18 : zone === 'village' ? 0.12 : 0.05) * smoothstep(-0.3, 0.4, n) * gd;
+    const p = (zone === 'meadow' ? 0.8 : zone === 'waterfall' || zone === 'home_beach' ? 0.18 : zone === 'village' ? 0.12 : 0.05) * smoothstep(-0.3, 0.4, n) * gd;
     if (R() > p) return;
     // patches of the same colour
     const ci = Math.floor((L.noiseB.noise2(x * 0.04 + 9, z * 0.04) * 0.5 + 0.5) * flowerCols.length * 1.3 + R() * 1.4) % flowerCols.length;
-    add('flower', x, h - 0.02, z, 0.9 + R() * 0.5, Math.floor(R() * 3), C(flowerCols[ci]));
+    // [Fix] meadow flowers big enough to read as a carpet from the gameplay camera
+    add('flower', x, h - 0.02, z, (zone === 'meadow' ? 1.7 + R() * 0.7 : 1.1 + R() * 0.5), Math.floor(R() * 3), C(flowerCols[ci]));
   });
   // --- ferns + mushrooms in the forest
   scatter(2.6, (x, z) => {

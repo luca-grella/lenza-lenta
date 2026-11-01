@@ -183,10 +183,10 @@ export function createGulls(ctx, env, root, fx, def = {}) {
     setCount(n) { target = n; },
     update(dt, t, info) {
       if (active) { let alive = birds.filter(b => !b.leaving).length; while (alive < target) { spawnBird(info, alive < target / 2); alive++; } }
-      let extra = birds.filter(b => !b.leaving).length - target;
-      for (const b of birds) if (extra > 0 && !b.leaving) { b.leaving = true; extra--; }
+      let extra = birds.filter(b => !b.leaving && !b.pinned).length - target;
+      for (const b of birds) if (extra > 0 && !b.leaving && !b.pinned) { b.leaving = true; extra--; }
       for (const b of birds.slice()) {
-        if (Math.hypot(b.pos.x - info.player.x, b.pos.z - info.player.z) > 60) b.leaving = true;
+        if (b.pinned) b.leaving = false; else if (Math.hypot(b.pos.x - info.player.x, b.pos.z - info.player.z) > 60) b.leaving = true;
         if (b.leaving && b.state === 'perched') { b.state = 'takeoff'; b.stateT = 0; }
         stepBird(b, dt, t, info);
         if (b.leaving && b.scale < 0.02) { b.o.removeFromParent(); birds.splice(birds.indexOf(b), 1); }
@@ -195,7 +195,7 @@ export function createGulls(ctx, env, root, fx, def = {}) {
       if (callT < 0 && birds.length) { callT = 10 + R() * 18; const b = birds[Math.floor(R() * birds.length)]; b.call = 0.6; ctx.audio?.sfx?.('gull', { vol: 0.25, pos: b.pos, pitch: 0.9 + R() * 0.2 }); }
     },
     /** Debug/sandbox: put one gull on a perch at x,z (or flying) and return it. */
-    debugSpawn(x, z, state = 'perched', info = { player: V(x, 0, z + 6) }) { const b = spawnBird(info, false); b.state = state; b.pos.set(x, state === 'perched' ? env.ground(x, z) : 3, z); b.perch = { x, y: env.ground(x, z), z }; b.scale = 1; b.stateT = -999; return b; },
+    debugSpawn(x, z, state = 'perched', info = { player: V(x, 0, z + 6) }) { const b = spawnBird(info, false); b.state = state; b.pos.set(x, state === 'perched' ? env.ground(x, z) : 3, z); b.perch = { x, y: env.ground(x, z), z }; b.scale = 1; b.stateT = -999; b.pinned = true; return b; },
     poseGull,
   };
 }

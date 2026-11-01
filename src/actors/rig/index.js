@@ -122,6 +122,10 @@ export function createCharacter(ctx, rawLook, opts = {}) {
     update(dt, env = {}) {
       st.t += dt;
       resetPose();
+      // three's PropertyMixer only writes a bone when its blended value changed since the previous frame; since
+      // the procedural layers start from the bind pose every frame, poison the "previous" buffer so every
+      // animated property is written again (otherwise held / constant poses snap back to the bind pose).
+      { const mx = animator.mixer, ai = mx._accuIndex; for (const pm of mx._bindings || []) { const e = pm.valueSize; pm.buffer[ai * e + e] = NaN; } }
       animator.update(dt);
       const M = animator.meta;
 

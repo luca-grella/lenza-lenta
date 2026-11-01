@@ -41,7 +41,7 @@ export default function catchCard(ui, data) {
         btn('gold.big.keep', 'basket', full ? t('ui.catch.basket_full') : t('ui.catch.keep'), 'keep', full),
         btn('release', 'release', t('ui.catch.release'), 'release'),
         canCat ? btn('coral.cat', 'paw', t('ui.catch.cat'), 'cat') : null);
-      card.append(pic, ribbons, name, meta, h('div.catch-stats', size, val), prev, desc, actions);
+      card.append(...[pic, ribbons, name, meta, h('div.catch-stats', size, val), prev, desc, actions].filter(Boolean));
       host.replaceChildren(card);
       ui.sfx(f.rarity === 'rare' || f.rarity === 'epic' || f.rarity === 'legendary' ? 'rare_jingle' : 'catch_jingle', { vol: 0.9 });
     },

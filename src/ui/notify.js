@@ -52,7 +52,7 @@ export function createNotify(ui) {
     const ribbon = h('div.banner-ribbon', h('span', txt(b.titleKey, opts.vars)));
     const pic = opts.image ? h('img.banner-img', { src: opts.image, alt: '' }) : opts.icon ? h('div.banner-ic', { html: opts.icon.startsWith('<') ? opts.icon : icon(opts.icon) }) : null;
     const subText = txt(b.sub, opts.vars);
-    card.append(ribbon, pic, subText ? h('div.banner-sub', subText) : null, h('div.banner-tap', t('ui.banner.tap')));
+    card.append(...[ribbon, pic, subText ? h('div.banner-sub', subText) : null].filter(Boolean), h('div.banner-tap', t('ui.banner.tap')));
     node.append(rays, card, confetti(kind));
     bannerHost.append(node);
     showing = node;

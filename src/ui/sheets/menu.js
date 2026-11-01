@@ -6,7 +6,7 @@ export default function menu(ui) {
   const { ctx, A } = ui;
   const t = (k, v) => ctx.i18n.t(k, v);
   return {
-    title: t('ui.menu.title'), icon: 'inventory', cls: 'menu',
+    title: t('ui.menu.title'), icon: 'menu', cls: 'menu',
     render(body) {
       const fish = ctx.data?.fish || [];
       const caught = fish.filter(f => A.journal()[f.id]).length;

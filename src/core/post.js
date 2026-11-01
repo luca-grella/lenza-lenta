@@ -228,6 +228,15 @@ export function createPost({ renderer, scene, camera, ctx }) {
       timeExposure = L.night * 0.14;   // the night palette is dark already: lift it so it stays readable and cozy
       timeSat = -L.night * 0.3;        // moonlight is less saturated
       nightK = L.night;
+      // [Fix] golden hour: lift and saturate the low warm sun instead of letting dusk go muddy
+      const duskK = clamp((L.warmth - 0.2) / 0.25, 0, 1) * (1 - L.night);
+      timeExposure += 0.1 * duskK; timeSat += 0.12 * duskK; timeWarmth += 0.06 * duskK;
+      // [Fix] weather mood: overcast / rain dims, desaturates and cools the grade
+      const W = ctx.world?.weather;
+      if (W) {
+        const oc = clamp(Number.isFinite(W.overcast) ? W.overcast : (W.cloud || 0) * 0.8, 0, 1), rn = clamp(W.rain || 0, 0, 1);
+        timeExposure -= 0.1 * oc + 0.12 * rn; timeSat -= 0.22 * oc + 0.12 * rn; timeWarmth -= 0.12 * oc;
+      }
     }
     live.sat = damp(live.sat, params.saturation + timeSat, 2, dt);
     live.warmth = damp(live.warmth, params.warmth + timeWarmth, 2, dt);

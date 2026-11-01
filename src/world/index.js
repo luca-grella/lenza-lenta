@@ -64,7 +64,7 @@ export async function init(ctx) {
     if (Math.hypot(x - L.CAVE.x, z - L.CAVE.z) < L.CAVE.r + 1.2) return 'cave';
     if (ws === L.POND.level && Math.hypot(x - L.POND.x, z - L.POND.z) < L.POND.r + 1.6) return 'pond';
     if (ws > 0.02) return 'river';
-    if (Math.hypot(x - L.BAY.x, z - L.BAY.z) < L.BAY.r + 5 || (Math.abs(x - L.VILLAGE.dock.x) < 8 && z > L.VILLAGE.dock.z0 - 2 && z < L.VILLAGE.dock.z1 + 6)) return 'harbor';
+    if (Math.hypot(x - L.BAY.x, z - L.BAY.z) < L.BAY.r + 5 || (Math.abs(x - L.VILLAGE.dock.x) < 10 && z > L.VILLAGE.dock.z0 - 2 && z < L.VILLAGE.dock.z1 + 16)) return 'harbor';  // [Fix] covers every cast from the dock end
     const dr = Math.hypot((x - L.ISLANDS.palm.cx) / 1.2, z - L.ISLANDS.palm.cz);
     if (dr > 13 && dr < 36 && depth < 4.5) return 'reef';
     if (depth > 3) return 'deep';

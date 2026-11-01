@@ -57,7 +57,7 @@ export function createDialog(ui) {
       ctx.bus.emit('ui:dialog', { npcId, open: true });
       ui.sfx('ui_open', { vol: 0.5 });
 
-      cur = { openFrame: ctx.loop.frame, resolve, lines, i: -1, full: '', shown: 0, typing: false, choices, box, text, more, choiceBox, voice, sel: 0, acc: 0, done: false,
+      cur = { npcId, opts, npcData, speaker, plank, openFrame: ctx.loop.frame, resolve, lines, i: -1, full: '', shown: 0, typing: false, choices, box, text, more, choiceBox, voice, sel: 0, acc: 0, done: false,
         finish(result) {
           if (cur?.done) return; cur.done = true;
           box.classList.remove('in'); box.classList.add('bye');
@@ -86,6 +86,21 @@ export function createDialog(ui) {
     cur.more.classList.remove('on');
     cur.choiceBox.replaceChildren();
     if (!cur.full) { cur.typing = false; nextLine(); }
+  }
+  /** [Fix] live language switch: re-translate the open dialog (name, role, current line, choices). */
+  function applyLang() {
+    if (!cur || cur.done) return;
+    const { npcId, opts, npcData, speaker } = cur;
+    const name = opts.name || (speaker?.nameKey ? t(speaker.nameKey) : npcId === 'letter' ? t('ui.dialog.letter') : (npcId || ''));
+    const role = npcData?.roleKey ? t(npcData.roleKey) : '';
+    cur.plank.replaceChildren(h('span', name), ...(role ? [h('small', role)] : []));
+    if (cur.i >= 0 && cur.i < cur.lines.length) {
+      cur.full = lineText(cur.lines[cur.i]);
+      if (cur.typing) cur.shown = Math.min(cur.shown, cur.full.length); else cur.shown = cur.full.length;
+      cur.acc = cur.shown;
+      cur.text.textContent = cur.full.slice(0, cur.shown);
+    }
+    if (cur.choiceBox.children.length && cur.choices) [...cur.choiceBox.children].forEach((b, i) => { b.textContent = choiceText(cur.choices[i]); });
   }
   function showChoices() {
     cur.more.classList.remove('on');
@@ -144,5 +159,5 @@ export function createDialog(ui) {
     }
   }
 
-  return { el, dialog, update, get open() { return !!cur; }, advance };
+  return { el, dialog, update, applyLang, get open() { return !!cur; }, advance };
 }

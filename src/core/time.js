@@ -21,8 +21,9 @@ const KEYS = [
   { h: 8.2, sky: 0x9fdcf0, horizon: 0xe2f4f0, fog: 0xc4e6ea, sun: 0xfff0d4, sunI: 2.45, hemiSky: 0xbfe6fb, hemiGround: 0xb5a47e, hemiI: 1.05, warmth: 0.12, night: 0 },
   { h: 13.0, sky: 0xa2e0f3, horizon: 0xe6f6f2, fog: 0xc8e9ec, sun: 0xfff6e8, sunI: 2.6, hemiSky: 0xc0e8fc, hemiGround: 0xb8a882, hemiI: 1.05, warmth: 0.08, night: 0 },
   { h: 16.8, sky: 0x9fd8ee, horizon: 0xfbe4c2, fog: 0xe4e0cb, sun: 0xffe0ac, sunI: 2.45, hemiSky: 0xc8e0f0, hemiGround: 0xbaa07c, hemiI: 1.0, warmth: 0.22, night: 0 },
-  { h: 18.7, sky: 0x93a8d4, horizon: 0xf6b08a, fog: 0xe9b39a, sun: 0xffb27e, sunI: 2.1, hemiSky: 0xd8bcc4, hemiGround: 0x8a7060, hemiI: 1.05, warmth: 0.38, night: 0 },
-  { h: 20.0, sky: 0x4d568e, horizon: 0xd49084, fog: 0x8a7394, sun: 0xff9a78, sunI: 0.6, hemiSky: 0x8478aa, hemiGround: 0x3d3348, hemiI: 0.9, warmth: 0.15, night: 0.5 },
+  { h: 18.7, sky: 0x9db4dc, horizon: 0xffbf86, fog: 0xf2c49c, sun: 0xffc078, sunI: 2.35, hemiSky: 0xf6dcb0, hemiGround: 0xbc9a70, hemiI: 1.12, warmth: 0.42, night: 0 },
+  { h: 19.7, sky: 0x8796cc, horizon: 0xffa772, fog: 0xeeb08c, sun: 0xffab62, sunI: 1.75, hemiSky: 0xf2cc9c, hemiGround: 0x9a7a62, hemiI: 1.08, warmth: 0.46, night: 0.08 },
+  { h: 20.5, sky: 0x4a568e, horizon: 0xcf8e86, fog: 0x7e7296, sun: 0xff9a78, sunI: 0.55, hemiSky: 0x8a80b4, hemiGround: 0x403a58, hemiI: 0.95, warmth: 0.12, night: 0.55 },
   { h: 21.2, sky: 0x1d2a4a, horizon: 0x303e69, fog: 0x26345c, sun: 0xa8c0ff, sunI: 0.8, hemiSky: 0x5672c0, hemiGround: 0x232a50, hemiI: 1.0, warmth: -0.3, night: 1 },
   { h: 24.0, sky: 0x18233f, horizon: 0x2a3862, fog: 0x233157, sun: 0xa8c0ff, sunI: 0.8, hemiSky: 0x5672c0, hemiGround: 0x232a50, hemiI: 1.0, warmth: -0.35, night: 1 },
 ];

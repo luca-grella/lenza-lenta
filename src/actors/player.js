@@ -43,6 +43,12 @@ export function init(ctx) {
 
   function rand(a, b) { return a + Math.random() * (b - a); }
 
+  ctx.bus?.on?.('save:before', () => {
+    const sp = save().player;
+    if (!sp || seated || !obj.parent) return;
+    sp.x = +obj.position.x.toFixed(2); sp.z = +obj.position.z.toFixed(2); sp.facing = +facing.toFixed(3);
+  });
+
   // ---- spawn ----
   function spawnPoint() {
     const s = save().player;
@@ -76,6 +82,8 @@ export function init(ctx) {
     return name;
   }
 
+  let playToken = 0;
+  const ONE_SHOT_STATES = new Set(['talk', 'pet', 'eat', 'forage']);
   /** Play an animation: {loop, fade, speed, onEnd, next, layer, onEvent}. Unknown names are ignored. Returns a Promise. */
   function play(name, o = {}) {
     if (autopilot && !o._auto) { finishAutopilot(true); }
@@ -92,7 +100,14 @@ export function init(ctx) {
     faceCamera = n === 'catch_show' || n === 'catch_happy';
     idleT = 0;
     if (opts.layer !== 'upper' && n !== 'locomotion' && !seated) ch.animator.stopUpper(Math.min(0.2, opts.fade ?? 0.2));
-    return ch.play(n, opts);
+    const token = ++playToken;
+    const res = ch.play(n, opts);
+    // one-shot chores (talk, pet, eat, crouch_pick) hand the state back when they end, unless something newer took over
+    const st = STATE_OF(n);
+    if (!opts.loop && !opts.next && opts.layer !== 'upper' && ONE_SHOT_STATES.has(st)) {
+      Promise.resolve(res).then(() => { if (token === playToken && state === st) state = seated === 'boat' ? 'boat' : seated ? 'sit' : 'idle'; });
+    }
+    return res;
   }
 
   // ---- footsteps by surface ----
@@ -303,7 +318,7 @@ export function init(ctx) {
 
     ch.update(dt, { ground: seated ? null : ground, speed: animSpeed, turnRate: seated ? 0 : turnRate, accel: seated ? 0 : accel });
 
-    // ---- persist position now and then ----
+    // ---- persist position now and then (and right before every save write) ----
     saveT += dt;
     if (saveT > 3 && !seated) {
       saveT = 0;

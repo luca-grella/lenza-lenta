@@ -136,8 +136,9 @@ export function createDailies(ctx, env) {
           sys().inventory.remove(d.itemId, d.need);
           d.n = d.need;
           ctx.bus.emit('deliver', { npcId, itemId: d.itemId, n: d.need });
-          await q?.say?.(npcId, [{ key: d.thanksKey || `npc.${npcId}.thanks.1` }]);
+          // reward first: the thank-you line may wait in the dialog queue (sheet open, fishing...)
           finish(d);
+          q?.say?.(npcId, [{ key: d.thanksKey || `npc.${npcId}.thanks.1` }]);
           return true;
         }
       }
