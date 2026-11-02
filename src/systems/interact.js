@@ -132,7 +132,7 @@ export function createInteract(ctx, env) {
         const cat = sys().cat;
         const fish = (S().basket || []).some(e => D().get?.(e.id)?.kind === 'fish');
         if (!cat.befriended && fish) out.push({ id: 'cat', kind: 'feed_cat', d, at: cp, priority: 2.2, icon: 'paw', labelKey: 'sys.act.feed_cat', run: () => cat.feed() });
-        else out.push({ id: 'cat', kind: 'pet', d, at: cp, priority: 1.5, icon: 'pet', labelKey: 'sys.act.pet', run: () => cat.pet() });
+        else out.push({ id: 'cat', kind: 'pet', d, at: cp, priority: 2.2, icon: 'pet', labelKey: 'sys.act.pet', run: () => cat.pet() });
       }
     }
     // World-registered interactables
@@ -158,6 +158,7 @@ export function createInteract(ctx, env) {
   /** Score = priority, minus distance, minus how far you'd have to turn to face it. Cast competes with CAST_SCORE. */
   const CAST_SCORE = 2.6;
   const SOFT = new Set(['sit', 'talk', 'pet', 'inspect', 'use']);
+  const PLACE = new Set(['shop', 'sell', 'donate', 'sleep', 'cook', 'chest']);
   /** World interactables Systems handles itself (seats, the cat). */
   const WORLD_SKIP = new Set(['sit', 'pet']);
   function choose(list, p, castOK) {
@@ -168,8 +169,11 @@ export function createInteract(ctx, env) {
       if (e.at && e.d > 0.6) off = Math.abs(Math.atan2(Math.sin(Math.atan2(e.at.x - p.x, e.at.z - p.z) - face), Math.cos(Math.atan2(e.at.x - p.x, e.at.z - p.z) - face)));
       let s = e.priority * 2 - e.d - off * 1.1;
       // [Fix] facing open water, casting wins over idle chores (sit, talk, pet...) unless the target is right in front and close
-      // ...except a dock-edge seat: sitting there is how you fish seated (the button then casts from the seat)
-      if (castOK && SOFT.has(e.kind) && !(e.seat === 'edge' && !e.side) && !(off < 0.35 && e.d < 1.1)) s = Math.min(s, CAST_SCORE - 0.01);
+      // ...except a dock-edge seat: sitting there is how you fish seated (the button then casts from the seat),
+      // and a villager you face within 2 m (a shopkeeper behind the counter, with the sea behind him)
+      if (castOK && SOFT.has(e.kind) && !(e.seat === 'edge' && !e.side) && !(off < 0.35 && e.d < 1.1) && !(e.kind === 'talk' && off < 0.5 && e.d < 2.0)) s = Math.min(s, CAST_SCORE - 0.01);
+      // [Fix] a shop counter / fixed place you stand at and face wins over the water behind it (pescheria on its stilt deck)
+      else if (castOK && PLACE.has(e.kind) && e.d < 2.6 && off < 1.0) s = Math.max(s, CAST_SCORE + 0.01);
       if (s > bs) { bs = s; best = e; }
     }
     return best;
@@ -287,9 +291,17 @@ export function createInteract(ctx, env) {
       if (pick) current = label(pick);
       else if (fishing?.aim) current = label({ id: 'cast', kind: 'cast', icon: 'cast', hold: true, labelKey: fishing.aim.reason === 'dark' ? 'sys.act.too_dark' : 'sys.act.cast', disabled: fishing.aim.reason === 'dark', run: () => {} });
       else current = null;
-      // casting is the main action but a seat is right here: offer it on the small side button
-      const seat = (!current || current.kind === 'cast') ? list.filter(e => e.kind === 'sit').sort((a, b) => a.d - b.d)[0] : null;
-      secondary = seat ? label({ ...seat }) : null;
+      // casting is the main action but a seat (or a villager, a counter, the cat…) is right here: offer it on the
+      // small side button, so facing the sea never hides who/what you walked up to
+      let side = null;
+      if (current?.kind === 'cast') {
+        side = list.filter(e => e.kind === 'sit').sort((a, b) => a.d - b.d)[0]
+          || list.filter(e => e !== pick).sort((a, b) => (b.priority * 2 - b.d) - (a.priority * 2 - a.d))[0] || null;
+      } else if (current?.kind === 'talk') {
+        // two villagers side by side (Rosa strolling with Marta at dusk): the other one goes on the side button
+        side = list.filter(e => e.kind === 'talk' && e.id !== current.id).sort((a, b) => a.d - b.d)[0] || null;
+      }
+      secondary = side ? label({ ...side }) : null;
       // run non-fishing actions on Space / action button tap, or E
       if (current && current.kind !== 'cast' && cooldown <= 0 && (input.action.down || input.pressed('interact'))) {
         cooldown = 0.35;

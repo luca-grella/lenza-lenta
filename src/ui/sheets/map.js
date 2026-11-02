@@ -193,9 +193,10 @@ export default function map(ui, data) {
       overlay = h('div.map-overlay');
       markers.length = 0;
       const addMarker = (x, z, node) => { markers.push({ x, z, node }); overlay.append(node); };
+      const pinAt = (x, z) => (src.pois || []).some(p => p && typeof p.x === 'number' && Math.hypot(p.x - x, p.z - z) < 9);
       for (const zn of src.zones) {
         if (!ctx.i18n.has(`zone.${zn.id}.name`)) continue;
-        addMarker(zn.x, zn.z, h('div.mk.mk-zone' + (zn.id === ui.zone ? '.here' : ''), h('span', t(`zone.${zn.id}.name`))));
+        addMarker(zn.x, zn.z, h('div.mk.mk-zone' + (zn.id === ui.zone ? '.here' : '') + (pinAt(zn.x, zn.z) ? '.pinned' : ''), h('span', t(`zone.${zn.id}.name`))));
       }
       const poiFn = ctx.world?.poi;
       const seen = new Set();

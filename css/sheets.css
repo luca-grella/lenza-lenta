@@ -307,6 +307,9 @@
 .mk-zone span { left: 0; top: 0; transform: translate(-50%, -50%); white-space: nowrap; font-weight: 900; font-size: 13px; color: #4b3221; letter-spacing: .3px; font-style: italic;
   text-shadow: 0 0 3px #fff6e4, 0 0 6px #fff6e4, 0 0 2px #fff6e4, 0 0 10px #fff6e4; }
 .mk-zone.here span { color: var(--coral-d); }
+.mk-zone { z-index: 2; pointer-events: none; }   /* names read on top of the shop/POI icons; the goal and You stay above */
+.mk-goal, .mk-player { z-index: 3; }
+.mk-zone.pinned span { top: 17px; transform: translate(-50%, 0); }   /* a pin marks the zone centre: the name goes under it (the pin covered it) */
 .mk-poi .mk-ic { left: -15px; top: -15px; width: 30px; height: 30px; border-radius: 50%; background: #fff6e4; border: 2px solid var(--wood); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 0 var(--wood-dd); }
 .mk-poi .mk-ic .ic { width: 22px; height: 22px; }
 .mk-goal .mk-ic { left: -18px; top: -42px; width: 36px; height: 42px; animation: ui-bob 1.4s ease-in-out infinite; }

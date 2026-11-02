@@ -102,6 +102,7 @@ self.SW_ASSETS = [
  "src/ui/meter.js",
  "src/ui/notify.js",
  "src/ui/pwa.js",
+ "src/ui/savefile.js",
  "src/ui/sheets/aquarium.js",
  "src/ui/sheets/catch.js",
  "src/ui/sheets/common.js",

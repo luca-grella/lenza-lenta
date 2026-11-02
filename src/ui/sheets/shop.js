@@ -64,10 +64,10 @@ export default function shop(ui, data) {
       if (!afford) { ui.toast('ui.toast.not_enough', { icon: 'coin', kind: 'warn' }); ui.sfx('ui_close', { vol: 0.5 }); b.classList.remove('nope'); void b.offsetWidth; b.classList.add('nope'); return; }
       if (!needOk) { ui.toast('ui.toast.need_items', { items: needsText(ui, rec.needs) }, { icon: 'info', kind: 'warn' }); return; }
       const r = A.buy(rec.id, shopId);
-      if (r.ok) { ui.sfx('coin'); ui.toast('ui.toast.bought', { item: A.name(rec.id) }, { icon: itemIcon(rec), kind: 'good' }); spec.refresh(); }
-      else if (r.reason === 'coins' || r.reason === 'not_enough') ui.toast('ui.toast.not_enough', { icon: 'coin', kind: 'warn' });
-      else if (r.reason === 'needs' || r.reason === 'items') ui.toast('ui.toast.need_items', { items: needsText(ui, rec.needs) }, { icon: 'info', kind: 'warn' });
-      else ui.toast('ui.toast.unavailable', { icon: 'info' });
+      // Systems' shops.buy() already toasts the result ("Comprato: 10 × Mais" / no coins / needs…): a second toast here
+      // showed every purchase twice
+      if (r.ok) { ui.sfx('coin'); spec.refresh(); }
+      else if (!r.reason) ui.toast('ui.toast.unavailable', { icon: 'info' });
     });
     return b;
   }

@@ -275,7 +275,7 @@ export async function init(ctx) {
   });
   on('shop:sell', p => { if (p.total) ui.notify.toast('ui.toast.sold', { n: p.count ?? 1, total: p.total }, { icon: 'coin', kind: 'good' }); });
   on('aquarium:donate', p => ui.notify.toast('ui.toast.donated', { item: ui.A.name(p.speciesId) }, { icon: 'aquarium', kind: 'good' }));
-  on('cook:done', p => { const r = ui.A.item(p.recipeId); ui.notify.toast('ui.toast.cooked', { item: ui.A.name(r?.dish || p.recipeId) }, { icon: 'cook', kind: 'good' }); });
+  on('cook:done', p => { const r = ui.A.item(p.recipeId); ui.notify.toast(r?.effect?.cat ? 'ui.toast.cooked_cat' : 'ui.toast.cooked', { item: ui.A.name(r?.dish || p.recipeId) }, { icon: 'cook', kind: 'good' }); });
   on('buff:start', p => { if (p.stat) ui.notify.toast('ui.toast.buff', { buff: ctx.i18n.t(`buff.${p.stat}.name`), lasts: buffDuration(ui, p.hours).replace(/^./, c => c.toLowerCase()) }, { icon: 'sparkle', kind: 'good', ms: 5200 }); ui.hud.refresh(); });
   on('buff:end', p => { if (p.stat) ui.notify.toast('ui.toast.buff_end', { buff: ctx.i18n.t(`buff.${p.stat}.name`) }, { icon: 'sparkle' }); ui.hud.refresh(); });
   on('forage:pick', p => { if (p.itemId) ui.notify.toast('ui.toast.picked', { item: ui.A.name(p.itemId) }, { icon: ui.A.item(p.itemId) ? undefined : 'pick' }); });

@@ -125,11 +125,11 @@ export function createQuests(ctx, env) {
     if (step.npc === 'letter') offer(step);
   }
 
-  function offer(step) {
+  function offer(step, choices = null) {
     if (!step || Q().offered[step.id]) return null;
     Q().offered[step.id] = true;
     ctx.save.commit();
-    return say(step.npc, step.dialogKeys?.offer || [], { sfx: step.npc === 'letter' ? 'page_turn' : null });
+    return say(step.npc, step.dialogKeys?.offer || [], { sfx: step.npc === 'letter' ? 'page_turn' : null, ...(choices ? { choices } : {}) });
   }
 
   function complete(step, kind = 'story') {
@@ -219,9 +219,14 @@ export function createQuests(ctx, env) {
     if (queue.length > before) { await drain(); return; }   // a quest completed: its lines are the conversation
 
     const step = current();
-    if (step && step.npc === npcId && !Q().offered[step.id]) { await offer(step); return; }
+    // [Fix] a shopkeeper who gives you a task still offers the counter at the end ("Al mercato!": Gino's first
+    // talk used to end without "Vediamo cosa c'è", so you had to talk to him twice to sell)
+    const shopId = npcData.shop;
+    const shopChoices = () => (shopId && sys().shops?.isOpen?.(shopId) ? [{ id: 'shop', labelKey: 'sys.npc.see_shop' }, { id: 'bye', labelKey: 'sys.npc.bye' }] : null);
+    const toShop = choice => { if (choice === 'shop') sys().interact?.openShop?.(shopId); };
+    if (step && step.npc === npcId && !Q().offered[step.id]) { toShop(await offer(step, shopChoices())); return; }
     for (const sq of D().sideQuests || []) {
-      if (Q().side[sq.id] === 'active' && sq.npc === npcId && !Q().offered[sq.id]) { Q().offered[sq.id] = true; await say(npcId, sq.dialogKeys.offer); return; }
+      if (Q().side[sq.id] === 'active' && sq.npc === npcId && !Q().offered[sq.id]) { Q().offered[sq.id] = true; const ch = shopChoices(); toShop(await say(npcId, sq.dialogKeys.offer, ch ? { choices: ch } : {})); return; }
     }
     const daily = await sys().dailies?.talk?.(npcId);
     if (daily) return;
@@ -233,12 +238,9 @@ export function createQuests(ctx, env) {
     else if (flags().story_done && Math.random() < 0.3) lines.push(pick(k.legend));
     else lines.push(pick(Math.random() < 0.4 ? k.hello : k.chat));
     // shopkeepers offer their counter
-    const shopId = npcData.shop;
-    const shopOpen = shopId && sys().shops?.isOpen?.(shopId);
-    if (shopOpen) {
-      const choice = await say(npcId, lines.filter(Boolean), { choices: [{ id: 'shop', labelKey: 'sys.npc.see_shop' }, { id: 'bye', labelKey: 'sys.npc.bye' }] });
-      if (choice === 'shop') sys().interact?.openShop?.(shopId);
-    } else await say(npcId, lines.filter(Boolean));
+    const ch = shopChoices();
+    if (ch) toShop(await say(npcId, lines.filter(Boolean), { choices: ch }));
+    else await say(npcId, lines.filter(Boolean));
   }
   function drain() { return new Promise(r => { const chk = () => (queue.length || running ? setTimeout(chk, 120) : r()); chk(); }); }
 

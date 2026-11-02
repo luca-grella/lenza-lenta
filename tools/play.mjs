@@ -267,7 +267,7 @@ export async function createPlay(o = {}) {
   const target = o.url || `http://localhost:${port}/index.html?${params}`;
   const out = path.resolve(o.out || path.join(ROOT, 'tmp/play/run'));
   fs.mkdirSync(out, { recursive: true });
-  const speed = o.speed === undefined ? 1 : +o.speed;   // 1 = real time pacing; 0/Infinity = as fast as possible
+  let speed = o.speed === undefined ? 1 : +o.speed;   // 1 = real time pacing; 0/Infinity = as fast as possible
 
   const browser = await puppeteer.launch({
     executablePath: CHROME, headless: o.headful ? false : 'new',
@@ -347,6 +347,8 @@ export async function createPlay(o = {}) {
       }
       if (opts.render) await page.evaluate(() => window.__lenza.render());
     },
+    /** Change the pacing mid-run (e.g. 0 for a long walk, back to 1 before a timed UI check). */
+    setSpeed(v) { speed = +v; },
     /** Advance s seconds of game time. */
     wait(s) { return play.step(Math.round(s * FPS)); },
     /**

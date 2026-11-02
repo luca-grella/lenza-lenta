@@ -59,7 +59,7 @@ export default async function (play) {
 
 ## API (`play`)
 **Time**
-- `step(n, {render})` advance n frames (1/60 s each). `wait(seconds)`.
+- `step(n, {render})` advance n frames (1/60 s each). `wait(seconds)`. `setSpeed(v)` changes the pacing mid-run (0 for a long walk, back to 1 before a dialog/toast/title check; onboarding needs 1: the title fades in on wall-clock timers).
 - `waitFor(pred, {timeout=10, every=6, arg})` — steps until `pred(L, arg)` (evaluated **in the page**, `L` = `window.__lenza`) is truthy; returns the value or `null` after `timeout` game seconds. Example: `await play.waitFor(L => L.ctx.systems.fishing.state === 'bite', { timeout: 60 })`.
 
 **Touch** (all real `Input.dispatchTouchEvent`, multi-finger OK)
