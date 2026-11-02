@@ -99,3 +99,80 @@
   - systems/strings.js: 'sys.shop.closed' IT "Adesso {name} è chiusa. Torna di giorno!". New keys sys.act.greet_cat, sys.cat.sniff, sys.cat.far, ui.inv.give_cat (IT + EN).
   - ui/sheets/map.js: zone names try 15 spots around their centre and take the one with the least overlap with icons, the goal pin, the You arrow and other names. They are re-laid out on pan, zoom and when You moves.
   - sw.js CACHE r7 (sw-assets.js regenerated: same 150 files; every file the app can import is listed).
+- [r2-animation] (3 Nov) Catch mat + catch chores (src/actors/props/mat.js, src/actors/props/tools.js, rig/clips.js, player.js). For Gameplay:
+  - `ctx.player.mat` — the woven straw mat ("stuoia") with the catch lying on it as real fish models, plus a small water bucket at its near end.
+    Local frame: long axis along the facing it was placed with, slot 0 nearest the player, max 6 slots (a 7th fish pushes the oldest out).
+    `place(pos, facing, {rolled})` (pos = mat centre; omit pos → `spotFor()`), `spotFor(pos?, facing?)` → `{x, z, facing, side, blocked?}`
+    (0.7 m to the LEFT and 0.3 m ahead of the player; falls back to the right / level / behind when the spot is not walkable, wet or not level),
+    `addFish(speciesId, size, {from?: Vector3 world, fresh=true})` → slot (or -1), fresh fish give small flops for ~10 s, a fish longer
+    than 0.56 m is shown 0.56 m; `removeFish(slot|'all')`, `roll(dur=0.9)` → Promise (rolls up, clears the fish, hides), `unroll(dur)`,
+    `clear()` (instant), `takeFish(slot)` → `{inst, id, size, worldPos}` (frees the slot, you own `inst`), `flipFish(slot)`, `markClean(slot)`,
+    `slotWorld(slot)`, `bucketWorld()`, `nextSlot()`, `lastSlot()`, getters `active`, `fish` ([{slot, speciesId, size, clean}]), `count`,
+    `position`, `facing`, `unrolled`. The mat fits pitch/roll to the ground under its corners and sits 2 cm up with polygon offset (docks and
+    shores, no z-fighting). It is cleared automatically if the player ends up > 60 m away (boat, sleep teleport). Purely visual: the basket
+    in the inventory is still Systems'.
+  - Bus: `mat:place` {x, z, facing}, `mat:add` {slot, speciesId, size}, `mat:remove` {slot, speciesId, taken?}, `mat:clean` {slot, speciesId},
+    `mat:roll` {}, `mat:bucket` {speciesId}, `player:offer` {target}; clip events keep coming as `player:anim` {event, clip}.
+  - New clips (all through `player.play(name)` too; state 'cutscene' while they play, back to idle at the end; stick ignored meanwhile):
+    | clip | dur s | events (s) | fish |
+    |---|---|---|---|
+    | `unroll_mat` | 2.5 | place 0.65 (mat appears rolled and unrolls in 0.95 s) | — |
+    | `lay_on_mat` | 2.6 | release 1.08, pat 1.5, pat 1.82 | in the hands until 1.08, then on the mat |
+    | `clean_fish` | 5.2 | knife_on 0.5, stroke 1.2/1.7/2.2/3.2, flip 2.6, knife_off 3.6, rinse 4.05 | stays on the mat; markClean at the end |
+    | `put_in_bucket` | 2.3 | drop 0.92 (fish glides into the bucket, splash) | in the hands until 0.92 |
+    | `show_to_cat` | 2.9 → catch_hold | offer 1.05 | in the hands (given away at 1.05 with {give}) |
+    | `roll_mat` | 2.6 | roll 0.8 (mat rolls up in 1.1 s + 0.25 s shrink), tuck 2.0 | the fish models on the mat are cleared |
+    | `catch_proud` | 2.6 → catch_hold | show 0.75 | in the hands; faces the camera (close-up pose: fish by the face, chest out, happy squint, head tilt) |
+    The rod is hidden during the chores (clip `rod` channel) and comes back at the end; the knife (on the right hand prop bone,
+    `player.knife`) only shows between knife_on and knife_off. lay_on_mat / show_to_cat / put_in_bucket also play on the upper body when seated.
+  - `ctx.player.chore(name, opts)` → Promise `{ok, slot?, fish?}` does the whole thing (turns toward the mat slot / bucket / target with a slow
+    cozy turn, plays the clip, hands the fish over on the event, turns back to the previous facing unless `faceBack:false`):
+    `chore('unroll_mat', {pos?, facing?})`, `chore('lay_on_mat', {speciesId, size})` (the fish currently in `holdFish` goes onto the next slot;
+    resolves `{slot}`), `chore('clean_fish', {slot?})` (default the last fish), `chore('put_in_bucket', {slot?})` (held fish, or takes the one
+    in `slot` first), `chore('show_to_cat', {target: Vector3|Object3D, give?})`, `chore('roll_mat')`.
+    `ctx.player.cancelChore()` = tap to skip: the effect happens at once (fish on the mat, mat unrolled, cleaned, rolled...), the player goes back
+    to idle (catch_hold for show_to_cat). `player.choreName` = the running chore or null. Interrupting with another `play()` also applies the effect.
+- [r2-cinematics] (3 Nov) Short cozy camera shots. Two parts:
+  - `ctx.cameraRig.playShot(spec)` (src/core/camera.js) → Promise<'done'|'skipped'|'cancelled'|'timeout'|'dropped'>. A shot is blended OVER the normal camera, which keeps running underneath (mode, follow, focus, zoom untouched), so when its weight goes back to 0 the view is exactly the normal one, whatever happened meanwhile; the blend swings round the look point (spherical), never cuts through the scene; the camera stays ≥ 0.8 m above the ground and 0.6 m above the sea. spec: `id`, `target` (Object3D | {x,y,z} | () => either; default the followed object), `lookAt` (same; default target), `height` (y added to target, default 0.9), `lookHeight` (default height), `position` (explicit camera point) or an orbit: `yaw` (rig convention, camera at target + (sin yaw, ·, cos yaw)·dist; default the current view yaw) + `yawOffset`, `yawTo` | `yawSpeed` (rad/s), `dist` (9) → `distTo`, `pitch` (deg, 32) → `pitchTo`, `fov` → `fovTo`, `portraitScale` (distance multiplier on portrait screens, default up to 1.45), `duration` (s incl. blend-in, 2.5, ≤ 12), `blendIn` (0.9), `blendOut` (0.9), `ease` ('inOut'|'out'|'linear'), `skippable` (true), `maxWait` (s a queued shot may wait, 4), `maxT` (hard safety cap, default duration + blendOut + 3, never > 14 s; plus a wall-clock timer so the Promise always resolves). While a shot plays new ones queue (max 2, oldest dropped). Also `skipShot()` (tap: fast 0.45 s blend back, queue dropped), `cancelShots(reason, instant)`, getters `shotActive`, `shotInfo` {id, t, weight, ending, queued}. `snap()` (teleports) ends shots at once; `setMode('dialog')` ends them gently. The input yaw (`effectiveYaw`) stays the normal one during a shot. Bus: `camera:shot` {id, phase:'start'|'end', reason}. The legacy `setShot()`/'cinematic' mode is unchanged (note: quests.js resets 'cinematic' mode every frame when no dialogue is open, so use playShot).
+  - Director src/systems/cinematics.js (`ctx.cinematics`, also `ctx.systems.cinematics`; registered by one dynamic-import line in systems/index.js). Plays: every `fishing:catch` that is new / record / rare+ (slow 3.8 s orbit, 4.5 s for legendary, from the fisherman's front 3/4), other fish a gentle 2.8 s push-in at most every 150 s, junk never; waiting for a bite > 7 s: a slow side shot of fisherman + float at most every 4 min (a bite or strike ends any shot at once); the catch chores when their clip STARTS (`ctx.player.choreName`): `unroll_mat` (4.6 s, covers the lay too) / `lay_on_mat` (2.8 s, every 120 s, first one always), `clean_fish` (4.2 s on hands + mat, first always then every 150 s), `show_to_cat` (two-shot player + cat, always); `cat:feed` / `cat:pet` (two-shot, first of each always, then every 150 s), `cat:befriend` (3.8 s, always); `cook:done` (first time per recipe, then every 200 s); `zone:enter` with a `prev` the first time each zone is entered (4.2 s slow wide pan that keeps following the walking player; seen zones in `save.state.cinema.zones`); `sit:dusk` (or 'player:sit' on a non-bench seat at dusk as fallback): 4.5 s low wide shot from behind the shoulders out to the sea and the sky, once per game day. Fallbacks without the player's chores: `mat:place` / `mat:lay` / `fish:clean` / `cat:show`. Rules: nothing starts while a sheet / dialogue / intro is open (`ui.isOpen()` / `ui.busy`), nothing when `save.state.settings.cinematics === false` or URL `?nocine` (use it in other areas' harness runs if a shot gets in the way), at least 25 s between two rate-limited shots; any new touch (pointerdown, capture phase, NOT swallowed: the same tap still works for the game) or Space/Enter/Esc skips. Thin letterbox bars (z-index 15, under #ui, pointer-events none) while a shot is on screen and, for the first 3 shots ever, the hint `cine.skip` "Tocca per saltare / Tap to skip". API: `enabled`, `playing`, `trigger(kind, payload)` (kinds catch|wait|mat|clean|cook|zone|dusk, or 'cat' with {kind: show|feed|pet|befriend}), `play(kind, spec, {force, gap, gapAny, queue, evenIfOpen})` (custom shot through the same rules), `skip()`, `cancel()`, `resetLimits()`, `log` (last 20 {t, kind, id, result}), `gaps` (= exported `CINE_GAPS`), `debugIgnoreUI` (tests only). Save sub-object `state.cinema` {zones, firsts, recipes, count}. Strings `cine.skip`, `cine.setting`, `cine.setting.desc` (it + en).
+- [r2-gameplay] (3 Nov) Catch mat, cleaning, bucket, show to Biscotto, sit at dusk, Settings › Primi piani. Verified by touch (tmp/r2-gameplay/loop.mjs, loop2.mjs; 390x844 and 844x390).
+  - New system `ctx.systems.mat` (src/systems/mat.js). Fish on the mat ARE basket entries flagged `mat: true` (capacity, selling, cooking unchanged);
+    `save.state.mat` = {open, x, y, z, facing, day}. After "Tieni" (fishing.resolveCatch('keep'), not on the boat, fish only) `mat.layCatch(c, mesh)`
+    unrolls the mat at the first catch of a session (`ctx.player.chore('unroll_mat', {pos: player.mat.spotFor()})`) and queues
+    `chore('lay_on_mat', {speciesId, size})` with the fish the player holds (fishing leaves it in the hands: `layCatch` returns true).
+    Walking > `ROLL_DIST` (6 m) from the mat, boarding the boat or sleeping rolls it up (`player.mat.roll()`): the flags are cleared = the fish are in
+    the basket, toast `sys.mat.rolled`. While a chore runs `mat.busy` is true and the action button says "Salta / Skip" (`interact.current.id
+    'mat:skip'`, runs `mat.skip()` = `player.cancelChore()`); the stick skips too. Without `ctx.player.chore` (sandboxes) a fallback straw mat and
+    'crouch_pick' are used.
+  - API: `open`, `position`, `facing`, `busy`, `chore`, `entries()`, `unroll()`, `rollUp(reason)`, `layCatch(c, mesh)`, `cleanable()`, `bucketable()`,
+    `catNear()`, `pick(list, promptKey)` (choice box "Quale pesce…?" when several species), `clean(entry?)`, `bucket(entry?)`, `showCat(entry?)`,
+    `candidates(p)`, `skip()`; exports `ROLL_DIST`, `FILLET_MULT` (1.6).
+  - interact.js offers, within 1.9 m of the open mat, kind 'mat' (beats Cast when faced within 2.6 m, like a counter; otherwise on the side
+    button, before seats): `mat:cat` "Mostra a Biscotto / Show Biscuit" (cat within 6 m, `cat.canShow()`), `mat:bucket` "Metti nel secchio / Put in
+    the bucket" (owns `bucket`, a species not in the aquarium yet), `mat:clean` "Pulisci il pesce / Clean the fish". Big + side button show the best two.
+  - Clean: `chore('clean_fish', {slot})`, then the entry gets `fillet: true` and `price × 1.6`; `save.state.stats.cleaned`; Pescheria/Backpack show
+    "Filetto di X / X fillet". Fillets can't be donated. Recipes: need `{fillet: true, n}` (only fillets; may be combined with id/ids/habitat),
+    `{..., whole: true}` (never a fillet), recipe flag `prefersFillet` (a fillet is used first and the dish comes out as 2 portions, toast
+    `sys.cook.fillet_bonus`). New recipes rec_fillet_lemon (known), rec_fillet_potato, rec_fish_rolls, rec_fillet_pasta (Trattoria cards);
+    grilled fish / fish soup / beccafico prefer fillets, salt-crust bream wants a whole fish. `cook:done` payload adds {portions, fillet}.
+  - Bucket: item `bucket` (kind 'tool', 30 coins, Bottega › Attrezzi, owned once; tip `ui.tip.bucket` when bought; Backpack › Gear › Attrezzi).
+    `mat.bucket()` plays `chore('put_in_bucket', {slot, speciesId})` and calls `aquarium.donate(id, {entry, via: 'bucket'})`.
+    `aquarium.donate(speciesId, {entry?, via?})`; 'aquarium:donate' payload adds `via` ('counter' | 'bucket').
+  - Show to Biscotto: the mat fish goes into the hands (`player.mat.takeFish` + `holdFish`), `chore('show_to_cat', {target: cat object})`, then
+    back on the mat. `systems.cat.show(speciesId, at)` → {gained, friend}: the cat sits by the fish facing it (calls `creatures.cat.reactShow(at)`
+    if Creatures adds it, else `sitNear`), meows; friendship +1 once per game day (counts toward befriending). `cat.canShow()` (≥ 30 game min apart).
+  - Bus (all [r2-gameplay]): `mat:lay` {speciesId, size, count, first, x, y, z}; `fish:clean` {speciesId, size, price, before, x, y, z};
+    `cat:show` {speciesId, size, gained, friend, x, y, z}; `sit:dusk` {id, day, x, y, z, facing} once per game day when seated on a dock
+    edge / dock-end seat (kind 'edge') at dusk; `settings:change` {key: 'cinematics', value}. `mat:place` / `mat:roll` / `mat:bucket` come from the
+    Animation prop/chores (Systems emits them itself only in the fallback, same names).
+  - Settings › "Primi piani / Close-ups" switch (`.set-cinematics`) → `save.state.settings.cinematics` (default true, set by ensureState). The
+    cinematics strings `cine.setting*` are not used by the UI (it has `ui.set.cinematics*`). Switch rows no longer wrap (css `.set-row:has(> .switch)`).
+  - UI: Backpack basket cells show "sulla stuoia" and fillets (`.bcell.fillet`); Journal header shows "Pesci puliti: n"; tips `ui.tip.mat`
+    (first unroll), `ui.tip.fillet` (first fillet), `ui.tip.bucket`; icons `camera`, bucket item icon. New strings in systems/strings.js,
+    ui/strings.js, i18n/{it,en}.js (item.bucket.*, recipe.rec_fillet_*/rec_fish_rolls.*), IT + EN.
+  - [r2-animation] lay_on_mat / clean_fish chores glide the player (0.5 s, through world.resolveMove) beside the target slot so the hands land
+    on the right fish, and glide back to the fishing spot at the end (`stepBack:false` to stay). Crabs, rays, octopus, turtles and junk lie flat
+    on the mat (fish lie on their side). Mat helpers: `mat.toWorld(lx, lz)`, `mat.toLocal(p)`, `mat.slotZ(i)`.
+    Verified by touch (tmp/r2-animation/chores.mjs, play.mjs 390x844 + 844x390): stick ignored during a chore, stick walks again right after,
+    camera back to the normal mode, knife hidden, skip via cancelChore() applies the effect at once.
+- [r2-cinematics] playShot spec also takes `holdWhile: () => bool` (stays at full weight past `duration` while true; the hard cap is then 20 s) and `takeOver: true` (if a shot is on screen it is ended with 'cancelled' and the new one glides on from the current framing, no trip back out). The catch close-up holds behind the catch card (`ui.currentSheet === 'catch'`, it covers most of a portrait screen) and the unroll/lay, clean and show-to-cat shots take over from it, so Keep → the camera stays close and follows the fish onto the mat. A tap on an open panel/dialogue (e.g. Tieni) is for the panel and does not skip. The "Promise always resolves" safety is a 2-minute no-progress watchdog (game time frozen, e.g. a hidden tab), the dt-based `maxT` is the real cap.

@@ -368,12 +368,14 @@ export function createFishing(ctx, env, fx) {
     anim('reel', { loop: true });
   }
 
+  let handOff = false;   // [r2-gameplay] the kept fish stays in the hands for the mat chore
   function endSession(silent = false) {
     releaseCreatureFish();
     tackle.hideAll();
     env.meter('reel', null); env.meter('cast', null);
     if (fishMesh) { fishMesh.object.parent?.remove(fishMesh.object); fishMesh = null; }
-    try { env.player().holdFish?.(null); } catch { /* ignore */ }
+    try { if (!handOff) env.player().holdFish?.(null); } catch { /* ignore */ }
+    handOff = false;
     ctx.cameraRig?.setFocus?.(null);
     ctx.post?.setFocus?.(null);
     sys().boat?.setFishing?.(false);
@@ -439,6 +441,9 @@ export function createFishing(ctx, env, fx) {
       if (choice === 'keep') {
         if (c.junk && it?.sellable === false) inv?.add?.(c.speciesId, 1);
         else if (!inv?.addCatch?.({ id: c.speciesId, size: c.size, price: c.price })) { env.toast('sys.fish.basket_full'); choice = 'release'; }
+        // [r2-gameplay] the fisherman lays the fish on the mat beside him (systems/mat.js); the basket entry gets mat:true
+        // (true = the player module's 'lay_on_mat' chore puts the fish we hold down: leave it in the hands)
+        else { try { if (sys().mat?.layCatch?.(c, fishMesh)) { handOff = true; fishMesh = null; } } catch (e) { console.warn('[fishing] mat.layCatch', e); } }
         if (choice === 'keep' && c.speciesId === 'junk_duck' && !inv?.count?.('decor_duck') && !S().home?.decorOwned?.decor_duck) inv?.add?.('decor_duck', 1);
       }
       if (choice === 'cat') {

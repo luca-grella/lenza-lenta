@@ -209,10 +209,12 @@ export function createAdapter(ctx) {
       const basket = api.basket().filter(f => api.item(f.id)?.kind === 'fish');
       return (r.needs || []).map(nd => {
         let have = 0, label = '';
-        if (nd.fish === 'any') { have = basket.length; label = t('ui.cook.any_fish'); }
-        else if (nd.habitat) { have = basket.filter(f => api.item(f.id)?.habitats?.includes(nd.habitat)).length; label = t('ui.cook.habitat_fish', { what: t('habitat.' + nd.habitat) }); }
-        else if (nd.ids) { have = nd.ids.reduce((s, id) => s + basket.filter(f => f.id === id).length + (api.item(id)?.kind === 'fish' ? 0 : api.count(id)), 0); label = nd.ids.map(api.name).join(' / '); }
-        else if (nd.id) { const it = api.item(nd.id); have = it?.kind === 'fish' ? basket.filter(f => f.id === nd.id).length : api.count(nd.id); label = api.name(nd.id); }
+        const pool = nd.fillet ? basket.filter(f => f.fillet) : nd.whole ? basket.filter(f => !f.fillet) : basket;   // [r2-gameplay] fillets
+        if (nd.fillet && !nd.id && !nd.ids && !nd.habitat) { have = pool.length; label = t('ui.cook.fillet'); }
+        else if (nd.fish === 'any') { have = basket.length; label = t('ui.cook.any_fish'); }
+        else if (nd.habitat) { have = pool.filter(f => api.item(f.id)?.habitats?.includes(nd.habitat)).length; label = t('ui.cook.habitat_fish', { what: t('habitat.' + nd.habitat) }); }
+        else if (nd.ids) { have = nd.ids.reduce((s, id) => s + pool.filter(f => f.id === id).length + (api.item(id)?.kind === 'fish' ? 0 : api.count(id)), 0); label = nd.ids.map(api.name).join(' / '); }
+        else if (nd.id) { const it = api.item(nd.id); have = it?.kind === 'fish' ? pool.filter(f => f.id === nd.id).length : api.count(nd.id); label = api.name(nd.id); }
         return { label, have, need: nd.n || 1, id: nd.id || null };
       });
     },

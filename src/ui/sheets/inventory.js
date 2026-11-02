@@ -41,9 +41,10 @@ export default function inventory(ui, data) {
         const f = A.item(e.id) || {};
         const rec = A.journal()[e.id];
         const isRecord = rec?.best && e.size && Math.abs(rec.best - e.size) < 0.05;
-        return h('div.bcell.paper.flat', { style: { '--rc': rarityColor(ui, f.rarity || 'common') } },
+        return h('div.bcell.paper.flat' + (e.fillet ? '.fillet' : ''), { style: { '--rc': rarityColor(ui, f.rarity || 'common') } },
           h('span.bcell-pic', lazyImg(ui, e.id, 72)),
-          h('span.bcell-name', A.name(e.id)),
+          h('span.bcell-name', e.fillet ? t('ui.inv.fillet', { name: A.name(e.id) }) : A.name(e.id)),
+          e.mat ? h('span.bcell-mat.muted.small', t('ui.inv.on_mat')) : null,
           h('span.bcell-meta', e.size ? h('span.muted.small', t('ui.journal.cm', { n: Math.round(e.size) })) : null, price(A.priceOf(e))),
           isRecord ? h('span.bcell-rec', { html: icon('star') }) : null);
       }));
@@ -75,6 +76,9 @@ export default function inventory(ui, data) {
       const best = bk.sort((a, b) => b.capacity - a.capacity)[0];
       if (best) grp(t('ui.inv.basket_gear'), 'basket', [best], 'basket');
       if (D.lantern && A.owned(D.lantern.id)) grp(t('ui.inv.lantern'), 'sparkle', [D.lantern], 'lantern');
+      // [r2-gameplay] the bucket (Bottega › Attrezzi)
+      const bucket = A.item('bucket');
+      if (bucket && A.owned('bucket')) { out.push(section(t('ui.inv.tools'), 'donate')); out.push(row(h('span.thing-ic', { html: itemIcon(bucket) }), t(bucket.nameKey), t(bucket.descKey), null, '.gear')); }
       return out.length ? out : [empty(t('ui.inv.items_empty'))];
     },
     items() {

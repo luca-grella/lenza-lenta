@@ -14,7 +14,7 @@ const shops = {
       { section: 'reels', items: ['reel_smooth', 'reel_pro'] },
       { section: 'lines', items: ['line_nylon', 'line_braided'] },
       { section: 'baskets', items: ['basket_medium', 'basket_large', 'basket_grand'] },
-      { section: 'tools', items: ['lantern'] },
+      { section: 'tools', items: ['bucket', 'lantern'] },
       { section: 'style', items: ['hat_sky', 'hat_mint', 'hat_sunset', 'hat_night', 'collar_blue', 'collar_flower'] },
     ],
   },
@@ -40,7 +40,7 @@ const shops = {
       { section: 'pantry', items: ['ing_pasta', 'ing_tomato', 'ing_potato', 'ing_flour'] },
       { section: 'recipes', items: ['rec_mint_tea', 'rec_harbor_fry', 'rec_mushroom_soup', 'rec_berry_tart', 'rec_trout_fennel',
         'rec_carp_porcini', 'rec_beccafico', 'rec_spaghetti_clams', 'rec_octopus_potatoes', 'rec_ink_pasta', 'rec_coconut_fish',
-        'rec_salt_bream', 'rec_tuna_tagliata'] },
+        'rec_salt_bream', 'rec_tuna_tagliata', 'rec_fillet_potato', 'rec_fish_rolls', 'rec_fillet_pasta'] },
     ],
   },
   aquarium: {

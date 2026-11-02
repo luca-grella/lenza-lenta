@@ -151,6 +151,41 @@ export function createCat(ctx, env) {
       env.toast(v ? 'sys.cat.follow' : 'sys.cat.stay');
       return true;
     },
+    /** [r2-gameplay] The mat's "Mostra a Biscotto" is offered (the cat is around and was not just shown a fish). */
+    canShow() { return !!creature()?.object && ctx.time.day * 24 + ctx.time.hours - (C().showAt ?? -99) > 0.5; },
+    /**
+     * [r2-gameplay] Show a fish on the mat to the cat: it comes over, sits by the fish facing it and meows; friendship +1
+     * once per game day (a shy cat gets closer to befriending). `at` = the fish's world position. → {gained, friend}
+     */
+    show(speciesId, at) {
+      const c = C(), cr = creature();
+      c.showAt = ctx.time.day * 24 + ctx.time.hours;
+      let gained = 0;
+      if (c.showDay !== ctx.time.day) { c.showDay = ctx.time.day; c.friend = (c.friend || 0) + 1; gained = 1; }
+      if (cr) {
+        try {
+          if (typeof cr.reactShow === 'function') cr.reactShow(at);      // Creatures may add a dedicated reaction
+          else if (at) {
+            // a dry, walkable spot 0.5 m from the fish: beyond it, beside it, else on the player's side (a mat on a dock edge)
+            const p = env.playerPos(), dx = at.x - p.x, dz = at.z - p.z, d = Math.hypot(dx, dz) || 1, ux = dx / d, uz = dz / d;
+            const w = ctx.world, gy = w?.groundY ? w.groundY(at.x, at.z) : at.y;
+            const ok = (x, z) => (!w?.walkable || w.walkable(x, z)) && (!w?.groundY || Math.abs(w.groundY(x, z) - gy) < 0.3);
+            const tries = [[ux, uz], [-uz, ux], [uz, -ux], [-ux * 0.6 - uz * 0.8, -uz * 0.6 + ux * 0.8], [-ux * 0.6 + uz * 0.8, -uz * 0.6 - ux * 0.8]];
+            const t = tries.find(([a, b]) => ok(at.x + a * 0.5, at.z + b * 0.5));
+            if (t) {
+              const sx = at.x + t[0] * 0.5, sz = at.z + t[1] * 0.5;
+              cr.sitNear?.({ x: sx, y: gy, z: sz }, Math.atan2(at.x - sx, at.z - sz));
+            }
+          }
+        } catch (e) { console.warn('[cat] show', e); }
+      }
+      env.sfx('cat_meow', { pitch: 1.3, vol: 0.6, delay: 0.6, pos: catPos() });
+      env.sfx('cat_meow', { pitch: 1.1, vol: 0.45, delay: 1.5, pos: catPos() });
+      if (!c.befriended && c.friend >= need()) befriend();
+      else env.toast(gained ? 'sys.cat.show_happy' : 'sys.cat.show_again');
+      ctx.save.commit();
+      return { gained, friend: c.friend };
+    },
     update() {},
   };
 

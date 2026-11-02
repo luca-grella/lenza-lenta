@@ -115,7 +115,7 @@ export default function shop(ui, data) {
         onTap(sellOne, () => doSell([i]));
         return h('div.row-card.paper.flat.sell-row', { style: { '--rc': rarityColor(ui, f.rarity || 'common') } },
           h('span.rc-pic', lazyImg(ui, e.id, 56)),
-          h('span.rc-main', h('b', A.name(e.id)), h('span.muted.small', (e.size ? t('ui.journal.cm', { n: Math.round(e.size) }) + ' · ' : '') + t('rarity.' + (f.rarity || 'common')))),
+          h('span.rc-main', h('b', e.fillet ? t('ui.inv.fillet', { name: A.name(e.id) }) : A.name(e.id)), h('span.muted.small', (e.size ? t('ui.journal.cm', { n: Math.round(e.size) }) + ' · ' : '') + t('rarity.' + (f.rarity || 'common')))),
           f.sellable === false ? null : sellOne);
       });
       const all = h('button.btn.gold.big.sell-all', { type: 'button' }, h('span', { html: icon('coin') }), t('ui.shop.sell_all'), h('b.sell-total', fmt(total)));

@@ -27,7 +27,8 @@ export default function journal(ui, data) {
       const head = h('div.j-head',
         h('div.j-count', h('b', String(allKnown)), ' / ' + all),
         h('div.j-countbar', h('i', { style: { width: (all ? allKnown / all * 100 : 0) + '%' } })),
-        h('div.j-sub', spec.tab === 'all' ? t('ui.journal.count', { n: allKnown, total: all }) : `${known} / ${list.length}`));
+        h('div.j-sub', spec.tab === 'all' ? t('ui.journal.count', { n: allKnown, total: all }) : `${known} / ${list.length}`),
+        (ctx.save.state.stats?.cleaned | 0) > 0 ? h('div.j-sub.muted.small', t('ui.journal.cleaned', { n: ctx.save.state.stats.cleaned | 0 })) : null);   // [r2-gameplay]
       const grid = h('div.j-grid');
       for (const f of list) {
         const e = J[f.id];

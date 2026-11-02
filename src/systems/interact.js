@@ -146,6 +146,8 @@ export function createInteract(ctx, env) {
         else out.push({ id: 'cat', kind: 'pet', d, at: cp, priority: 2.2, icon: 'pet', labelKey: 'sys.act.pet', run: () => cat.pet() });
       }
     }
+    // [r2-gameplay] the fishing mat: clean the fish, bucket for the aquarium, show it to Biscotto (systems/mat.js)
+    try { for (const e of sys().mat?.candidates?.(p) || []) out.push(e); } catch (e) { console.warn('[interact] mat', e); }
     // World-registered interactables
     try {
       const w = ctx.world?.interactables?.nearest?.(p, { filter: it => !WORLD_SKIP.has(it.kind) && it.id !== 'cat' });
@@ -169,11 +171,11 @@ export function createInteract(ctx, env) {
   /** Score = priority, minus distance, minus how far you'd have to turn to face it. Cast competes with CAST_SCORE. */
   const CAST_SCORE = 2.6;
   const SOFT = new Set(['sit', 'talk', 'pet', 'inspect', 'use']);
-  const PLACE = new Set(['shop', 'sell', 'donate', 'sleep', 'cook', 'chest']);
+  const PLACE = new Set(['shop', 'sell', 'donate', 'sleep', 'cook', 'chest', 'mat']);
   /** World interactables Systems handles itself (seats, the cat). */
   const WORLD_SKIP = new Set(['sit', 'pet']);
   /** Main actions that may show a runner-up on the side button (besides Cast). */
-  const SIDE_FOR = new Set(['talk', 'pet', 'feed_cat', 'sit']);
+  const SIDE_FOR = new Set(['talk', 'pet', 'feed_cat', 'sit', 'mat']);
   function choose(list, p, castOK) {
     const face = env.playerFacing();
     let best = null, bs = castOK ? CAST_SCORE : -Infinity;
@@ -281,6 +283,12 @@ export function createInteract(ctx, env) {
       const fishing = sys().fishing;
       secondary = null;
       if (env.busy.sleep || env.uiOpen()) { current = null; return; }
+      // [r2-gameplay] a mat chore is playing (lay, clean, bucket, show): the button skips it (the stick does too)
+      if (sys().mat?.busy) {
+        current = label({ id: 'mat:skip', kind: 'skip', icon: 'close', labelKey: 'sys.act.skip', run: () => sys().mat.skip() });
+        if (cooldown <= 0 && (ctx.input.action.down || ctx.input.pressed('interact'))) { cooldown = 0.35; current.run(); }
+        return;
+      }
       if (fishing?.busy) { current = label({ id: 'fishing', ...fishing.actionInfo() }); if (!current.labelKey) current.label = ''; return; }
       const input = ctx.input;
       // sitting: the stick stands up; on a bench the button too, on an edge the button casts (fishing reads it)
@@ -289,6 +297,12 @@ export function createInteract(ctx, env) {
         if (sitting.seated && pl.seated === null) { sitting = null; }   // stood up by something else (sleep, boat, teleport)
         else {
           const down = sitting.seated || (pl.seated && pl.seated === sitting.kind);   // on the seat (sit_down may still be playing)
+          // [r2-gameplay] seated on a dock edge at dusk: once per game day 'sit:dusk' (systems/cinematics.js may frame the sunset)
+          if (sitting.seated && sitting.kind === 'edge' && ctx.time.phase === 'dusk' && S().stats && S().stats.sitDuskDay !== ctx.time.day) {
+            S().stats.sitDuskDay = ctx.time.day;
+            const pp = env.playerPos();
+            ctx.bus.emit('sit:dusk', { id: sitting.q.id, day: ctx.time.day, x: pp.x, y: pp.y, z: pp.z, facing: env.playerFacing() });
+          }
           const castHere = sitting.kind === 'edge' && down && !!fishing?.aim && !fishing.aim.reason;
           current = castHere
             ? label({ id: 'cast', kind: 'cast', icon: 'cast', hold: true, labelKey: 'sys.act.cast', run: () => {} })
@@ -311,8 +325,12 @@ export function createInteract(ctx, env) {
       // small side button, so facing the sea never hides who/what you walked up to
       let side = null;
       if (current?.kind === 'cast') {
-        side = list.filter(e => e.kind === 'sit').sort((a, b) => a.d - b.d)[0]
+        // the mat you just laid a fish on comes first (clean it / show it), then a seat
+        side = list.filter(e => e.kind === 'mat').sort((a, b) => b.priority - a.priority)[0]
+          || list.filter(e => e.kind === 'sit').sort((a, b) => a.d - b.d)[0]
           || list.filter(e => e !== pick).sort((a, b) => (b.priority * 2 - b.d) - (a.priority * 2 - a.d))[0] || null;
+      } else if (current?.kind === 'mat') {
+        side = list.filter(e => e.kind === 'mat' && e.id !== current.id).sort((a, b) => b.priority - a.priority)[0] || null;
       } else if (current && SIDE_FOR.has(current.kind)) {
         // two villagers side by side (Rosa strolling with Marta at dusk), the cat next to Nonna Pina, a free seat next
         // to Ettore: the runner-up goes on the side button (another villager first, then the cat, then a bench seat)

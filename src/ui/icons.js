@@ -52,6 +52,7 @@ const ICONS = {
   globe: () => svg(`<circle cx="16" cy="16" r="11.5" fill="#7fd0e0" ${SW}/><path d="M9 9.5c3 1 3 4 6 4.5s2 4 0 5.5-1 4 1 5M19 6c-1 2 1 3.5 3 3.5s3.5 2 2.5 4" fill="none" stroke="#3f8f5a" stroke-width="2" stroke-linecap="round"/><path d="M8 11.5c2 .4 3 2.2 2.6 4.2l-1 2.6-2.6-2z" fill="#6fb548"/><path d="M19.5 15.5c2.2-.6 4.4.6 4.5 2.6-.2 2.4-2.4 4.2-4 5.2-.6-1.6-.4-3.4-1.2-4.6z" fill="#6fb548"/>`),
   music: () => svg(`<path d="M12 23.5V8l13-3v15.5" fill="none" stroke="${O}" stroke-width="2.4" stroke-linejoin="round"/><ellipse cx="9" cy="23.5" rx="4" ry="3.2" fill="#3fb8b0" ${SW}/><ellipse cx="22" cy="20.5" rx="4" ry="3.2" fill="#3fb8b0" ${SW}/><path d="M12 12l13-3" stroke="${O}" stroke-width="2.4"/>`),
   sfx: () => svg(`<path d="M5 12.5h5l7-6v19l-7-6H5z" fill="#f2c14e" ${SW}/><path d="M21 11.5c2 2.5 2 6.5 0 9M24.5 8.5c4 4 4 11 0 15" fill="none" stroke="${O}" stroke-width="2.2" stroke-linecap="round"/>`),
+  camera: () => svg(`<rect x="4" y="10" width="20" height="14" rx="3" fill="#fff6e4" ${SW}/><path d="M24 14l5-3v12l-5-3z" fill="#e8604a" ${SW}/><circle cx="14" cy="17" r="3.6" fill="#3fd0c9" ${SW}/>`),   // [r2-gameplay] Settings › Close-ups
   vibrate: () => svg(`<rect x="10" y="5" width="12" height="22" rx="3" fill="#fff6e4" ${SW}/><path d="M14 23.5h4" ${SW}/><path d="M6 11v10M3 13.5v5M26 11v10M29 13.5v5" stroke="#e8604a" stroke-width="2.2" stroke-linecap="round"/>`),
   quality: () => svg(`<path d="M8 6h16l5 7-13 14L3 13z" fill="#9fe3ea" ${SW}/><path d="M3 13h26M12 6l-2 7 6 14 6-14-2-7" fill="none" stroke="${O}" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 9l-1.5 3" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`),
   book: () => svg(`<path d="M4 7.5c4-2 8-2 12 1 4-3 8-3 12-1V26c-4-2-8-2-12 1-4-3-8-3-12-1z" fill="#fff6e4" ${SW}/><path d="M16 8.5V27" ${SW}/><path d="M7 12c2-.8 4-.8 6 0M7 16c2-.8 4-.8 6 0M19 12c2-.8 4-.8 6 0M19 16c2-.8 4-.8 6 0" stroke="#c9a77a" stroke-width="1.6" stroke-linecap="round"/>`),
@@ -237,6 +238,13 @@ function collarSvg(r) {
   const c = r.color || '#d84a3a', b = r.bell || '#f5c542';
   return `<ellipse cx="16" cy="14" rx="11" ry="6.5" fill="none" stroke="${O}" stroke-width="6"/><ellipse cx="16" cy="14" rx="11" ry="6.5" fill="none" stroke="${c}" stroke-width="3.6"/><circle cx="16" cy="23" r="4" fill="${b}" ${SW}/><path d="M14 24h4" stroke="${O}" stroke-width="1.4"/>` + (r.id === 'collar_flower' ? `<circle cx="7" cy="12" r="2.2" fill="#fff" ${SW}/><circle cx="25" cy="12" r="2.2" fill="#fff" ${SW}/>` : '');
 }
+function bucketSvg(m) {
+  const c = m.color || '#5a8ab0', a = m.accent || '#c8c8c8';
+  return `<path d="M9 7Q16 0 23 7" fill="none" stroke="${O}" stroke-width="2"/>`
+    + `<path d="M6 9L9 27Q16 30 23 27L26 9Z" fill="${c}" ${SW}/>`
+    + `<ellipse cx="16" cy="9" rx="10" ry="3" fill="#7fd0e0" ${SW}/>`
+    + `<path d="M8 17Q16 20 24 17" fill="none" stroke="${a}" stroke-width="1.4" opacity=".8"/>`;
+}
 function lanternSvg(m) {
   const c = m?.color || '#b8623b', g = m?.glass || '#ffe7a0';
   return `<circle cx="16" cy="18" r="12" fill="${m?.light || '#ffc870'}" opacity=".3"/><path d="M12 5a4 4 0 0 1 8 0" fill="none" stroke="${O}" stroke-width="2.2"/><rect x="10" y="7" width="12" height="4" rx="1" fill="${c}" ${SW}/><path d="M11 11h10l1 12H10z" fill="${g}" ${SW}/><path d="M14 13.5v7M18 13.5v7" stroke="${c}" stroke-width="1.6"/><rect x="9" y="23" width="14" height="4" rx="1" fill="${c}" ${SW}/>`;
@@ -277,6 +285,7 @@ export function itemIcon(rec) {
       case 'line': inner = lineSvg(m); break;
       case 'basket': inner = basketSvg(rec); break;
       case 'lantern': inner = lanternSvg(m); break;
+      case 'tool': inner = bucketSvg(m); break;   // [r2-gameplay] the bucket
       case 'boat': inner = boatSvg(rec); break;
       case 'cosmetic': inner = rec.slot === 'cat_collar' ? collarSvg(rec) : hatSvg(rec); break;
       case 'ingredient': inner = (ING[m.shape] || ING.herb)(m.color || '#6fb548', m.accent || '#4b8a34'); break;

@@ -35,18 +35,21 @@ export function createAquarium(ctx, env) {
     has(id) { return !!A()[id]; },
     canDonate(id) {
       const sp = D().get?.(id);
-      return !!sp && sp.kind === 'fish' && !A()[id] && (S().basket || []).some(e => e.id === id);
+      return !!sp && sp.kind === 'fish' && !A()[id] && (S().basket || []).some(e => e.id === id && !e.fillet);   // a fillet can't swim
     },
     /** Species in the basket that are not in the aquarium yet. */
-    donatable() { return [...new Set((S().basket || []).map(e => e.id))].filter(id => aquarium.canDonate(id)); },
-    donate(speciesId) {
+    donatable() { return [...new Set((S().basket || []).filter(e => !e.fillet).map(e => e.id))].filter(id => aquarium.canDonate(id)); },
+    /** opts: {entry} = that basket entry (the mat's bucket), {via: 'bucket'|'counter'}. */
+    donate(speciesId, opts = {}) {
       if (!aquarium.canDonate(speciesId)) return { ok: false, reason: A()[speciesId] ? 'have' : 'missing' };
-      sys().inventory?.takeFromBasket?.(e => e.id === speciesId, 1, 'biggest');
+      const b = S().basket || [], at = opts.entry ? b.indexOf(opts.entry) : -1;
+      if (at >= 0 && !opts.entry.fillet) sys().inventory?.removeBasketAt?.(at);
+      else sys().inventory?.takeFromBasket?.(e => e.id === speciesId && !e.fillet, 1, 'biggest');
       A()[speciesId] = true;
       ctx.save.commit();
       env.sfx('quest_done', { vol: 0.5, pitch: 1.2 });
       env.toastFB('sys.aquarium.donated', { name: env.itemName(speciesId) });
-      ctx.bus.emit('aquarium:donate', { speciesId, count: aquarium.count });
+      ctx.bus.emit('aquarium:donate', { speciesId, count: aquarium.count, via: opts.via || 'counter' });
       checkMilestones();
       return { ok: true };
     },

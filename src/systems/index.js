@@ -1,6 +1,6 @@
 // Gameplay systems entry point: init(ctx) → ctx.systems
 //   { fishing, inventory, economy, shops, quests, dailies, aquarium, cooking, buffs, foraging, boat, home, journal, cat, interact,
-//     env, fx }
+//     env, fx, mat }
 // One loop callback at ORDER.systems (10) updates them in a fixed order. Every system reads ctx.save.state fresh.
 import { createEnv } from './env.js';
 import { createFx } from './fx.js';
@@ -19,6 +19,7 @@ import { createForaging } from './foraging.js';
 import { createBoat } from './boat.js';
 import { createFishing } from './fishing.js';
 import { createInteract } from './interact.js';
+import { createMat } from './mat.js';
 import { it, en } from './strings.js';
 
 /** Make sure the save has every sub-object the systems own (old saves, resets, imports). */
@@ -40,6 +41,8 @@ function ensureState(s) {
   s.cat ||= {}; s.cat.friend ??= 0;
   s.forage ||= {}; s.forage.picked ||= {}; s.forage.once ||= {};
   s.equip ||= {}; s.equip.bait ||= 'bait_worm';
+  s.settings ||= {}; s.settings.cinematics ??= true;   // [r2-gameplay] Settings › Primi piani (read by systems/cinematics.js)
+  s.mat ||= { open: false };
   if (typeof s.coins !== 'number') s.coins = 0;
   return s;
 }
@@ -66,9 +69,11 @@ export async function init(ctx) {
   sys.foraging = createForaging(ctx, env);
   sys.boat = createBoat(ctx, env, fx);
   sys.fishing = createFishing(ctx, env, fx);
+  sys.mat = createMat(ctx, env);
   sys.interact = createInteract(ctx, env);
+  import('./cinematics.js').then(m => { sys.cinematics = m.init(ctx); }).catch(e => console.warn('[systems] cinematics failed', e)); // [r2-cinematics]
 
-  const order = [sys.buffs, sys.inventory, sys.interact, sys.fishing, sys.boat, sys.foraging, sys.cat, sys.home, sys.dailies, sys.quests];
+  const order = [sys.buffs, sys.inventory, sys.interact, sys.fishing, sys.mat, sys.boat, sys.foraging, sys.cat, sys.home, sys.dailies, sys.quests];
   ctx.loop.add(function systemsUpdate(dt, t) {
     env.dummy.update(dt);
     for (const s of order) {

@@ -4,7 +4,7 @@
 //   save.state.owned = {id: true}                    save.state.equip = {rod, reel, line, bait, hat, collar}
 // Emits 'inventory:change' {id, delta, where} and 'equip:change' {slot, id}.
 
-const OWNED_KINDS = new Set(['rod', 'reel', 'line', 'basket', 'lantern', 'boat', 'cosmetic', 'home']);
+const OWNED_KINDS = new Set(['rod', 'reel', 'line', 'basket', 'lantern', 'boat', 'cosmetic', 'home', 'tool']);   // tool: the bucket [r2-gameplay]
 
 export function createInventory(ctx, env) {
   const S = env.S;

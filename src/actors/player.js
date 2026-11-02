@@ -4,15 +4,19 @@ import * as THREE from 'three';
 import { createCharacter, updateRim, CLIP_NAMES } from './rig/index.js';
 import { playerLook, HAT_COLORS, ROD_MODELS } from './rig/looks.js';
 import * as STR from './rig/strings.js';
+import { createMat } from './props/mat.js';
+import { makeKnife } from './props/tools.js';
 
 const WALK = 2.6, SLOW = 1.15;               // m/s (cozy: full stick / half stick or Shift)
 const RADIUS = 0.35;
 /** [Fix] player body + villager body: you no longer walk through the villagers (centres stay this far apart). */
 const NPC_GAP = 0.78;
-const FISHING = new Set(['cast_windup', 'cast_hold', 'cast_release', 'fish_wait', 'strike', 'reel', 'reel_struggle', 'catch_show', 'catch_happy', 'catch_hold', 'fail_shrug']);
+const FISHING = new Set(['cast_windup', 'cast_hold', 'cast_release', 'fish_wait', 'strike', 'reel', 'reel_struggle', 'catch_show', 'catch_happy', 'catch_proud', 'catch_hold', 'fail_shrug']);
+/** [r2-animation] Catch chores: state 'cutscene' while they play (no stick), back to idle when they end. */
+const CHORES = new Set(['lay_on_mat', 'clean_fish', 'put_in_bucket', 'show_to_cat', 'unroll_mat', 'roll_mat']);
 /** Clips that can play on the upper body while seated (dock edge, bench, boat) or walking. */
-const UPPER_OK = new Set([...FISHING, 'wave', 'talk', 'eat']);
-const STATE_OF = (n) => (FISHING.has(n) ? 'fishing' : n.startsWith('sit') || n === 'stand_up' ? 'sit' : n === 'row' ? 'boat' : n === 'crouch_pick' ? 'forage' : ['pet', 'eat', 'talk', 'sleep'].includes(n) ? n : n === 'wake' ? 'sleep' : null);
+const UPPER_OK = new Set([...FISHING, 'wave', 'talk', 'eat', 'lay_on_mat', 'show_to_cat', 'put_in_bucket']);
+const STATE_OF = (n) => (CHORES.has(n) ? 'cutscene' : FISHING.has(n) ? 'fishing' : n.startsWith('sit') || n === 'stand_up' ? 'sit' : n === 'row' ? 'boat' : n === 'crouch_pick' ? 'forage' : ['pet', 'eat', 'talk', 'sleep'].includes(n) ? n : n === 'wake' ? 'sleep' : null);
 const IDLE_VARIANTS = ['idle_look', 'idle_hat', 'idle_yawn'];
 
 export function init(ctx) {
@@ -87,7 +91,7 @@ export function init(ctx) {
   }
 
   let playToken = 0;
-  const ONE_SHOT_STATES = new Set(['talk', 'pet', 'eat', 'forage']);
+  const ONE_SHOT_STATES = new Set(['talk', 'pet', 'eat', 'forage', 'cutscene']);
   /** Play an animation: {loop, fade, speed, onEnd, next, layer, onEvent}. Unknown names are ignored. Returns a Promise. */
   function play(name, o = {}) {
     if (autopilot && !o._auto) { finishAutopilot(true); }
@@ -101,7 +105,7 @@ export function init(ctx) {
       if (st && !o._keepState) state = seated === 'boat' && st !== 'fishing' ? 'boat' : st;
       if (n === 'locomotion') state = speed > 0.1 ? 'walk' : 'idle';
     }
-    faceCamera = n === 'catch_show' || n === 'catch_happy';
+    faceCamera = n === 'catch_show' || n === 'catch_happy' || n === 'catch_proud';
     idleT = 0;
     if (opts.layer !== 'upper' && n !== 'locomotion' && !seated) ch.animator.stopUpper(Math.min(0.2, opts.fade ?? 0.2));
     const token = ++playToken;
@@ -249,6 +253,166 @@ export function init(ctx) {
     play('locomotion', { fade: 0.25, _auto: true });
   }
 
+  // ---- [r2-animation] catch mat, knife and the catch chores ----
+  const mat = createMat(ctx);
+  const knife = makeKnife(); knife.visible = false;
+  knife.scale.setScalar(1 / (look.height || 1)); knife.rotation.x = -0.27;
+  ch.bones.prop_R.add(knife);
+  let chore = null;          // {name, look, back, finish(ok), done}
+  const _w = new THREE.Vector3();
+  const heldWorld = () => (ch.held ? ch.held.getWorldPosition(new THREE.Vector3()) : ch.handWorld('R', new THREE.Vector3()));
+  const angleTo = (p) => Math.atan2(p.x - obj.position.x, p.z - obj.position.z);
+  const sfx = (n, o = {}) => ctx.audio?.sfx?.(n, { pos: { x: obj.position.x, z: obj.position.z }, ...o });
+  /** A fish dropping into the bucket (and gone). */
+  let dropping = null;
+
+  /**
+   * Run a catch chore. Every chore is short (2.3-5.2 s), turns the player toward its target and back, and can be skipped
+   * with cancelChore() (its effect is applied at once). Names and options:
+   *   'unroll_mat'   {pos?, facing?}            places + unrolls the mat (default spot: mat.spotFor(), on the left)
+   *   'lay_on_mat'   {speciesId, size}          the fish in the hands (holdFish) goes onto the next slot → {slot}
+   *   'clean_fish'   {slot?}                    kneel, knife strokes, flip, rinse; then mat.markClean(slot) → {slot}
+   *   'put_in_bucket'{slot?}                    the held fish (or the one taken from `slot`) drops into the bucket
+   *   'show_to_cat'  {target, give?}            crouch and offer the held fish toward target (Vector3|Object3D); give → {fish}
+   *   'roll_mat'     {}                         rolls the mat up (fish models on it are cleared)
+   * Resolves {ok:true|false(interrupted), ...}. Bus: 'player:anim' {event, clip} for every clip event.
+   */
+  function doChore(name, o = {}) {
+    if (chore) cancelChore();
+    if (!CHORES.has(name)) return Promise.resolve({ ok: false });
+    const res = { ok: false };
+    const c = { name, look: null, back: facing, fired: new Set(), res };
+    const ev = {};
+    const once = (k, fn) => (ev[k] = (e) => { if (c.fired.has(k + (e?.t ?? ''))) return; c.fired.add(k + (e?.t ?? '')); fn(e); });
+    let target = null, onFinish = () => {};
+    const seatedNow = !!seated;
+    if (name === 'unroll_mat') {
+      const sp = o.pos ? { x: o.pos.x, z: o.pos.z } : mat.spotFor(obj.position, facing);
+      const f = Number.isFinite(o.facing) ? o.facing : facing;
+      if (mat.active) mat.clear();
+      target = new THREE.Vector3(sp.x, obj.position.y, sp.z);
+      const doPlace = () => { if (c.placed) return; c.placed = true; mat.place(sp, f, { rolled: true }); mat.unroll(0.95); sfx('page_turn', { vol: 0.35, pitch: 0.7 }); };
+      once('place', doPlace);
+      onFinish = () => { doPlace(); if (mat.unrolled < 1) { mat.place(sp, f); } };
+    } else if (name === 'lay_on_mat') {
+      if (!mat.active) { const sp = mat.spotFor(obj.position, facing); mat.place(sp, facing); }
+      const slot = mat.nextSlot();
+      target = mat.slotWorld(slot);
+      const release = () => {
+        if (c.released) return; c.released = true;
+        const from = heldWorld();
+        ch.holdFish(null);
+        if (o.speciesId) res.slot = mat.addFish(o.speciesId, o.size, { from });
+        sfx('splash_small', { vol: 0.12, pitch: 1.6 });
+      };
+      once('release', release);
+      once('pat', () => sfx('ui_tap', { vol: 0.25, pitch: 0.6 }));
+      onFinish = release;
+    } else if (name === 'clean_fish') {
+      const slot = Number.isInteger(o.slot) ? o.slot : mat.lastSlot();
+      if (!mat.active || slot < 0) return Promise.resolve({ ok: false, reason: 'no-fish' });
+      res.slot = slot;
+      target = mat.slotWorld(slot);
+      const at = () => mat.slotWorld(slot, _w);
+      once('knife_on', () => { knife.visible = true; });
+      ev.stroke = () => { mat.fx.burst(at(), { n: 4, color: 0xeef4f4, size: 0.007, speed: 0.5, up: 0.9, floor: at().y - 0.03 }); sfx('reel_click', { vol: 0.2, pitch: 1.7 }); };
+      once('flip', () => { mat.flipFish(slot); sfx('splash_small', { vol: 0.1, pitch: 1.8 }); });
+      once('knife_off', () => { knife.visible = false; });
+      const rinse = () => { if (c.rinsed) return; c.rinsed = true; mat.fx.burst(at().add(new THREE.Vector3(0, 0.12, 0)), { n: 16, speed: 0.55, up: 0.5, size: 0.011, floor: at().y - 0.03 }); sfx('splash_small', { vol: 0.35, pitch: 1.3 }); };
+      once('rinse', rinse);
+      onFinish = (ok) => { knife.visible = false; if (!ok) c.rinsed = true; mat.markClean(slot); };
+    } else if (name === 'put_in_bucket') {
+      if (!ch.held && Number.isInteger(o.slot)) {
+        const t = mat.takeFish(o.slot);
+        if (t) { c.owned = t.inst; ch.holdFish(t.inst.object); }
+      }
+      target = mat.active ? mat.bucketWorld() : new THREE.Vector3(Math.sin(facing), 0, Math.cos(facing)).add(obj.position);
+      const drop = () => {
+        if (c.dropped) return; c.dropped = true;
+        const held = ch.held; const from = heldWorld();
+        ch.holdFish(null);
+        if (held && mat.active) {
+          ctx.scene.add(held); held.position.copy(from);
+          dropping = { o: held, owned: c.owned, from, to: mat.bucketWorld(), t: 0 };
+        } else c.owned?.dispose?.();
+        ctx.bus?.emit?.('mat:bucket', { speciesId: o.speciesId || null });
+      };
+      once('drop', drop);
+      onFinish = drop;
+    } else if (name === 'show_to_cat') {
+      const tp = o.target?.isObject3D ? o.target.getWorldPosition(new THREE.Vector3()) : o.target;
+      target = tp ? new THREE.Vector3(tp.x, tp.y ?? obj.position.y, tp.z) : null;
+      const offer = () => {
+        if (c.offered) return; c.offered = true;
+        ctx.bus?.emit?.('player:offer', { target: o.target || null });
+        if (o.give && ch.held) { res.fish = ch.held; ch.holdFish(null); }
+      };
+      once('offer', offer);
+      onFinish = offer;
+    } else if (name === 'roll_mat') {
+      if (!mat.active) return Promise.resolve({ ok: false, reason: 'no-mat' });
+      target = mat.position.clone(); target.y = obj.position.y;
+      const roll = () => { if (c.rolled) return; c.rolled = true; mat.roll(1.1); sfx('page_turn', { vol: 0.3, pitch: 0.6 }); };
+      once('roll', roll);
+      onFinish = (ok) => { if (!ok) mat.clear(); else roll(); };
+    }
+    // line up beside the slot (short glide along the mat), so the hands land on the right fish
+    if (!seatedNow && mat.active && (name === 'lay_on_mat' || name === 'clean_fish') && Number.isInteger(res.slot ?? (name === 'lay_on_mat' ? mat.nextSlot() : -1))) {
+      const slot = res.slot ?? mat.nextSlot();
+      const lp = mat.toLocal(obj.position);
+      const lx = Math.sign(lp.x || -1) * Math.min(Math.abs(lp.x), name === 'clean_fish' ? 0.66 : 0.7);
+      const to = mat.toWorld(lx, mat.slotZ(slot) - 0.06);
+      const w = W();
+      const r = w?.resolveMove ? w.resolveMove(obj.position, { x: to.x, z: to.z }, 0.2) : to;
+      if (r && Math.hypot(r.x - obj.position.x, r.z - obj.position.z) < 0.9) {
+        settle = { from: obj.position.clone(), to: new THREE.Vector3(r.x, groundY(r.x, r.z), r.z), t: 0, dur: 0.5 };
+        target = name === 'clean_fish' ? mat.slotWorld(slot) : target;
+        const face = mat.toWorld(0, mat.slotZ(slot)); target = new THREE.Vector3(face.x, target.y, face.z);
+        c.from = settle.from.clone();
+        facingGoal = Math.atan2(face.x - r.x, face.z - r.z);
+      }
+    }
+    if (target && !seatedNow) { if (!settle) facingGoal = angleTo(target); c.look = target.clone().setY(target.y + 0.05); }
+    c.finish = (ok) => {
+      if (c.ended) return; c.ended = true;
+      onFinish(ok);
+      knife.visible = false;
+      if (chore === c) chore = null;
+      if (o.faceBack !== false && !seatedNow) facingGoal = c.back;
+      if (c.from && o.stepBack !== false && !seated) settle = { from: obj.position.clone(), to: c.from, t: 0, dur: 0.45 };
+      res.ok = ok;
+    };
+    chore = c;
+    return new Promise(resolve => {
+      play(name, { fade: 0.22, onEvent: ev }).then(ok => { c.finish(!!ok); resolve(res); });
+      c.resolveNow = () => resolve(res);
+    });
+  }
+  function cancelChore() {
+    const c = chore; if (!c) return false;
+    c.finish(false);
+    if (state === 'cutscene') state = seated ? 'sit' : 'idle';
+    play(c.name === 'show_to_cat' ? 'catch_hold' : 'idle', { fade: 0.2 });
+    return true;
+  }
+  function choreUpdate(dt) {
+    mat.update(dt);
+    if (knife.visible && ch.animator.current !== 'clean_fish') knife.visible = false;
+    if (dropping) {
+      const d = dropping; d.t += dt;
+      const k = Math.min(1, d.t / 0.32);
+      d.o.position.lerpVectors(d.from, d.to, k); d.o.position.y += Math.sin(k * Math.PI) * 0.08 - k * 0.12;
+      d.o.rotation.x += dt * 6;
+      if (k >= 1) {
+        dropping = null;
+        mat.fx.burst(d.to, { n: 12, speed: 0.6, up: 1.1, size: 0.012, floor: d.to.y - 0.25 });
+        sfx('splash_small', { vol: 0.4, pitch: 1.2 });
+        d.o.removeFromParent(); d.owned?.dispose?.();
+      }
+    }
+    if (mat.active && obj.position.distanceTo(mat.position) > 60) mat.clear();
+  }
+
   // ---- per-frame ----
   function update(dt, t) {
     updateRim(ctx);
@@ -275,7 +439,7 @@ export function init(ctx) {
     }
     // turning: quick on the spot, gentler while walking fast
     const prevF = facing;
-    const turnL = speed < 0.3 ? 9 : 11 - speed * 1.5;
+    const turnL = chore ? 5.5 : speed < 0.3 ? 9 : 11 - speed * 1.5;
     if (faceCamera && ctx.camera) { const c = ctx.camera.position; facingGoal = Math.atan2(c.x - obj.getWorldPosition(v3).x, c.z - v3.z); }
     if (seated !== 'boat') facing = math.angleDamp(facing, facingGoal, faceCamera ? 4 : turnL, dt);
     turnRate = dt > 0 ? math.wrapAngle(facing - prevF) / dt : 0;
@@ -361,6 +525,7 @@ export function init(ctx) {
       ch.rod.setPull(b > 0 && f ? f : null);
     }
 
+    choreUpdate(dt);
     ch.update(dt, { ground: seated ? null : ground, speed: animSpeed, turnRate: seated ? 0 : turnRate, accel: seated ? 0 : accel });
 
     // ---- persist position now and then (and right before every save write) ----
@@ -398,8 +563,9 @@ export function init(ctx) {
   function lookTarget(dt) {
     const up = ch.animator.upperName || ch.animator.current;
     if (lookOverride) { ch.setLook(lookOverride, 1); return; }
+    if (chore?.look) { ch.setLook(chore.look, 0.9); return; }
     if (FISHING.has(up)) {
-      if ((up === 'catch_show' || up === 'catch_hold' || up === 'catch_happy') && ch.held) { ch.setLook(ch.socket, 0.9); return; }
+      if ((up === 'catch_show' || up === 'catch_hold' || up === 'catch_happy' || up === 'catch_proud') && ch.held) { ch.setLook(ch.socket, 0.9); return; }
       const f = ctx.cameraRig?.focus;
       if (f) { ch.setLook(f, 1); return; }
       v3.set(Math.sin(facing) * 6, 0, Math.cos(facing) * 6).add(obj.position); ch.setLook(v3.clone(), 0.6); return;
@@ -454,6 +620,14 @@ export function init(ctx) {
     /** Head bone (for look-at targets of other actors). */
     headObject: ch.bones.head,
     clips: () => CLIP_NAMES(),
+    /** [r2-animation] The catch mat (see src/actors/props/mat.js and docs/CHANGES.md). */
+    mat,
+    /** [r2-animation] Run a catch chore with its props and fish hand-off: see doChore below. Resolves {ok, slot?, fish?}. */
+    chore: (name, o) => doChore(name, o),
+    /** [r2-animation] Skip the running chore: its effect happens at once (fish on the mat, mat unrolled...). */
+    cancelChore: () => cancelChore(),
+    get choreName() { return chore?.name || null; },
+    get knife() { return knife; },
     update,
   };
   // rod.setBend from Gameplay takes over the automatic bend for a while

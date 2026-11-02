@@ -224,6 +224,10 @@
 .bcell { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; border-color: var(--rc) !important; }
 .bcell-pic img { width: 76px; height: 64px; object-fit: contain; }
 .bcell-name { font-weight: 900; font-size: 13.5px; text-align: center; line-height: 1.15; }
+/* [r2-gameplay] fillets and fish lying on the mat */
+.bcell-mat { font-size: 11px; text-align: center; margin-top: -2px; }
+.bcell.fillet .bcell-pic { filter: saturate(.75) sepia(.35) hue-rotate(-12deg); }
+.bcell.fillet .bcell-name { color: #b8623b; }
 .bcell-meta { display: flex; gap: 8px; align-items: center; margin-top: 2px; }
 .bcell-rec { position: absolute; top: 5px; right: 5px; }
 .bcell-rec .ic { width: 20px; height: 20px; }
@@ -451,6 +455,9 @@
 .set-k { display: flex; flex-direction: column; min-width: 86px; font-weight: 800; font-size: 15.5px; }
 .set-k small { font-size: 12.5px; font-weight: 700; line-height: 1.25; }
 .set-row .switch { margin-left: auto; }
+/* [r2-gameplay] a switch row keeps its label and switch on one line (long descriptions wrap inside the label) */
+.set-row:has(> .switch) { flex-wrap: nowrap; }
+.set-row:has(> .switch) .set-k { flex: 1 1 auto; min-width: 0; }
 .seg { display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px; border-radius: 15px; background: var(--paper-3); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .1); }
 .seg-btn { min-height: 40px; padding: 7px 15px; border-radius: 11px; font-weight: 800; font-size: 15px; color: var(--ink-2); white-space: nowrap; transition: background .15s; }
 .seg-btn.on { background: #fffcf4; color: var(--ink); box-shadow: 0 2px 0 var(--paper-shadow), inset 0 0 0 2.5px var(--sea); }

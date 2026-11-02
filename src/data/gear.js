@@ -55,6 +55,9 @@ export const lantern = {
   model: { color: '#b8623b', glass: '#ffe7a0', light: '#ffc870' },
 };
 
+/** [r2-gameplay] Bucket: cheap; at the mat "Metti nel secchio" sends a new species to the aquarium alive. */
+export const bucket = { id: 'bucket', kind: 'tool', price: 30, model: { color: '#5a8ab0', accent: '#c8c8c8' } };
+
 /** Rowboat. `boat_repair` is bought from Tonio during the story (q_boat); the others raise `boat.level`.
  *  `needs`: items consumed on purchase besides coins (shop must check and remove them). */
 export const boat = [
@@ -78,10 +81,10 @@ export const cosmetics = [
 ];
 
 const tag = (list, kind) => { for (const g of list) { g.kind = kind; g.nameKey = `item.${g.id}.name`; g.descKey = `item.${g.id}.desc`; } };
-tag(rods, 'rod'); tag(reels, 'reel'); tag(lines, 'line'); tag(baskets, 'basket'); tag([lantern], 'lantern');
+tag(rods, 'rod'); tag(reels, 'reel'); tag(lines, 'line'); tag(baskets, 'basket'); tag([lantern], 'lantern'); tag([bucket], 'tool');
 tag(boat, 'boat'); tag(cosmetics, 'cosmetic');
 
 /** Everything that is bought once and kept (shown in shops as "owned" afterwards). */
-export const upgrades = [...baskets, lantern, ...boat, ...cosmetics];
+export const upgrades = [...baskets, lantern, bucket, ...boat, ...cosmetics];
 
-export default { rods, reels, lines, baskets, lantern, boat, cosmetics, upgrades };
+export default { rods, reels, lines, baskets, lantern, bucket, boat, cosmetics, upgrades };

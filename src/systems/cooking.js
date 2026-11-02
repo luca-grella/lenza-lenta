@@ -23,13 +23,18 @@ export function createCooking(ctx, env) {
     const missing = [];
     const helpers = D().helpers;
     // most specific needs first so 'any fish' doesn't eat the sardine a later need wants
-    const order = r.needs.map((n, i) => ({ n, i, w: n.id ? 0 : n.ids ? 1 : n.habitat ? 2 : 3 })).sort((a, b) => a.w - b.w);
+    const order = r.needs.map((n, i) => ({ n, i, w: n.fillet ? -1 : n.id ? 0 : n.ids ? 1 : n.habitat ? 2 : 3 })).sort((a, b) => a.w - b.w);
     for (const { n } of order) {
       let need = n.n || 1, have = 0;
-      const isFishNeed = n.fish === 'any' || n.habitat || (n.id && D().get?.(n.id)?.kind === 'fish') || (n.ids && n.ids.some(id => D().get?.(id)?.kind === 'fish'));
+      const isFishNeed = n.fillet || n.fish === 'any' || n.habitat || (n.id && D().get?.(n.id)?.kind === 'fish') || (n.ids && n.ids.some(id => D().get?.(id)?.kind === 'fish'));
       if (isFishNeed) {
-        const cand = basket.map((e, i) => i).filter(i => !used.has(i) && D().get?.(basket[i].id)?.kind === 'fish' && (n.fish === 'any' || helpers?.needMatches?.(n, basket[i].id)))
-          .sort((a, b) => basket[a].size - basket[b].size);
+        // [r2-gameplay] fillets (cleaned on the mat): {fillet:true} needs only take fillets, {whole:true} never does;
+        // otherwise whole fish go first, unless the recipe prefersFillet (then a fillet gives two portions, see cook())
+        const anyFish = n.fish === 'any' || (n.fillet && !n.id && !n.ids && !n.habitat);
+        const cand = basket.map((e, i) => i).filter(i => !used.has(i) && D().get?.(basket[i].id)?.kind === 'fish'
+            && (anyFish || helpers?.needMatches?.(n, basket[i].id)) && (!n.fillet || basket[i].fillet) && (!n.whole || !basket[i].fillet))
+          .sort((a, b) => (r.prefersFillet ? (basket[b].fillet ? 1 : 0) - (basket[a].fillet ? 1 : 0) : (basket[a].fillet ? 1 : 0) - (basket[b].fillet ? 1 : 0))
+            || basket[a].size - basket[b].size);
         for (const i of cand) { if (have >= need) break; used.add(i); take.basket.push(i); have++; }
       }
       if (have < need) {
@@ -82,15 +87,17 @@ export function createCooking(ctx, env) {
       for (const i of a.take.basket) b.splice(i, 1);
       for (const [iid, n] of Object.entries(a.take.items)) inv.remove(iid, n);
       if (taken.length) ctx.bus.emit('inventory:change', { id: null, delta: -taken.length, where: 'basket' });
-      inv.add(r.dish, 1);
+      const withFillet = !!r.prefersFillet && taken.some(e => e?.fillet);
+      inv.add(r.dish, withFillet ? 2 : 1);
       C().cooked = (C().cooked | 0) + 1;
       ctx.save.commit();
       env.play('crouch_pick', { loop: false });
       env.sfx('splash_small', { vol: 0.25, pitch: 2.2 });
       env.sfx('pickup', { delay: 0.4 });
       env.toastFB('sys.cook.done', { name: env.t(r.nameKey) });
-      ctx.bus.emit('cook:done', { recipeId: r.id, dishId: r.dish, station });
-      return { ok: true, dishId: r.dish };
+      if (withFillet) env.toast('sys.cook.fillet_bonus', { name: env.t(r.nameKey) });
+      ctx.bus.emit('cook:done', { recipeId: r.id, dishId: r.dish, station, portions: withFillet ? 2 : 1, fillet: taken.some(e => e?.fillet) });
+      return { ok: true, dishId: r.dish, portions: withFillet ? 2 : 1 };
     },
     /** Eat a dish from the inventory → buffs (and cat friendship for the kitty treat). */
     eat(dishId) {

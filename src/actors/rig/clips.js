@@ -452,6 +452,156 @@ add('wake', {
   ],
 });
 
+// =============================================================================== [r2-animation] catch actions
+// Timings (seconds) of the events below are documented in docs/CHANGES.md: Gameplay syncs the fish on them.
+/** Low crouch over the mat / bucket, weight forward, both feet flat. */
+const LOW = { pos: [0, -0.3, 0.04], thL: [-64, 0, 10], thR: [-56, 0, -10], knL: [100, 0, 0], knR: [94, 0, 0], ftL: [-32, 0, 0], ftR: [-30, 0, 0],
+  spine: [30, 0, 0], chest: [8, 0, 0], neck: [4, 0, 0], head: [14, 0, 0] };
+/** One knee down (right knee on the planks), left foot forward: for the longer chores. */
+const KNEEL = { pos: [0, -0.36, 0.03], hips: [0, 0, 0], thL: [-78, 0, 8], knL: [84, 0, 0], ftL: [-6, 0, 0], thR: [-6, 0, -6], knR: [96, 0, 0], ftR: [40, 0, 0],
+  spine: [32, 0, 0], chest: [10, 0, 0], neck: [4, 0, 0], head: [16, 0, 0] };
+/** Both hands low in front (setting something down on the ground). */
+const REACH = { uaL: [-58, 0, -4], faL: [-26, 0, 0], hL: [10, 0, 0], uaR: [-58, 0, 4], faR: [-26, 0, 0], hR: [10, 0, 0] };
+
+add('lay_on_mat', {
+  duration: 2.6, meta: { look: 0.35, breathe: 0.5 },
+  keys: [
+    [0, HOLD],
+    // anticipation: a little rise, fish pulled to the chest, eyes on the mat
+    [0.3, { pos: [0, 0.015, -0.01], spine: [0, 0, 0], head: [16, 0, 0], uaL: [-40, 0, -8], faL: [-92, 0, 0], uaR: [-40, 0, 8], faR: [-92, 0, 0], mouth: 0.25 }, 'back'],
+    [0.85, { ...LOW, ...REACH, head: [18, 0, 0], mouth: 0.1 }, 'inOut'],
+    // set it down gently (hands sink a touch more and open)
+    [1.1, { pos: [0, -0.32, 0.05], uaL: [-54, 0, -10], faL: [-20, 0, 0], uaR: [-54, 0, 10], faR: [-20, 0, 0], hL: [0, 0, 0], hR: [0, 0, 0] }, 'out'],
+    // two pats with the right hand, the left hand rests on the mat
+    [1.35, { uaR: [-46, 0, 8], faR: [-50, 0, 0], hR: [-10, 0, 0], head: [16, 0, 6], mouth: 0.35 }],
+    [1.5, { uaR: [-56, 0, 8], faR: [-18, 0, 0], hR: [14, 0, 0] }, 'snap'],
+    [1.68, { uaR: [-48, 0, 8], faR: [-44, 0, 0], hR: [-8, 0, 0] }],
+    [1.82, { uaR: [-56, 0, 8], faR: [-18, 0, 0], hR: [14, 0, 0] }, 'snap'],
+    // satisfied: back up, a glance up with a smile
+    [2.2, { pos: [0, -0.1, 0.01], thL: [-24, 0, 4], thR: [-20, 0, -4], knL: [36, 0, 0], knR: [34, 0, 0], ftL: [-12, 0, 0], ftR: [-12, 0, 0],
+      spine: [10, 0, 0], chest: [0, 0, 0], head: [-8, 0, 0], uaL: [-10, 0, -26], faL: [-24, 0, 0], uaR: [-10, 0, 28], faR: [-26, 0, 0], hL: [0, 0, 0], hR: [13, 0, 0], mouth: 0.5, eyes: 0.55, brow: 0.5, rod: 1 }],
+    [2.6, { ...STAND, mouth: 0.25 }],
+  ],
+  events: [{ t: 1.08, name: 'release' }, { t: 1.5, name: 'pat' }, { t: 1.82, name: 'pat' }],
+});
+
+add('clean_fish', {
+  duration: 5.2, meta: { look: 0.45, breathe: 0.6, footIK: 0.7 },
+  keys: [
+    [0, { rod: 1 }],
+    [0.25, { rod: 0, pos: [0, -0.04, 0], spine: [8, 0, 0], head: [10, 0, 0] }],
+    [0.65, { ...KNEEL, uaL: [-60, 0, -2], faL: [-22, 0, 0], hL: [12, 0, 0], uaR: [-44, 0, 16], faR: [-70, 0, 0], hR: [24, 0, 0], brow: 0.3 }, 'inOut'],
+    // three knife strokes from tail to head, the left hand holds the fish
+    [0.95, { uaR: [-48, 0, 12], faR: [-62, 0, 0], hR: [30, 0, 0], chest: [10, 6, 0] }],
+    [1.2, { uaR: [-64, 0, 2], faR: [-18, 0, 0], hR: [14, 0, 0], chest: [12, -6, 0] }, 'out'],
+    [1.45, { uaR: [-48, 0, 12], faR: [-62, 0, 0], hR: [30, 0, 0], chest: [10, 6, 0] }],
+    [1.7, { uaR: [-64, 0, 2], faR: [-18, 0, 0], hR: [14, 0, 0], chest: [12, -6, 0] }, 'out'],
+    [1.95, { uaR: [-48, 0, 12], faR: [-62, 0, 0], hR: [30, 0, 0], chest: [10, 6, 0] }],
+    [2.2, { uaR: [-64, 0, 2], faR: [-18, 0, 0], hR: [14, 0, 0], chest: [12, -6, 0], mouth: 0.15 }, 'out'],
+    // turn it over: both hands under the fish, a little lift and roll of the wrists
+    [2.45, { uaL: [-64, 0, -6], faL: [-16, 0, 0], hL: [0, 0, -30], uaR: [-60, 0, 8], faR: [-24, 0, 0], hR: [20, 0, 30], chest: [10, 0, 0] }],
+    [2.7, { uaL: [-70, 0, -6], faL: [-30, 0, 0], hL: [0, 0, 30], uaR: [-66, 0, 8], faR: [-34, 0, 0], hR: [20, 0, -30], head: [18, 0, 0] }, 'back'],
+    [2.95, { uaL: [-60, 0, -2], faL: [-22, 0, 0], hL: [12, 0, 0], uaR: [-48, 0, 12], faR: [-62, 0, 0], hR: [30, 0, 0] }],
+    [3.2, { uaR: [-64, 0, 2], faR: [-18, 0, 0], hR: [14, 0, 0], chest: [12, -6, 0] }, 'out'],
+    [3.45, { uaR: [-48, 0, 12], faR: [-62, 0, 0], hR: [30, 0, 0], chest: [10, 6, 0] }],
+    // rinse: cupped hands up, then a quick splash down over the fish
+    [3.85, { uaL: [-84, 0, -2], faL: [-70, 0, 0], hL: [-20, 0, 0], uaR: [-84, 0, 2], faR: [-70, 0, 0], hR: [-20, 0, 0], chest: [6, 0, 0], head: [8, 0, 0], brow: 0.5 }],
+    [4.05, { uaL: [-62, 0, -10], faL: [-24, 0, 0], hL: [20, 0, 0], uaR: [-62, 0, 10], faR: [-24, 0, 0], hR: [20, 0, 0], mouth: 0.45, eyes: 0.6 }, 'snap'],
+    [4.35, { head: [12, 0, 6], mouth: 0.5 }],
+    [4.75, { pos: [0, -0.1, 0.01], thL: [-24, 0, 4], thR: [-20, 0, -4], knL: [36, 0, 0], knR: [34, 0, 0], ftL: [-12, 0, 0], ftR: [-12, 0, 0], spine: [10, 0, 0], chest: [0, 0, 0], head: [-6, 0, 0],
+      uaL: [-10, 0, -26], faL: [-24, 0, 0], hL: [0, 0, 0], uaR: [-10, 0, 28], faR: [-26, 0, 0], hR: [13, 0, 0], rod: 1, eyes: 1 }],
+    [5.2, { ...STAND, mouth: 0.25 }],
+  ],
+  events: [{ t: 0.5, name: 'knife_on' }, { t: 1.2, name: 'stroke' }, { t: 1.7, name: 'stroke' }, { t: 2.2, name: 'stroke' },
+    { t: 2.6, name: 'flip' }, { t: 3.2, name: 'stroke' }, { t: 3.6, name: 'knife_off' }, { t: 4.05, name: 'rinse' }],
+});
+
+add('put_in_bucket', {
+  duration: 2.3, meta: { look: 0.35, breathe: 0.6 },
+  keys: [
+    [0, HOLD],
+    [0.3, { pos: [0, 0.01, 0], head: [14, 0, 0], uaL: [-40, 0, -8], faL: [-90, 0, 0], uaR: [-40, 0, 8], faR: [-90, 0, 0] }, 'back'],
+    [0.75, { ...LOW, pos: [0, -0.2, 0.04], knL: [70, 0, 0], knR: [64, 0, 0], thL: [-46, 0, 8], thR: [-40, 0, -8], ftL: [-24, 0, 0], ftR: [-22, 0, 0], spine: [26, 0, 0],
+      uaL: [-62, 0, -6], faL: [-40, 0, 0], uaR: [-62, 0, 6], faR: [-40, 0, 0], head: [18, 0, 0] }, 'inOut'],
+    // let go: hands open apart
+    [0.95, { uaL: [-58, 0, -22], faL: [-30, 0, 0], hL: [0, 0, 20], uaR: [-58, 0, 22], faR: [-30, 0, 0], hR: [0, 0, -20], mouth: 0.4, brow: 0.6 }, 'snap'],
+    // brush the hands
+    [1.25, { uaL: [-44, 0, -4], faL: [-70, 0, 0], hL: [0, 30, 0], uaR: [-44, 0, 4], faR: [-70, 0, 0], hR: [0, -30, 0], head: [10, 0, 0] }],
+    [1.4, { hL: [0, -20, 0], hR: [0, 20, 0] }], [1.55, { hL: [0, 30, 0], hR: [0, -30, 0] }],
+    [1.95, { pos: [0, -0.04, 0], thL: [-8, 0, 2], thR: [-8, 0, -2], knL: [10, 0, 0], knR: [10, 0, 0], ftL: [0, 0, 0], ftR: [0, 0, 0], spine: [4, 0, 0], head: [-4, 0, 0],
+      uaL: [-6, 0, -28], faL: [-18, 0, 0], hL: [0, 0, 0], uaR: [-8, 0, 30], faR: [-22, 0, 0], hR: [13, 0, 0], rod: 1, mouth: 0.3 }],
+    [2.3, { ...STAND, mouth: 0.2 }],
+  ],
+  events: [{ t: 0.92, name: 'drop' }],
+});
+
+add('show_to_cat', {
+  duration: 2.9, next: 'catch_hold', meta: { look: 0.6, breathe: 0.7 },
+  keys: [
+    [0, HOLD],
+    [0.3, { pos: [0, 0.01, 0], head: [6, 0, 0], brow: 0.5 }, 'back'],
+    [0.8, { ...LOW, pos: [0, -0.28, 0.05], spine: [24, 0, 0], head: [6, 0, 0], uaL: [-74, 0, -6], faL: [-12, 0, 0], hL: [0, 0, 0], uaR: [-74, 0, 6], faR: [-12, 0, 0], hR: [0, 0, 0],
+      mouth: 0.45, brow: 0.7 }, 'inOut'],
+    // offer it forward, a gentle wiggle "look, Biscotto!"
+    [1.05, { uaL: [-80, 0, -6], faL: [-6, 0, 0], uaR: [-80, 0, 6], faR: [-6, 0, 0], head: [2, 0, 8] }, 'out'],
+    [1.3, { uaL: [-78, 8, -6], uaR: [-78, 8, 6] }], [1.55, { uaL: [-78, -8, -6], uaR: [-78, -8, 6], head: [2, 0, -6] }], [1.8, { uaL: [-80, 0, -6], uaR: [-80, 0, 6], mouth: 0.6, eyes: 0.5 }],
+    [2.4, { ...HOLD, pos: [0, -0.03, 0], head: [12, 0, 0], mouth: 0.4, eyes: 1 }],
+    [2.9, HOLD],
+  ],
+  events: [{ t: 1.05, name: 'offer' }],
+});
+
+add('unroll_mat', {
+  duration: 2.5, meta: { look: 0.3, breathe: 0.6 },
+  keys: [
+    [0, { rod: 1 }],
+    [0.3, { rod: 0, uaL: [-40, 0, -10], faL: [-80, 0, 0], uaR: [-40, 0, 10], faR: [-80, 0, 0], head: [10, 0, 0] }],
+    [0.7, { ...LOW, uaL: [-56, 0, -10], faL: [-30, 0, 0], hL: [10, 0, 0], uaR: [-56, 0, 10], faR: [-30, 0, 0], hR: [10, 0, 0] }, 'inOut'],
+    // push the roll away: lean out, arms extend
+    [1.5, { pos: [0, -0.3, 0.12], spine: [40, 0, 0], uaL: [-84, 0, -8], faL: [-4, 0, 0], uaR: [-84, 0, 8], faR: [-4, 0, 0], head: [8, 0, 0], brow: 0.3 }, 'inOut'],
+    // smooth it flat with both hands
+    [1.75, { uaL: [-72, 0, -20], faL: [-10, 0, 0], uaR: [-72, 0, 20], faR: [-10, 0, 0], pos: [0, -0.3, 0.08] }],
+    [1.95, { pos: [0, -0.12, 0.02], thL: [-28, 0, 4], thR: [-24, 0, -4], knL: [40, 0, 0], knR: [38, 0, 0], ftL: [-12, 0, 0], ftR: [-12, 0, 0], spine: [12, 0, 0],
+      uaL: [-10, 0, -26], faL: [-24, 0, 0], hL: [0, 0, 0], uaR: [-10, 0, 28], faR: [-26, 0, 0], hR: [13, 0, 0], head: [-6, 0, 0], mouth: 0.4, rod: 1 }],
+    [2.5, { ...STAND, mouth: 0.2 }],
+  ],
+  events: [{ t: 0.65, name: 'place' }],
+});
+
+add('roll_mat', {
+  duration: 2.6, meta: { look: 0.3, breathe: 0.6 },
+  keys: [
+    [0, { rod: 1 }],
+    [0.3, { rod: 0, head: [10, 0, 0] }],
+    [0.75, { ...LOW, pos: [0, -0.3, 0.12], spine: [40, 0, 0], uaL: [-84, 0, -8], faL: [-6, 0, 0], hL: [20, 0, 0], uaR: [-84, 0, 8], faR: [-6, 0, 0], hR: [20, 0, 0] }, 'inOut'],
+    // roll it toward himself: hands turn over and over while pulling back
+    [1.0, { hL: [-20, 0, 0], hR: [-20, 0, 0] }], [1.2, { hL: [20, 0, 0], hR: [20, 0, 0], uaL: [-74, 0, -8], uaR: [-74, 0, 8], faL: [-14, 0, 0], faR: [-14, 0, 0], pos: [0, -0.3, 0.08], spine: [36, 0, 0] }],
+    [1.4, { hL: [-20, 0, 0], hR: [-20, 0, 0] }], [1.6, { hL: [20, 0, 0], hR: [20, 0, 0], uaL: [-62, 0, -8], uaR: [-62, 0, 8], faL: [-28, 0, 0], faR: [-28, 0, 0], pos: [0, -0.3, 0.03], spine: [30, 0, 0] }],
+    [1.8, { hL: [-10, 0, 0], hR: [-10, 0, 0] }],
+    // pick the roll up and tuck it away
+    [2.05, { pos: [0, -0.08, 0], thL: [-20, 0, 4], thR: [-18, 0, -4], knL: [30, 0, 0], knR: [28, 0, 0], ftL: [-10, 0, 0], ftR: [-10, 0, 0], spine: [8, 0, 0],
+      uaL: [-30, 0, -6], faL: [-96, 0, 0], hL: [0, 0, 0], uaR: [-30, 0, 6], faR: [-96, 0, 0], hR: [0, 0, 0], head: [-4, 0, 0], mouth: 0.3 }],
+    [2.25, { rod: 1 }],
+    [2.6, { ...STAND, mouth: 0.2 }],
+  ],
+  events: [{ t: 0.8, name: 'roll' }, { t: 2.0, name: 'tuck' }],
+});
+
+/** Proud pose for close-ups: the fish lifted beside the face, chest out, happy squint, head tilted to the camera. */
+add('catch_proud', {
+  duration: 2.6, next: 'catch_hold', meta: { look: 0, breathe: 0.6 },
+  keys: [
+    [0, HOLD],
+    [0.3, { pos: [0, -0.06, 0], knL: [16, 0, 0], knR: [16, 0, 0], thL: [-10, 0, 3], thR: [-10, 0, -3], spine: [10, 0, 0], head: [14, 0, 0], uaL: [-40, 0, -6], faL: [-84, 0, 0], uaR: [-40, 0, 6], faR: [-84, 0, 0], mouth: 0.2 }],
+    [0.75, { pos: [0, 0.02, 0], knL: [0, 0, 0], knR: [0, 0, 0], thL: [0, 0, 2], thR: [0, 0, -2], spine: [-4, 0, 0], chest: [-12, 0, 0], neck: [-2, 0, 0], head: [-14, 0, 9],
+      uaL: [-92, 0, -2], faL: [-66, 0, 0], uaR: [-78, 0, 4], faR: [-74, 0, 0], shL: [0, 0, 6], shR: [0, 0, -6], mouth: 0.85, eyes: 0.35, brow: 0.9 }, 'back'],
+    [1.05, { pos: [0, -0.015, 0], head: [-6, 0, 9] }], [1.3, { pos: [0, 0.015, 0], head: [-14, 0, 9] }],
+    [1.9, { head: [-12, 0, 5], chest: [-10, 0, 0], eyes: 0.4, mouth: 0.7 }],
+    [2.6, { ...HOLD, head: [8, 0, 0], eyes: 1, brow: 0.3, mouth: 0.4, shL: [0, 0, 0], shR: [0, 0, 0], neck: [0, 0, 0] }],
+  ],
+  events: [{ t: 0.75, name: 'show' }],
+});
+
 // =============================================================================== additive one-shots (relative to STAND)
 add('nod', { duration: 0.6, keys: [[0, {}], [0.18, { head: [16, 0, 0], neck: [4, 0, 0] }], [0.36, { head: [-4, 0, 0], neck: [0, 0, 0] }], [0.6, { head: STAND.head }]] });
 add('flinch', { duration: 0.5, keys: [[0, {}], [0.07, { chest: [-10, 0, 0], head: [-12, 0, 0], shL: [0, 0, 10], shR: [0, 0, -10], eyes: 0.2 }, 'snap'], [0.5, { chest: STAND.chest, head: STAND.head, shL: [0, 0, 0], shR: [0, 0, 0], eyes: 1 }]] });

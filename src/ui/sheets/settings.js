@@ -157,6 +157,15 @@ export default function settings(ui) {
           return sw;
         })()));
 
+      // [r2-gameplay] close-ups (systems/cinematics.js reads settings.cinematics; default on)
+      parts.push(h('div.set-row', h('span.set-ic', { html: icon('camera') }), h('span.set-k', h('span', t('ui.set.cinematics')), h('small.muted', t('ui.set.cinematics_desc'))),
+        (() => {
+          const on = st.cinematics !== false;
+          const sw = h('button.switch.set-cinematics' + (on ? '.on' : ''), { type: 'button', role: 'switch', 'aria-checked': String(on), 'aria-label': t('ui.set.cinematics') }, h('i'));
+          onTap(sw, () => { ctx.save.state.settings.cinematics = !on; ctx.save.commit(); ui.sfx('ui_tap'); ctx.bus.emit('settings:change', { key: 'cinematics', value: !on }); spec.refresh(); });
+          return sw;
+        })()));
+
       // install
       if (!isStandalone()) {
         parts.push(section(t('ui.set.install'), 'phone'));

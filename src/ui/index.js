@@ -234,6 +234,8 @@ export async function init(ctx) {
     if (n >= ui.A.capacity() - 1 && n > 0) ui.tips.show('basket', 'ui.tip.basket');
   });
   on('equip:change', () => ui.controls.refresh(true));
+  // [r2-gameplay] the bucket's tip once it is bought (the mat's own tips come from systems/mat.js)
+  on('shop:buy', e => { if (e?.itemId === 'bucket') setTimeout(() => ui.tips.show('bucket', 'ui.tip.bucket', { ms: 9000 }), 900); });
   on('weather:change', () => ui.hud.refresh());
   on('time:phase', () => ui.hud.refresh());
   on('time:day', p => { ui.hud.refresh(); if (p.day > 1) ui.notify.toast('ui.toast.day', { n: p.day }, { icon: 'sun' }); });
