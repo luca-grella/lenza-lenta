@@ -1,7 +1,7 @@
 // Backpack: basket (fish with size and value), baits, gear, items (ingredients, dishes, treasures), style.
 import { h, onTap, fmt } from '../dom.js';
 import { icon, itemIcon } from '../icons.js';
-import { lazyImg, section, empty, price, rarityColor, statBars } from './common.js';
+import { lazyImg, section, empty, price, rarityColor, statBars, buffDuration } from './common.js';
 
 export default function inventory(ui, data) {
   const { ctx, A } = ui;
@@ -109,8 +109,9 @@ export default function inventory(ui, data) {
           const r = A.item(id), rec = A.item(r.recipe);
           const eat = h('button.btn.small.leaf', { type: 'button' }, t('ui.inv.eat'));
           onTap(eat, () => { const res = A.eat(id); if (res.ok) { ui.sfx('eat'); ui.toast('ui.toast.ate', { item: A.name(id) }, { icon: 'eat' }); spec.refresh(); } else ui.toast('ui.toast.unavailable', { icon: 'info' }); });
+          const hours = Math.max(...(rec?.buffs || []).map(b => b.hours || 4), 0);
           const buffs = (rec?.buffs || []).map(b => t(`buff.${b.stat}.name`)).join(' · ');
-          return row(h('span.thing-ic', { html: itemIcon(r) }), `${A.name(id)} ×${n}`, buffs || A.desc(id), eat);
+          return row(h('span.thing-ic', { html: itemIcon(r) }), `${A.name(id)} ×${n}`, buffs ? `${t('ui.cook.bonus')}: ${buffs} · ${buffDuration(ui, hours)}` : A.desc(id), eat);
         }));
       }
       if (groups.ingredient.length) out.push(section(t('ui.inv.ingredients'), 'pick'), tileGrid(groups.ingredient));

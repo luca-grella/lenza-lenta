@@ -116,17 +116,17 @@ export function deckPlanks(B, w, d, y, { posts = true, postDepth = 3, color = P.
     }
   }
   if (rail) {
-    for (const [side, len, axis] of rail) {
+    for (const [side, len, axis, off = 0] of rail) {   // [side, length, axis, offset along the axis]
       const n2 = Math.max(1, Math.round(len / 1.4));
       for (let i = 0; i <= n2; i++) {
-        const t = -len / 2 + len * i / n2;
+        const t = off - len / 2 + len * i / n2;
         const px = axis === 'x' ? t : side, pz = axis === 'x' ? side : t;
         B.box(0.1, 0.9, 0.1, px, y + 0.45, pz, P.woodDark);
       }
-      if (axis === 'x') B.box(len, 0.08, 0.1, 0, y + 0.88, side, P.woodLight); else B.box(0.1, 0.08, len, side, y + 0.88, 0, P.woodLight);
-      if (axis === 'x') B.box(len, 0.06, 0.06, 0, y + 0.5, side, P.wood); else B.box(0.06, 0.06, len, side, y + 0.5, 0, P.wood);
+      if (axis === 'x') B.box(len, 0.08, 0.1, off, y + 0.88, side, P.woodLight); else B.box(0.1, 0.08, len, side, y + 0.88, off, P.woodLight);
+      if (axis === 'x') B.box(len, 0.06, 0.06, off, y + 0.5, side, P.wood); else B.box(0.06, 0.06, len, side, y + 0.5, off, P.wood);
       // rails are colliders for walkers
-      if (axis === 'x') B.rect(0, side, len / 2, 0.08, 0, 'rail'); else B.rect(side, 0, 0.08, len / 2, 0, 'rail');
+      if (axis === 'x') B.rect(off, side, len / 2, 0.08, 0, 'rail'); else B.rect(side, off, 0.08, len / 2, 0, 'rail');
     }
   }
   if (surface) B.deck(0, 0, w / 2, d / 2, y);
@@ -152,7 +152,8 @@ export function stiltHut(B, kind, { wall = [P.woodLight, P.wood, P.woodGrey], ro
   const dw = w + 2.6, dd = d + 3.0;
   // deck (extends more to the front for the counter)
   B.push(0, 0, 0.5);
-  deckPlanks(B, dw, dd, deckY, { postDepth: stilts ? 3.5 : 1.2, rail: [[-dd / 2 + 0.05, dw, 'x']], along: 'x' });
+  // the back rail only runs behind the hut: the back corners stay open for a ramp from the land
+  deckPlanks(B, dw, dd, deckY, { postDepth: stilts ? 3.5 : 1.2, rail: [[-dd / 2 + 0.05, w, 'x']], along: 'x' });
   B.pop();
   B.rect(0, 0.5, dw / 2, dd / 2, 0, 'deck').colliders[B.colliders.length - 1].layer = 'boat';
   // hut body
@@ -200,9 +201,11 @@ export function stiltHut(B, kind, { wall = [P.woodLight, P.wood, P.woodGrey], ro
   B.pop();
   // little props on the deck
   const R = B.R;
-  crate(B, -dw / 2 + 0.6, deckY, dd / 2 - 0.4, 0.9, R());
-  barrel(B, dw / 2 - 0.55, deckY, -dd / 2 + 1.0, 0.95);
-  if (kind === 'pescheria') { netPile(B, dw / 2 - 0.7, deckY, dd / 2 - 0.5); crate(B, -dw / 2 + 1.5, deckY, dd / 2 - 0.45, 0.8, 0.4, P.woodGrey); for (let i = 0; i < 3; i++) fishIcon(B, -0.6 + i * 0.6, deckY + 1.08, d / 2 + 0.6, 0.55, [P.fish, P.fishOrange, 0xb8c8d8][i]); }
+  // (against the hut front beside the counter: the side walkways, the corners and the front edge stay free for the
+  // ramps and for walking round to the counter)
+  crate(B, -1.75, deckY, hd - 0.4 + 0.42, 0.85, R());
+  barrel(B, 1.72, deckY, hd - 0.4 + 0.4, 0.9);
+  if (kind === 'pescheria') { netPile(B, 2.95, deckY, dd / 2 + 0.05, 0.8); crate(B, -2.95, deckY, dd / 2 + 0.05, 0.75, 0.4, P.woodGrey); for (let i = 0; i < 3; i++) fishIcon(B, -0.6 + i * 0.6, deckY + 1.08, d / 2 + 0.6, 0.55, [P.fish, P.fishOrange, 0xb8c8d8][i]); }
   if (kind === 'bottega') { ropeCoil(B, dw / 2 - 0.7, deckY, dd / 2 - 0.5); for (let i = 0; i < 4; i++) B.cyl(0.1, 0.1, 0.22, -0.7 + i * 0.45, deckY + 1.13, d / 2 + 0.6, [0x9ad0e0, 0xf2d68e, 0xd0a0e0, 0xa0e0a0][i], { seg: 8 }); }
   return { front: new THREE.Vector3(0, deckY, -0.4 + hd + 1.65), deckY };
 }
@@ -304,10 +307,13 @@ export function homeCabin(B) {
   gableRoof(B, w, d, 0.3 + h, 1.7, P.roofBrown, P.roofBrownDark, { oh: 0.6, rows: 6, fill: P.wood });
   // porch
   B.push(0, 0, hd + 1.15);
-  deckPlanks(B, w + 0.6, 1.9, 0.5, { posts: true, postDepth: 0.4, rail: [[0.92, w + 0.6, 'x']], step: 2.6, color: P.woodLight, color2: P.wood });
+  // [Fix] the front rail leaves a gap at the door, with a real step down to the path (the porch was 0.7 m up)
+  { const W2 = w + 0.6, a = -W2 / 2, g0 = -1.6, g1 = -0.2;
+    deckPlanks(B, W2, 1.9, 0.5, { posts: true, postDepth: 0.4, rail: [[0.92, g0 - a, 'x', (a + g0) / 2], [0.92, W2 / 2 - g1, 'x', (g1 + W2 / 2) / 2]], step: 2.6, color: P.woodLight, color2: P.wood }); }
   for (const sx of [-1, 1]) B.box(0.16, 2.3, 0.16, sx * (hw + 0.1), 1.6, 0.85, P.woodDark);
   for (let i = 0; i < 7; i++) B.box(w + 1.1, 0.06, 0.38, 0, 2.75 - i * 0.02 + 0.05, -0.75 + i * 0.32, i % 2 ? P.roofBrown : P.roofBrownDark, { rx: 0.18 });
-  B.box(1.2, 0.25, 0.6, -0.9 - 0.0, 0.62, 0.95, P.wood, { round: 0.04 }); // step
+  B.box(1.3, 0.5, 0.5, -0.9, 0.0, 1.22, P.wood, { round: 0.04 }); // step (top 0.25)
+  B.deck(-0.9, 1.22, 0.65, 0.27, 0.25, 0, 'step');
   B.pop();
   // chimney + firewood
   B.box(0.7, 2.6, 0.7, -hw - 0.15, 1.6, -0.6, P.stone, { round: 0.06 });
@@ -343,10 +349,12 @@ export function homeCottage(B) {
   B.pop();
   // porch with roof
   B.push(0, 0, hd + 1.3);
-  deckPlanks(B, w + 0.8, 2.2, 0.55, { posts: true, postDepth: 0.45, rail: [[1.05, w + 0.8, 'x']], step: 2.4 });
+  { const W2 = w + 0.8, g = 0.75;   // [Fix] gap in the front rail at the door + a real step (the porch was 0.7 m up)
+    deckPlanks(B, W2, 2.2, 0.55, { posts: true, postDepth: 0.45, rail: [[1.05, W2 / 2 - g, 'x', -(W2 / 2 + g) / 2], [1.05, W2 / 2 - g, 'x', (W2 / 2 + g) / 2]], step: 2.4 }); }
   for (const sx of [-1, 0, 1]) if (sx) B.box(0.18, 2.6, 0.18, sx * (hw + 0.2), 1.85, 0.95, P.trimWhite);
   for (let i = 0; i < 7; i++) B.box(w + 1.3, 0.06, 0.4, 0, 3.15 - i * 0.03, -0.85 + i * 0.32, i % 2 ? P.roofRed : P.roofRedDark, { rx: 0.15 });
-  B.box(1.3, 0.28, 0.6, 0, 0.65, 1.15, P.woodLight, { round: 0.04 });
+  B.box(1.4, 0.56, 0.5, 0, 0.0, 1.36, P.woodLight, { round: 0.04 });   // step (top 0.28)
+  B.deck(0, 1.36, 0.7, 0.27, 0.28, 0, 'step');
   planter(B, -2.6, 0.55, 0.85, 0, 1.0); planter(B, 2.6, 0.55, 0.85, 0, 1.0);
   B.pop();
   // chimney

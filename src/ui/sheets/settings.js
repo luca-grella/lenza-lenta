@@ -1,13 +1,106 @@
-// Settings: language (live), music & effects volume, graphics quality, haptics, install help, credits, reset.
-import { h, onTap } from '../dom.js';
+// Settings: language (live), music & effects volume, graphics quality, haptics, install help, credits,
+// save backup (export as file or code / import from file or code, with an in-page confirmation), reset.
+import { h, onTap, fmt } from '../dom.js';
 import { icon } from '../icons.js';
 import { section } from './common.js';
 import { isStandalone, isIOS } from '../pwa.js';
+import * as SF from '../savefile.js';
 
 export default function settings(ui) {
   const { ctx } = ui;
   const t = (k, v) => ctx.i18n.t(k, v);
   let confirmReset = false, creditsOpen = false;
+  // save backup panel: null | 'code' (export code shown) | 'import' (file / paste) | 'confirm' (summary + yes/no)
+  let savePanel = null, codeText = '', pasted = '', importErr = '', pending = null, busy = false;
+  const fileIn = h('input.hidden', { type: 'file', accept: 'application/json,.json,text/plain,.txt' });
+  fileIn.addEventListener('change', async () => {
+    const f = fileIn.files?.[0];
+    fileIn.value = '';
+    if (!f) return;
+    let text = '';
+    try { text = await f.text(); } catch { importErr = t('ui.save.err_read'); spec.refresh(); return; }
+    check(text);
+  });
+  function check(text) {
+    const r = SF.decode(text, ctx.save.state?.v || 1);
+    if (!r.ok) { importErr = t('ui.save.err_' + r.reason); pending = null; savePanel = 'import'; ui.sfx('ui_close', { vol: 0.4 }); }
+    else { importErr = ''; pending = { state: r.state, sum: SF.summary(r.state, ctx) }; savePanel = 'confirm'; ui.sfx('ui_open', { vol: 0.5 }); }
+    spec.refresh();
+  }
+  function applyImport() {
+    const state = pending?.state;
+    if (!state) return;
+    ui.sheets.close(undefined, { silent: true });
+    // freeze the world first: nothing may write the old game's values over the imported save before the reload
+    if (ctx.time) ctx.time.paused = true;
+    ctx.loop?.pause?.(true);
+    const ok = ctx.save.import(state);
+    if (!ok) { ctx.loop?.pause?.(false); if (ctx.time) ctx.time.paused = false; ui.toast('ui.save.import_failed', { icon: 'info', kind: 'warn' }); return; }
+    ui.toast('ui.save.imported', { icon: 'check', kind: 'good', ms: 4000 });
+    setTimeout(() => location.reload(), 1200);
+  }
+  const dateText = ms => { try { return new Date(ms).toLocaleDateString(ctx.i18n.lang === 'it' ? 'it-IT' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); } catch { return ''; } };
+
+  function savePart(body) {
+    const out = [section(t('ui.set.save'), 'book')];
+    out.push(h('div.save-note.paper.flat', h('span.inst-ic', { html: icon('info') }), h('span', t('ui.save.where'))));
+    if (ui.persisted === true) out.push(h('div.set-note.muted.small', t('ui.save.persist_on')));
+    const bFile = h('button.btn.small.sea', { type: 'button' }, h('span', { html: icon('share') }), t('ui.save.export_file'));
+    const bCode = h('button.btn.small.ghost', { type: 'button' }, h('span', { html: icon('book') }), t('ui.save.export_code'));
+    const bImp = h('button.btn.small.ghost', { type: 'button' }, h('span', { html: icon('down') }), t('ui.save.import'));
+    onTap(bFile, async () => {
+      if (busy) return; busy = true;
+      ui.sfx('ui_tap');
+      try {
+        const r = await SF.exportFile(SF.snapshot(ctx));
+        if (r === 'shared') ui.toast('ui.save.shared', { icon: 'check', kind: 'good' });
+        else if (r === 'downloaded') ui.toast('ui.save.downloaded', { icon: 'check', kind: 'good' });
+      } catch (e) { console.warn('[ui] export', e); ui.toast('ui.save.export_failed', { icon: 'info', kind: 'warn' }); }
+      busy = false;
+    });
+    onTap(bCode, () => { ui.sfx('ui_tap'); codeText = SF.encodeCode(SF.snapshot(ctx)); savePanel = savePanel === 'code' ? null : 'code'; spec.refresh(); });
+    onTap(bImp, () => { ui.sfx('ui_tap'); importErr = ''; savePanel = savePanel === 'import' ? null : 'import'; spec.refresh(); });
+    out.push(h('div.save-btns', bFile, bCode, bImp));
+
+    if (savePanel === 'code') {
+      const ta = h('textarea.save-code', { readOnly: true, rows: 4, spellcheck: false, 'aria-label': t('ui.save.code_title') });
+      ta.value = codeText;
+      const copy = h('button.btn.small.leaf', { type: 'button' }, h('span', { html: icon('check') }), t('ui.save.copy'));
+      onTap(copy, async () => { const ok = await SF.copyText(codeText, ta); ui.toast(ok ? 'ui.save.copied' : 'ui.save.copy_failed', { icon: ok ? 'check' : 'info', kind: ok ? 'good' : 'warn' }); });
+      out.push(h('div.save-panel.paper.stitched', h('b', t('ui.save.code_title')), h('p.muted.small', t('ui.save.code_hint')), ta, h('div.confirm-btns', copy)));
+    } else if (savePanel === 'import') {
+      const ta = h('textarea.save-code', { rows: 4, spellcheck: false, autocapitalize: 'off', autocomplete: 'off', placeholder: t('ui.save.paste_here'), 'aria-label': t('ui.save.paste_here') });
+      ta.value = pasted;
+      ta.addEventListener('input', () => { pasted = ta.value; });
+      const pick = h('button.btn.small.sea', { type: 'button' }, h('span', { html: icon('book') }), t('ui.save.choose_file'));
+      onTap(pick, () => fileIn.click());
+      const paste = h('button.btn.small.ghost', { type: 'button' }, t('ui.save.paste'));
+      onTap(paste, async () => {
+        try { const txt = await navigator.clipboard.readText(); if (txt) { pasted = txt; ta.value = txt; } } catch { ta.focus(); }
+      });
+      const go = h('button.btn.small.leaf', { type: 'button' }, h('span', { html: icon('check') }), t('ui.save.check'));
+      onTap(go, () => check(ta.value));
+      const cancel = h('button.btn.small.ghost', { type: 'button' }, t('ui.save.cancel'));
+      onTap(cancel, () => { savePanel = null; importErr = ''; pasted = ''; spec.refresh(); });
+      out.push(h('div.save-panel.paper.stitched', h('b', t('ui.save.import_title')), h('div.confirm-btns', pick),
+        h('p.muted.small.center', t('ui.save.or_paste')), ta, h('div.confirm-btns', paste, go, cancel),
+        importErr ? h('div.save-err', h('span', { html: icon('info') }), importErr) : null));
+    } else if (savePanel === 'confirm' && pending) {
+      const s = pending.sum;
+      const yes = h('button.btn.coral', { type: 'button' }, t('ui.save.load_yes'));
+      const no = h('button.btn.ghost', { type: 'button' }, t('ui.save.cancel'));
+      onTap(yes, applyImport);
+      onTap(no, () => { pending = null; savePanel = null; spec.refresh(); });
+      out.push(h('div.confirm.danger.paper.stitched.save-confirm',
+        h('div.confirm-q', t('ui.save.confirm_q')),
+        h('div.save-sum', h('b', t('ui.save.summary', { day: s.day, coins: fmt(s.coins), species: s.species })),
+          s.storyTotal ? h('div.muted.small', t('ui.save.summary_story', { n: Math.min(s.story + 1, s.storyTotal), total: s.storyTotal })) : null,
+          s.saved ? h('div.muted.small', t('ui.save.saved_on', { date: dateText(s.saved) })) : null),
+        h('div.confirm-btns', yes, no)));
+    }
+    if (savePanel) requestAnimationFrame(() => body.querySelector('.save-panel, .save-confirm')?.scrollIntoView?.({ block: 'nearest' }));
+    return out;
+  }
 
   const seg = (options, value, onPick) => h('div.seg', options.map(([v, label]) => {
     const b = h('button.seg-btn' + (v === value ? '.on' : ''), { type: 'button' }, label);
@@ -70,6 +163,9 @@ export default function settings(ui) {
       parts.push(cr);
       if (creditsOpen) parts.push(h('div.credits.paper.flat', h('p', t('ui.set.credits_text')), h('p.bold', t('ui.set.credits_thanks'))));
 
+      // save backup
+      parts.push(...savePart(body));
+
       // reset
       parts.push(section(t('ui.set.game'), 'trash'));
       if (!confirmReset) {
@@ -84,7 +180,7 @@ export default function settings(ui) {
         parts.push(h('div.confirm.danger.paper.stitched', h('div.confirm-q', t('ui.set.reset_confirm')), h('div.confirm-btns', yes, no)));
       }
       parts.push(h('div.version.muted.tiny', t('ui.set.version', { v: ui.version })));
-      body.replaceChildren(...parts);
+      body.replaceChildren(...parts, fileIn);
       if (confirmReset) requestAnimationFrame(() => { body.scrollTop = body.scrollHeight; });
     },
   };

@@ -28,6 +28,7 @@ export function init(ctx) {
   // ---- controller state ----
   let facing = 0, facingGoal = 0, speed = 0, turnRate = 0, accel = 0, control = true, state = 'idle';
   let seated = null, seatedIdle = 'sit_idle', autopilot = null, idleT = 0, idleNext = rand(7, 12), saveT = 0;
+  let settle = null, seatBack = null;   // short glide into / out of a seat; where to stand up to
   let manualBend = -1, fishState = 'idle', lookOverride = null, faceCamera = false, glanceT = rand(6, 14), glancing = 0;
   const v3 = new THREE.Vector3(), from = new THREE.Vector3(), to = new THREE.Vector3(), camLook = new THREE.Vector3();
 
@@ -62,7 +63,8 @@ export function init(ctx) {
     if (obj.parent !== ctx.scene) { ctx.scene.add(obj); }
     obj.position.set(x, groundY(x, z), z);
     if (Number.isFinite(f)) { facing = facingGoal = f; obj.rotation.y = f; }
-    speed = 0; autopilot = null;
+    speed = 0; autopilot = null; settle = null;
+    if (seated && seated !== 'boat') { seated = null; seatBack = null; if (state === 'sit') state = 'idle'; ch.play('locomotion', { fade: 0.1 }); }
     ch.resetSprings();
     ctx.cameraRig?.snap?.();
   }
@@ -171,40 +173,55 @@ export function init(ctx) {
     if (Array.isArray(p)) p = { x: p[0], z: p[1] };
     return p;
   }
-  /** Walk to a seat and sit. poi: id | {x, z, y?, facing?, seatY?, kind?:'edge'|'bench'}. y/seatY = seat surface height. */
+  /**
+   * Walk to a seat and sit. poi: id | {x, z, y?, facing?, seatY?, kind?:'bench'|'edge'}. y/seatY = seat surface height
+   * (bench top, or the deck for a dock edge). Resolves true once seated, false if cancelled.
+   * [Fix] The seat point of a bench lies inside the bench collider, so the old autopilot pushed against the bench for up
+   * to 6 s ("Siediti" did nothing): now the player walks to a free approach point (in front of a bench, just behind a
+   * dock edge), turns, and glides onto the seat while sit_down plays. A stall (blocked) also ends the approach.
+   */
   function sitAt(p) {
     p = resolvePoi(p);
-    if (!p) return Promise.resolve(false);
+    if (!p || seated === 'boat') return Promise.resolve(false);
+    if (seated) { seated = null; settle = null; }
     const x = p.x, z = p.z;
     const f = Number.isFinite(p.facing) ? p.facing : Number.isFinite(p.rot) ? p.rot : facing;
-    const seatY = Number.isFinite(p.seatY) ? p.seatY : Number.isFinite(p.y) ? p.y : groundY(x, z) + (p.kind === 'bench' ? 0.42 : 0);
+    const kind = p.kind === 'bench' ? 'bench' : 'edge';
+    const seatY = Number.isFinite(p.seatY) ? p.seatY : Number.isFinite(p.y) ? p.y : groundY(x, z) + (kind === 'bench' ? 0.42 : 0);
+    const fx = Math.sin(f), fz = Math.cos(f);
+    const off = kind === 'bench' ? 0.52 : -0.32;           // in front of the bench / on the planks behind the edge
+    const ap = { x: x + fx * off, z: z + fz * off };
     seatedIdle = 'sit_idle';
+    if (autopilot) { const a = autopilot; autopilot = null; a.cancel?.(); }
     return new Promise(resolve => {
       const sit = () => {
-        obj.position.set(x, seatY, z);
         facingGoal = f;
-        seated = p.kind === 'bench' ? 'bench' : 'edge';
-        state = 'sit';
+        seated = kind; state = 'sit'; speed = 0;
+        seatBack = { x: ap.x, z: ap.z };
+        settle = { from: obj.position.clone(), to: new THREE.Vector3(x, seatY, z), t: 0, dur: 0.45 };
         play('sit_down', { fade: 0.2, next: 'sit_idle', _auto: true }).then(() => resolve(true));
       };
-      const d = Math.hypot(x - obj.position.x, z - obj.position.z);
-      if (d < 0.25 || d > 9 || !control) { if (d > 9) teleport(x, z, f); sit(); return; }
-      autopilot = { x, z, then: sit, cancel: () => resolve(false), t: 0 };
+      const d = Math.hypot(ap.x - obj.position.x, ap.z - obj.position.z);
+      if (d > 9) teleport(ap.x, ap.z, f);
+      if (d < 0.2 || d > 9 || !control) { sit(); return; }
+      autopilot = { x: ap.x, z: ap.z, then: sit, cancel: () => resolve(false), t: 0, stall: 0, last: d };
     });
   }
   function finishAutopilot(snap) {
     const a = autopilot; autopilot = null; if (!a) return;
-    if (snap) { obj.position.x = a.x; obj.position.z = a.z; a.then(); }
+    if (snap) a.then();   // the seat glide (settle) takes the player from where they are onto the seat
   }
   /** Stand up from a seat (bench / dock edge). Resolves when standing. */
   function standUp() {
     if (!seated || seated === 'boat') { if (state === 'sleep') { state = 'idle'; } return Promise.resolve(true); }
     ch.animator.stopUpper(0.2);
+    const back = seatBack;
+    if (back) settle = { from: obj.position.clone(), to: new THREE.Vector3(back.x, groundY(back.x, back.z), back.z), t: -0.25, dur: 0.75 };
     const p = play('stand_up', { fade: 0.2, _auto: true });
     return p.then(() => {
-      seated = null; state = 'idle';
+      seated = null; state = 'idle'; seatBack = null;
+      if (settle && settle.t < settle.dur) { obj.position.copy(settle.to); settle = null; }
       obj.position.y = groundY(obj.position.x, obj.position.z);
-      // step forward off the seat edge only if it is walkable
       return true;
     });
   }
@@ -241,7 +258,9 @@ export function init(ctx) {
     if (autopilot) {
       autopilot.t += dt;
       const dx = autopilot.x - obj.position.x, dz = autopilot.z - obj.position.z, d = Math.hypot(dx, dz);
-      if (d < 0.12 || autopilot.t > 6) finishAutopilot(true);
+      // progress check: blocked by a collider/edge for 0.3 s (or 4 s in all) ends the approach where we are
+      if (d < autopilot.last - 0.03) { autopilot.last = d; autopilot.stall = 0; } else autopilot.stall += dt;
+      if (d < 0.12 || autopilot.t > 4 || (autopilot.stall > 0.3 && autopilot.t > 0.4)) finishAutopilot(true);
       else { facingGoal = Math.atan2(dx, dz); goal = Math.min(SLOW, d * 2.2 + 0.3); dirX = dx / d; dirZ = dz / d; }
     } else if (free && input?.enabled !== false) {
       const m = input?.move || { x: 0, z: 0, mag: 0 };
@@ -279,7 +298,15 @@ export function init(ctx) {
       moved = Math.hypot(nx - from.x, nz - from.z);
       obj.position.x = nx; obj.position.z = nz;
     }
-    if (!seated) {
+    if (settle) {   // glide onto / off a seat (smoothstep), independent of colliders
+      settle.t += dt;
+      const k = Math.max(0, Math.min(1, settle.t / settle.dur)), e = k * k * (3 - 2 * k);
+      obj.position.lerpVectors(settle.from, settle.to, e);
+      if (k >= 1) settle = null;
+    }
+    // safety net: seated on a bench/edge with nobody (Systems) owning the stand-up, the stick stands up
+    if (seated && seated !== 'boat' && state === 'sit' && !settle && control && !ctx.systems?.interact?.sitting && (ctx.input?.move?.mag || 0) > 0.5 && ch.animator.current === 'sit_idle') standUp();
+    if (!seated && !settle) {
       const gy = groundY(obj.position.x, obj.position.z);
       obj.position.y = Math.abs(gy - obj.position.y) > 1.5 ? gy : math.damp(obj.position.y, gy, 16, dt);
       obj.rotation.y = facing;
@@ -402,7 +429,7 @@ export function init(ctx) {
   function setState(s) {
     if (!s) return;
     if (s === 'idle') {
-      autopilot = null;
+      if (autopilot) { const a = autopilot; autopilot = null; a.cancel?.(); }
       if (seated) { if (ch.animator.upperName) ch.animator.stopUpper(0.3); if (seated !== 'boat') state = 'sit'; else state = 'boat'; return; }
       const cur = ch.animator.current;
       const def = cur && cur !== 'locomotion' ? ch.animator.lib[cur]?.def : null;

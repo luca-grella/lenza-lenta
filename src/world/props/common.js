@@ -19,6 +19,7 @@ export function crate(B, x, y, z, s = 1, ry = 0, color = P.woodLight) {
   for (const sx of [-1, 1]) B.box(0.08, 0.62, 0.72, sx * 0.31, 0.3, 0, P.woodDark, { round: 0.02 });
   B.box(0.72, 0.08, 0.08, 0, 0.3, 0.33, P.woodDark, { round: 0.02 });
   B.box(0.72, 0.08, 0.08, 0, 0.3, -0.33, P.woodDark, { round: 0.02 });
+  B.rect(0, 0, 0.37 * s, 0.37 * s, 0, 'prop');
   B.pop();
 }
 
@@ -29,6 +30,7 @@ export function barrel(B, x, y, z, s = 1, color = P.wood) {
   B.cyl(0.34, 0.34, 0.06, 0, 0.62, 0, P.metal, { seg: 10 });
   B.cyl(0.34, 0.34, 0.06, 0, 0.18, 0, P.metal, { seg: 10 });
   B.cyl(0.27, 0.27, 0.02, 0, 0.81, 0, P.woodDark, { seg: 10 });
+  B.circle(0, 0, 0.33 * s, 'prop');
   B.pop();
 }
 
@@ -40,6 +42,7 @@ export function lanternPost(B, x, y, z, h = 2.1, ry = 0) {
   B.cyl(0.015, 0.015, 0.2, 0.46, h - 0.2, 0, P.metal, { seg: 4 });
   lanternBox(B, 0.46, h - 0.52, 0);
   B.glow(0.46, h - 0.5, 0, 0xffb860, 1, 'lantern');
+  B.circle(0, 0, 0.13, 'post');
   B.pop();
 }
 
@@ -99,6 +102,9 @@ export function fence(B, x0, z0, x1, z1, groundAt, color = P.woodLight) {
         const mid = a.clone().add(b).multiplyScalar(0.5), d = b.clone().sub(a);
         B.box(0.06, 0.1, d.length() + 0.1, mid.x, mid.y, mid.z, color, { ry: Math.atan2(d.x, d.z), rx: -Math.atan2(d.y, Math.hypot(d.x, d.z)), round: 0.02 });
       }
+      // solid for walkers: one thin box per span (posts included)
+      const ddx = x - prev.x, ddz = z - prev.z;
+      B.rect((x + prev.x) / 2, (z + prev.z) / 2, Math.hypot(ddx, ddz) / 2 + 0.08, 0.09, Math.atan2(-ddz, ddx), 'fence');
     }
     prev = { x, y, z };
   }
@@ -127,6 +133,7 @@ export function netPile(B, x, y, z, s = 1) {
   B.sphere(0.3, 0.3, 0.12, 0.15, 0x7fa096, { sy: 0.45, detail: 1 });
   B.sphere(0.12, -0.2, 0.25, 0.1, P.fishOrange, { detail: 0 });
   B.sphere(0.1, 0.15, 0.27, -0.15, P.trimWhite, { detail: 0 });
+  B.circle(0.05, 0.03, 0.45 * s, 'prop');
   B.pop();
 }
 
@@ -141,6 +148,7 @@ export function hangingNet(B, x, y, z, ry = 0, w = 2.2, h = 1.4) {
   B.sphere(0.13, -0.3, 0.9, 0.04, P.fishOrange, { detail: 0 });
   B.sphere(0.12, 0.5, 1.2, 0.04, P.trimWhite, { detail: 0 });
   B.circle(-w / 2, 0, 0.12); B.circle(w / 2, 0, 0.12);
+  B.rect(0, 0, w / 2, 0.07, 0, 'net');
   B.pop();
 }
 
@@ -156,6 +164,7 @@ export function planter(B, x, y, z, ry = 0, len = 0.9, color = P.wood) {
     B.sphere(0.09, xx, 0.3, (i % 2 ? 0.04 : -0.03), P.leaf, { detail: 0 });
     B.sphere(0.055, xx + 0.02, 0.37, (i % 2 ? 0.02 : -0.05), cols[(i + Math.round(x * 3)) % cols.length], { detail: 0 });
   }
+  B.rect(0, 0, len / 2, 0.15, 0, 'prop');
   B.pop();
 }
 
@@ -191,6 +200,7 @@ export function bollard(B, x, y, z) {
   B.push(x, y, z);
   B.cyl(0.12, 0.14, 0.4, 0, 0.2, 0, P.metal, { seg: 8 });
   B.cyl(0.18, 0.18, 0.06, 0, 0.42, 0, P.metal, { seg: 8 });
+  B.circle(0, 0, 0.17, 'prop');
   B.pop();
 }
 

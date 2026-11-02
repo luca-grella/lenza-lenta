@@ -2,6 +2,9 @@
 // sit, groom, sleep curled, loaf, eat) blended by an AnimationMixer, plus procedural layers on top
 // (head look-at, blinks, meow with a little mouth, purring, tail flicks). Lives near its home spot until
 // befriended, then follows the player at a cozy distance and sits beside them while they fish.
+// Head look-at has natural limits (yaw ±57° split neck/head, pitch up 34° / down 14°, rate-limited, lets go when
+// the player is behind instead of whipping round). Petting: approachForPet() tells Gameplay where the player must
+// stand (the cat stops and turns its body), pet() lies the cat down with its back right under the player's palm.
 import * as THREE from 'three';
 import { RigBuilder, instantiate, makeClip, cycle, creatureMaterial, addRot, addEyes } from './rig.js';
 import { ellipsoid, cone, aim, mat, col, sweep as sweepTube } from './geo.js';
@@ -39,6 +42,16 @@ for (const [s, x] of SIDES) {
     { name: 'bpaw' + s, parent: 'hock' + s, pos: [x * 0.08, 0.02, -0.13] },
   );
 }
+
+/** The player's petting palm (rig clip 'pet', left hand, measured): ahead of the player, to their left, height. */
+export const PET_HAND = { fwd: 0.38, side: 0.57, h: 0.3 };
+const PET_REACH = Math.hypot(PET_HAND.fwd, PET_HAND.side);   // player ↔ palm (0.68 m)
+const PET_ANGLE = Math.atan2(PET_HAND.side, PET_HAND.fwd);   // palm direction = player facing + this
+const PET_BACK = 0.15;   // the palm lands on the cat's back this far ahead of its origin (loaf pose, back at ≈0.3 m)
+const LOOK = { yaw: 1.0, up: 0.6, down: 0.25, rate: 2.4 };   // natural head limits (rad) and max turn speed (rad/s)
+/** Bones the procedural layers touch (reset every frame before the mixer). */
+const LAYER_BONES = ['neck', 'head', 'earL', 'earR', 'eyes', 'mouth', 'tail4'];
+const wrap = a => THREE.MathUtils.euclideanModulo(a + Math.PI, Math.PI * 2) - Math.PI;
 
 function lerpKeys(keys, x) {
   if (x <= keys[0][0]) return keys[0][1];
@@ -272,6 +285,8 @@ export function createCat(ctx, env, root, fx, def = {}) {
   let facing = 0, speed = 0, state = 'idle', stateT = 0, stateDur = 3, target = null, home = null;
   let lookW = 0, lookYaw = 0, lookPitch = 0, blinkT = 2, blink = 0, meowT = -1, nextMeow = 6, purrT = 0, zT = 0;
   let sitTarget = null, sitFace = null, eatT = 0, eatFish = null, visibleNear = true, tailFlick = 0;
+  let debugHold = false, lastApproach = null, turningBody = false, petSpot = null, petFace = 0, petRest = 'idle', petW = 0, petHold = 3, tracking = true;
+  const _h = V();
   const R = Math.random;
 
   const saveCat = () => { const s = ctx.save?.state; if (!s) return {}; s.cat = s.cat || { friend: 0, following: false }; return s.cat; };
@@ -301,7 +316,7 @@ export function createCat(ctx, env, root, fx, def = {}) {
     const s2 = Math.min(spd, dist * 2.2 + 0.2);
     speed += (s2 - speed) * Math.min(1, dt * 3.5);
     const nx = pos.x + Math.sin(facing) * speed * dt, nz = pos.z + Math.cos(facing) * speed * dt;
-    if (!env.walkable(nx, nz)) { speed *= 0.3; return true; }
+    if (!env.walkable(nx, nz) || env.isWater?.(nx, nz)) { speed *= 0.3; return true; }   // cats keep their paws dry
     _t.set(nx, 0, nz);
     const r = env.resolveMove(pos, _t, 0.2);
     pos.x = r.x; pos.z = r.z;
@@ -311,6 +326,21 @@ export function createCat(ctx, env, root, fx, def = {}) {
   function gaitFor(spd) {
     if (spd > 1.5) play('trot', 0.3, THREE.MathUtils.clamp(spd / 1.9, 0.7, 1.9));
     else if (spd > 0.08) play('walk', 0.35, THREE.MathUtils.clamp(spd / 0.75, 0.5, 1.8));
+  }
+
+  const dryOK = (x, z) => env.walkable(x, z) && !env.isWater?.(x, z);
+  /** Turn the body in place toward angle a (max rate rad/s). Returns the remaining angle. */
+  function turnToward(a, rate, dt) {
+    const d = wrap(a - facing);
+    facing += THREE.MathUtils.clamp(d, -rate * dt, rate * dt);
+    return Math.abs(d);
+  }
+  /** Where the cat should lie so the palm of a player at (px,pz) facing f lands on its back. */
+  function petLayoutFor(px, pz, f) {
+    const pa = f + PET_ANGLE;
+    const hx = px + Math.sin(pa) * PET_REACH, hz = pz + Math.cos(pa) * PET_REACH;
+    const a = Math.atan2(px - hx, pz - hz);   // the cat faces the player
+    return { x: hx - Math.sin(a) * PET_BACK, z: hz - Math.cos(a) * PET_BACK, face: a };
   }
 
   function restPose(t, night) {
@@ -359,14 +389,76 @@ export function createCat(ctx, env, root, fx, def = {}) {
       }
       ctx.bus?.emit('cat:fed', { speciesId });
     },
-    /** Pet the cat: purr + hearts. */
-    pet() { purrT = 3.5; if (state === 'sleep') setState('loaf', 6); fx.hearts(_t.copy(pos).add(V(0, 0.7, 0)), 3); ctx.audio?.sfx?.('cat_meow', { vol: 0.25, pitch: 1.25, pos }); ctx.haptic?.(8); },
+    /**
+     * Before petting: where the player should stand and face so their hand lands on the cat, given where they are now.
+     * The cat stops right away (stops wandering/following) and turns its body toward that spot, waiting up to 6 s.
+     * @param {{x:number,z:number}} [playerPos] defaults to the player's position
+     * @returns {{standPos:{x:number,z:number}, facing:number, catPos:{x:number,z:number}, catFacing:number, tolerance:number, ok:boolean}}
+     *   ok=false: no free spot around the cat (water/walls all round) — standPos is then the player's current spot.
+     */
+    approachForPet(playerPos) {
+      const p = playerPos || env.player();
+      const base = Math.atan2(p.x - pos.x, p.z - pos.z);
+      const d0 = PET_BACK + PET_REACH;
+      for (const da of [0, 0.45, -0.45, 0.9, -0.9, 1.4, -1.4, 2.0, -2.0, 2.6, -2.6, Math.PI]) {
+        const a = base + da;
+        const sx = pos.x + Math.sin(a) * d0, sz = pos.z + Math.cos(a) * d0;
+        if (!dryOK(sx, sz)) continue;
+        petFace = a; petSpot = { x: pos.x, z: pos.z, face: a };
+        lastApproach = { x: sx, z: sz, facing: wrap(a + Math.PI - PET_ANGLE) };
+        if (!['waitPet', 'goPet', 'petted'].includes(state)) { petRest = ['sit', 'groom', 'loaf', 'sleep'].includes(state) ? 'sit' : 'idle'; setState('waitPet', 6); }
+        return { standPos: { x: sx, z: sz }, facing: wrap(a + Math.PI - PET_ANGLE), catPos: { x: pos.x, z: pos.z }, catFacing: wrap(a), tolerance: 0.15, ok: true };
+      }
+      return { standPos: { x: p.x, z: p.z }, facing: env.playerFacing(), catPos: { x: pos.x, z: pos.z }, catFacing: facing, tolerance: 0.15, ok: false };
+    },
+    /** Let the cat go back to its business (the player walked away / the approach was cancelled). */
+    cancelPet() { if (['waitPet', 'goPet'].includes(state)) { petSpot = null; setState('idle', 1.5); } },
+    /**
+     * Pet the cat: it lies down (loaf) with its back under the player's palm, purrs, closes its eyes, hearts.
+     * If the player is not where approachForPet() said (or it was never called), the cat itself steps the last bit
+     * to the palm (and the player turns if that spot is blocked), so the hand is always on the cat.
+     * @param {{duration?:number}} [o] how long the cat stays (default 3 s ≈ the player's 'pet' clip)
+     * @returns {{x:number,z:number,face:number}} where the cat lies
+     */
+    pet(o = {}) {
+      const p = env.player();
+      let f = env.playerFacing();
+      let L = petLayoutFor(p.x, p.z, f);
+      if (state === 'waitPet' && lastApproach && Math.hypot(p.x - lastApproach.x, p.z - lastApproach.z) < 0.35) {
+        // the player came to the spot we gave: they finish turning to the facing we asked for, and the cat
+        // shuffles the last few cm so the palm (from where they really stand) lands on its back
+        f = lastApproach.facing; ctx.player?.face?.(f);
+        L = petLayoutFor(p.x, p.z, f);
+        if (!dryOK(L.x, L.z)) L = { x: pos.x, z: pos.z, face: petFace };
+      } else if (!dryOK(L.x, L.z)) {
+        // that spot is in the water / a wall: the player turns toward a free one (closest to the cat)
+        let best = null, bd = Infinity;
+        for (let k = 1; k < 12; k++) {
+          const f2 = f + k * 0.52;
+          const L2 = petLayoutFor(p.x, p.z, f2);
+          if (!dryOK(L2.x, L2.z)) continue;
+          const d = Math.hypot(L2.x - pos.x, L2.z - pos.z);
+          if (d < bd) { bd = d; best = { f2, L2 }; }
+        }
+        if (best) { f = best.f2; L = best.L2; ctx.player?.face?.(f); }
+      }
+      petSpot = L; petFace = L.face;
+      const far = Math.hypot(L.x - pos.x, L.z - pos.z);
+      setState(far > 0.08 ? 'goPet' : 'petted', o.duration ?? 3.0);
+      petHold = o.duration ?? 3.0;
+      purrT = 3.5 + petHold * 0.3;
+      fx.hearts(_t.copy(pos).add(V(0, 0.6, 0)), 3);
+      ctx.audio?.sfx?.('cat_meow', { vol: 0.25, pitch: 1.25, pos }); ctx.haptic?.(8);
+      return { x: L.x, z: L.z, face: L.face };
+    },
+    /** Measured petting hand offset (for Gameplay/cinematics). */
+    PET_HAND,
     /** A little meow (with sound). */
     meow() { meowT = 0; ctx.audio?.sfx?.('cat_meow', { vol: 0.55, pitch: 0.95 + R() * 0.2, pos }); },
     /** Move the cat instantly (debug / after the player teleports far). */
     teleport(x, z) { placeAt(x, z); target = null; },
-    /** Debug: force a clip/state for screenshots. */
-    debugState(s, dur = 999) { setState(s, dur); },
+    /** Debug: force a clip/state for screenshots. hold=true freezes the cat's own decisions (contact sheets). */
+    debugState(s, dur = 999, hold = false) { setState(s, dur); debugHold = hold; speed = 0; },
     play,
     update(dt, t, info) {
       const p = info.player;
@@ -380,7 +472,21 @@ export function createCat(ctx, env, root, fx, def = {}) {
       const friend = isFriend(), follow = following();
 
       // ---- decide ----
-      if (state === 'goEat') {
+      let turning = false;
+      if (debugHold && !['waitPet', 'goPet', 'petted'].includes(state)) { /* frozen by debugState(…, hold) */ }
+      else if (state === 'waitPet') {
+        // the player is walking over to pet: stay put, turn the body toward them
+        speed += (0 - speed) * Math.min(1, dt * 8);
+        turning = turnToward(petFace, 2.2, dt) > 0.2;
+        if (stateT > stateDur) { petSpot = null; setState(petRest === 'sit' ? 'sit' : 'idle', 3); }
+      } else if (state === 'goPet') {
+        if (moveToward(petSpot.x, petSpot.z, 3.0, dt, 0.06) || stateT > 1.4) setState('petted', petHold);
+      } else if (state === 'petted') {
+        speed = 0;
+        pos.x += (petSpot.x - pos.x) * Math.min(1, dt * 8); pos.z += (petSpot.z - pos.z) * Math.min(1, dt * 8);
+        turnToward(petFace, 4, dt);
+        if (stateT > stateDur) { petSpot = null; setState('sit', 5 + R() * 4); sitFace = null; }
+      } else if (state === 'goEat') {
         if (moveToward(target.x, target.z, 1.6, dt, 0.2) || stateT > 8) { setState('eat', 4.5); eatT = 0; }
       } else if (state === 'eat') {
         speed = 0; eatT += dt;
@@ -392,7 +498,7 @@ export function createCat(ctx, env, root, fx, def = {}) {
       } else if (follow) {
         // keep a cozy distance; sit beside a fishing player
         const fishing = pState === 'fishing';
-        if (dist > 32) { const f = env.playerFacing(); const s = env.findSpot(p.x - Math.sin(f) * 5, p.z - Math.cos(f) * 5, 0, 2.5, (x, z) => env.walkable(x, z)); if (s) placeAt(s.x, s.z); }
+        if (dist > 32) { const f = env.playerFacing(); const s = env.findSpot(p.x - Math.sin(f) * 5, p.z - Math.cos(f) * 5, 0, 2.5, dryOK); if (s) placeAt(s.x, s.z); }
         if (fishing) {
           const f = env.playerFacing();
           const sx = p.x + Math.cos(f) * 0.95 - Math.sin(f) * 0.25, sz = p.z - Math.sin(f) * 0.95 - Math.cos(f) * 0.25;
@@ -425,15 +531,24 @@ export function createCat(ctx, env, root, fx, def = {}) {
           if (dist < 6 && dist > 2.0 && state !== 'sleep' && R() < dt * 0.06) {
             const k = 1.4 / dist; target = { x: p.x - dx * k, z: p.z - dz * k }; setState('move', 10);
           } else if (state === 'idle' && stateT > stateDur) {
-            const s = env.findSpot(home.x, home.z, 0.5, 5, (x, z) => env.walkable(x, z));
+            const s = env.findSpot(home.x, home.z, 0.5, 5, dryOK);
             if (s && R() < 0.7) { target = s; setState('move', 12); } else setState('sit', 4 + R() * 6);
           } else restPose(t, night);
         }
       }
 
       // ---- animate ----
-      const moving = speed > 0.08 && (state === 'move' || state === 'goSit' || state === 'goEat');
-      if (moving) gaitFor(speed);
+      const moving = speed > 0.08 && (state === 'move' || state === 'goSit' || state === 'goEat' || state === 'goPet');
+      // standing near the player who is behind us: turn round on the spot (no owl-like head spin)
+      if (!moving && state === 'idle' && dist < 4 && dist > 0.6) {
+        const toP = wrap(Math.atan2(dx, dz) - facing);
+        if (Math.abs(toP) > 1.25 || (turningBody && Math.abs(toP) > 0.35)) { turningBody = true; turning = turnToward(facing + toP, 1.8, dt) > 0.2; } else turningBody = false;
+      } else turningBody = false;
+      const settling = state === 'petted' || (state === 'goPet' && Math.hypot(petSpot.x - pos.x, petSpot.z - pos.z) < 0.35);
+      if (settling) play('loaf', 0.35);   // already lying down as it slides the last few cm under the hand
+      else if (moving) gaitFor(speed);
+      else if (turning) play('walk', 0.3, 0.55);
+      else if (state === 'waitPet') play(petRest === 'sit' ? 'sit' : 'idle', 0.5);
       else if (state === 'sit' || state === 'goSit') play('sit', 0.6);
       else if (state === 'groom') play('groom', 0.6);
       else if (state === 'loaf') play('loaf', 0.8);
@@ -445,17 +560,37 @@ export function createCat(ctx, env, root, fx, def = {}) {
       group.rotation.y = facing;
       pos.y += (env.ground(pos.x, pos.z) - pos.y) * Math.min(1, dt * 12);
       if (!visibleNear) return;
+      // [Fix] the procedural layers below add rotations on top of the pose. Bones a clip has no track for (the idle
+      // clip has no head, most clips no ears/eyes) were never reset, so the look-at piled up frame after frame and
+      // the head spun round. Put them back to rest first; the mixer then overwrites the ones it animates.
+      for (const n of LAYER_BONES) { const b = rig.bones[n]; if (b) { b.quaternion.copy(rig.rest[n].quat); b.scale.set(1, 1, 1); } }
       mixer.update(dt);
 
       // ---- procedural layers ----
       const asleep = state === 'sleep';
-      // look at the player's face when near and awake
-      const wantLook = !asleep && state !== 'eat' && dist < 7 ? 1 : 0;
-      lookW += (wantLook - lookW) * Math.min(1, dt * 3);
-      const yawTo = THREE.MathUtils.euclideanModulo(Math.atan2(dx, dz) - facing + Math.PI, Math.PI * 2) - Math.PI;
-      lookYaw += (THREE.MathUtils.clamp(yawTo, -1.1, 1.1) - lookYaw) * Math.min(1, dt * 4);
-      lookPitch += (-Math.atan2(1.2, Math.max(0.5, dist)) * 0.6 - lookPitch) * Math.min(1, dt * 3);
-      if (lookW > 0.01) { addRot(rig, 'neck', lookPitch * 0.4 * lookW, lookYaw * 0.4 * lookW, 0); addRot(rig, 'head', lookPitch * 0.6 * lookW, lookYaw * 0.55 * lookW, -lookYaw * 0.15 * lookW); }
+      // look at the player's face when near and awake, within natural limits (see LOOK), never whipping round
+      const tgt = ctx.player?.headObject?.getWorldPosition ? ctx.player.headObject.getWorldPosition(_h) : _h.set(p.x, (p.y || 0) + 1.3, p.z);
+      const hx = pos.x + Math.sin(facing) * 0.3, hz = pos.z + Math.cos(facing) * 0.3, hy = pos.y + 0.5;
+      const ddx = tgt.x - hx, ddz = tgt.z - hz, dh = Math.hypot(ddx, ddz);
+      const yawTo = dh > 0.2 ? wrap(Math.atan2(ddx, ddz) - facing) : 0;
+      if (tracking && Math.abs(yawTo) > 2.0) tracking = false; else if (!tracking && Math.abs(yawTo) < 1.55) tracking = true;
+      const lookable = !asleep && !['eat', 'groom', 'goPet', 'petted'].includes(state) && dist < 7 && dh > 0.3 && tracking;
+      const wantLook = lookable ? (moving ? 0.35 : state === 'loaf' ? 0.6 : 1) : 0;
+      lookW += THREE.MathUtils.clamp(wantLook - lookW, -dt * 2, dt * 2);
+      const yawGoal = tracking ? THREE.MathUtils.clamp(yawTo, -LOOK.yaw, LOOK.yaw) : 0;
+      const pitchGoal = THREE.MathUtils.clamp(-Math.atan2(tgt.y - hy, Math.max(0.4, dh)) * 0.7, -LOOK.up, LOOK.down);
+      lookYaw += THREE.MathUtils.clamp((yawGoal - lookYaw) * Math.min(1, dt * 5), -LOOK.rate * dt, LOOK.rate * dt);
+      lookPitch += THREE.MathUtils.clamp((pitchGoal - lookPitch) * Math.min(1, dt * 4), -LOOK.rate * 0.75 * dt, LOOK.rate * 0.75 * dt);
+      if (lookW > 0.01) { addRot(rig, 'neck', lookPitch * 0.4 * lookW, lookYaw * 0.4 * lookW, 0); addRot(rig, 'head', lookPitch * 0.6 * lookW, lookYaw * 0.6 * lookW, -lookYaw * 0.12 * lookW); }
+      // being petted: lean the head up into the hand, slow happy rub, ears soft
+      petW += THREE.MathUtils.clamp((state === 'petted' ? 1 : 0) - petW, -dt * 2.5, dt * 2.5);
+      if (petW > 0.01) {
+        const rub = Math.sin(t * 2.6);
+        addRot(rig, 'neck', -0.18 * petW, 0, 0); addRot(rig, 'head', -0.22 * petW, 0.12 * rub * petW, 0.14 * rub * petW);
+        addRot(rig, 'earL', 0.25 * petW, 0, 0.2 * petW); addRot(rig, 'earR', 0.25 * petW, 0, -0.2 * petW);
+        addRot(rig, 'tail4', 0, 0.35 * Math.sin(t * 1.3) * petW, 0);
+        rig.bones.eyes.scale.y *= 1 - 0.85 * petW;
+      }
       // meow: head up, mouth open, ears back
       nextMeow -= dt;
       if (!asleep && dist < 5 && nextMeow < 0 && state !== 'eat') { nextMeow = 9 + R() * 14; if (R() < 0.6) cat.meow(); }

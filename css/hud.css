@@ -134,6 +134,18 @@ button.pill:active { transform: translateY(2px); }
 .act.hold::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid rgba(255, 248, 234, .7); animation: hold-pulse 1.6s ease-out infinite; }
 @keyframes hold-pulse { 0% { transform: scale(.95); opacity: .9 } 100% { transform: scale(1.25); opacity: 0 } }
 
+.act-side { display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; }
+.act-side > * { pointer-events: auto; }
+.alt-btn { position: relative; width: 56px; height: 56px; animation: ui-pop .3s cubic-bezier(.2,1.5,.4,1) both; }
+.alt-ic { display: flex; }
+.alt-ic .ic { width: 34px; height: 34px; }
+.alt-tag { position: absolute; right: calc(100% + 6px); top: 50%; transform: translateY(-50%); white-space: nowrap; padding: 3px 10px 4px; border-radius: 10px;
+  font-size: 13px; font-weight: 900; color: #fff8ea; text-shadow: 0 1.5px 0 rgba(70, 35, 10, .55); pointer-events: none;
+  background: var(--wood-grain), linear-gradient(180deg, var(--wood-l), var(--wood) 55%, var(--wood-d)); box-shadow: 0 2px 0 var(--wood-dd), 0 4px 8px rgba(60, 35, 15, .25); }
+#ui.compact .alt-btn { width: 48px; height: 48px; }
+#ui.compact .alt-ic .ic { width: 28px; height: 28px; }
+#ui.compact .act-side { gap: 8px; }
+#ui.reeling .alt-btn, #ui.busy .alt-btn { display: none; }
 .bait-btn { position: relative; width: 60px; height: 60px; margin-bottom: 4px; }
 .bait-ic .ic { width: 38px; height: 38px; }
 .bait-n { position: absolute; right: -7px; bottom: -6px; min-width: 25px; height: 23px; padding: 0 6px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
@@ -220,8 +232,15 @@ button.pill:active { transform: translateY(2px); }
 
 /* ───────────── notifications ───────────── */
 .notify { position: absolute; inset: 0; pointer-events: none; }
-.toasts { position: absolute; top: calc(var(--hud-bottom, 70px) + 10px); left: 50%; transform: translateX(-50%); width: min(440px, calc(100% - var(--gl) - var(--gr)));
-  display: flex; flex-direction: column; align-items: center; gap: 6px; }
+/* top stack: zone title → toasts → (tip while reeling/talking), one column under the HUD, nothing overlaps */
+.notify-top { position: absolute; top: calc(var(--hud-bottom, 70px) + 10px); left: 50%; transform: translateX(-50%); width: min(460px, calc(100% - var(--gl) - var(--gr)));
+  display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; transition: opacity .3s ease; }
+#ui.compact .notify-top { top: calc(var(--hud-bottom, 56px) + 6px); gap: 4px; }
+#ui.has-banner .notify-top, #ui.has-banner .tip-host { opacity: 0; }
+#ui.has-banner .notify-top *, #ui.has-banner .tip-host * { pointer-events: none !important; }
+.toasts { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 100%; }
+.toasts:empty, .tip-slot:empty { display: none; }
+.tip-slot { display: flex; justify-content: center; width: 100%; }
 .toast { display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 16px 7px 8px; border-radius: 999px; font-weight: 800; font-size: 14.5px; line-height: 1.25;
   animation: ui-drop .35s cubic-bezier(.2,1.4,.4,1) both; pointer-events: none; }
 .toast.tappable { pointer-events: auto; cursor: pointer; }
@@ -236,8 +255,9 @@ button.pill:active { transform: translateY(2px); }
 #ui.compact .toast { font-size: 13.5px; padding: 5px 14px 5px 6px; }
 #ui.compact .toast-ic .ic { width: 24px; height: 24px; }
 
-.banner-host { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--gt) var(--gr) var(--gb) var(--gl); pointer-events: none; }
-.banner { position: relative; pointer-events: auto; cursor: pointer; animation: ui-pop .55s cubic-bezier(.2,1.5,.4,1) both; margin-top: -6vh; }
+.banner-host { position: absolute; left: 0; right: 0; bottom: 0; top: var(--hud-bottom, 70px); display: flex; align-items: center; justify-content: center;
+  padding: 34px var(--gr) var(--gb) var(--gl); pointer-events: none; }
+.banner { position: relative; pointer-events: auto; cursor: pointer; animation: ui-pop .55s cubic-bezier(.2,1.5,.4,1) both; margin-top: -4vh; }
 .banner.bye { animation: banner-out .38s ease forwards; }
 @keyframes banner-out { to { opacity: 0; transform: scale(.92) translateY(-10px) } }
 .banner-rays { position: absolute; left: 50%; top: 50%; width: 600px; height: 600px; margin: -300px 0 0 -300px; border-radius: 50%; pointer-events: none;
@@ -267,30 +287,31 @@ button.pill:active { transform: translateY(2px); }
 .confetti i { position: absolute; left: 0; top: 0; width: 8px; height: 12px; border-radius: 2px; opacity: 0; animation: confetti 1.5s cubic-bezier(.15,.7,.3,1) forwards; }
 @keyframes confetti { 0% { transform: translate(0, 0) rotate(0); opacity: 1 } 100% { transform: translate(var(--x), calc(var(--y) + 160px)) rotate(var(--r)); opacity: 0 } }
 #ui.compact .banner { margin-top: 0; }
+#ui.compact .banner-host { padding-top: 30px; }
 #ui.compact .banner-card { padding: 30px 22px 10px; }
 #ui.compact .banner-img { max-height: 34vh; width: 180px; }
 #ui.compact .banner-sub { font-size: 19px; }
 
-.zone-title { position: absolute; left: var(--gl); right: var(--gr); top: calc(var(--gt) + 11%); display: flex; align-items: center; justify-content: center; gap: 14px;
+.zone-title { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; gap: 14px;
   opacity: 0; transform: translateY(10px); transition: opacity 1.1s ease, transform 1.1s ease; pointer-events: none; }
 .zone-title.on { opacity: 1; transform: none; }
+.zone-title.gone { display: none; }
 .zt-name { font-size: clamp(20px, 4.4vw, 34px); font-weight: 900; color: #fff8ea; text-align: center; letter-spacing: .4px; line-height: 1.1;
   text-shadow: 0 3px 0 rgba(75, 50, 33, .6), 0 0 22px rgba(20, 35, 45, .45); }
 .zt-line { flex: none; width: 46px; height: 3px; border-radius: 3px; background: rgba(255, 248, 234, .9); box-shadow: 0 2px 0 rgba(75, 50, 33, .45); }
-#ui.compact .zone-title { top: calc(var(--gt) + 64px); }
 #ui.compact .zt-name { font-size: 20px; }
 #ui.compact .zt-line { width: 28px; }
 
 .tip-host { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--gb) + 150px); width: min(460px, calc(100% - var(--gl) - var(--gr) - 8px)); display: flex; justify-content: center; pointer-events: none; }
 #ui.landscape .tip-host { bottom: calc(var(--gb) + 22px); width: min(440px, calc(100% - 2 * (var(--gr) + 150px))); }
-#ui.reeling .tip-host, #ui.has-dialog .tip-host { bottom: auto; top: calc(var(--hud-bottom, 70px) + 62px); }
+
 .tip { display: flex; align-items: center; gap: 10px; padding: 9px 9px 9px 12px; font-weight: 800; font-size: 15px; line-height: 1.25; border-radius: 20px;
-  animation: ui-rise .4s cubic-bezier(.2,1.3,.4,1) both; pointer-events: auto; }
+  animation: ui-rise .4s cubic-bezier(.2,1.3,.4,1) both; pointer-events: none; } /* a thumb on the tip still reaches the joystick */
 .tip::after { inset: 4px; border-radius: 16px; }
 .tip-ic { flex: none; display: flex; }
 .tip-ic .ic { width: 28px; height: 28px; }
 .tip-txt { flex: 1; min-width: 0; }
-.tip-ok { flex: none; position: relative; z-index: 1; }
+.tip-ok { flex: none; position: relative; z-index: 1; pointer-events: auto; }
 .tip.bye { animation: fade-out .35s ease forwards; }
 #ui.compact .tip { font-size: 14px; padding: 6px 7px 6px 10px; }
 

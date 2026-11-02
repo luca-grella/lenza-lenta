@@ -72,7 +72,7 @@ export async function init(ctx) {
   }
 
   // ---------------------------------------------------------------- places (buildings, props) + colliders
-  const places = buildPlaces(ctx, { terrain, materials, U, extraMats });
+  const places = buildPlaces(ctx, { terrain, materials, U, extraMats, waterSurfaceAt });
   root.add(places.group);
   const colliders = createColliders({ heightAt: H, slopeAt: terrain.slopeAt, waterSurfaceAt, bound: L.HALF - 3 });
   for (const c of places.colliders) colliders.add(c);
@@ -134,14 +134,25 @@ export async function init(ctx) {
   }
   let activeGlows = glows;
   setHomeTier(ctx.save.state.home?.tier ?? 0);
+  // Fallback "sit" actions for sandboxes: in the game Systems' interact owns benches (bench_* POIs) and its own
+  // sitting state (stand-up button), so these stay disabled there to never seat the player behind its back.
   for (const p of Object.values(pois)) {
-    if (p.kind !== 'bench' && p.kind !== 'edge') continue;
+    if (!p.id.startsWith('bench_') || (p.kind !== 'bench' && p.kind !== 'edge')) continue;
     interactables.register({
       id: 'sit_' + p.id, pos: p, radius: 1.5, kind: 'sit', labelKey: p.kind === 'edge' ? 'world.sit_edge' : 'world.sit', icon: 'sit',
-      enabled: () => !!ctx.player?.sitAt && !['boat', 'sit', 'fishing', 'sleep', 'cutscene'].includes(ctx.player.state),
+      enabled: () => !ctx.systems?.interact && !!ctx.player?.sitAt && !['boat', 'sit', 'fishing', 'sleep', 'cutscene'].includes(ctx.player.state),
       onInteract: () => ctx.player?.sitAt?.(p),
     });
   }
+
+  // [Fix] From the cabin/cottage tiers the bed is deep inside the house (the house is solid), out of the 2.4 m reach of
+  // the bed action: the front door offers the same sleep/nap action. Tier 0 (tent) keeps the bed itself.
+  interactables.register({
+    id: 'home_sleep_door', get pos() { return pois.home_door; }, radius: 1.9, kind: 'sleep', icon: 'sleep', priority: 2,
+    get labelKey() { return ctx.systems?.home?.sleepKind?.() === 'nap' ? 'sys.act.nap' : 'sys.act.sleep'; },
+    enabled: () => homeState.tier >= 1 && !!ctx.systems?.home?.sleep && !ctx.systems.home.sleeping && !['boat', 'sit', 'fishing', 'sleep', 'cutscene'].includes(ctx.player?.state),
+    onInteract: () => ctx.systems?.home?.sleep?.(),
+  });
 
   // ---------------------------------------------------------------- state & helpers
   const _focus = new THREE.Vector3();
@@ -239,6 +250,21 @@ export async function init(ctx) {
     poi(id) { return pois[id] || null; },
     /** All POIs whose id starts with prefix (e.g. 'bench_', 'forage_pine_forest'). */
     poiList(prefix = '') { return Object.values(pois).filter(p => p.id.startsWith(prefix)); },
+    /**
+     * Dock-edge sit spots: [{id:'edge_<dock>_<n>', x, y (deck height), z, facing (toward the water), kind:'dock_edge',
+     * seat:'edge', dock:'home'|'village'|'pond'|'palm', zone}] — also POIs, so ctx.player.sitAt(spot or id) works (any
+     * kind but 'bench' sits as an edge). Not interactables and not kind 'edge' on purpose: Gameplay decides when to offer
+     * them (along the dock sides they must not steal the Cast button).
+     */
+    sitSpots: places.sitSpots,
+    /** Nearest dock-edge sit spot within maxDist (xz) of pos, or null. o.dock filters by dock. */
+    nearestSitSpot(pos, maxDist = 1.6, o = {}) {
+      let best = null, bd = maxDist;
+      for (const s of places.sitSpots) { if (o.dock && s.dock !== o.dock) continue; const d = Math.hypot(s.x - pos.x, s.z - pos.z); if (d <= bd) { bd = d; best = s; } }
+      return best;
+    },
+    /** Ramps/gangways/steps added so every deck is reachable: [{x0,z0,y0 (land end), x1,z1,y1 (deck end), hw, tag}]. */
+    ramps: places.ramps,
     interactables,
     minimap: null,
 

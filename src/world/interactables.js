@@ -19,7 +19,9 @@ export function createInteractables() {
     /** Register (or replace by id). Returns an unregister function. */
     register(item) {
       if (!item?.id || !item.pos) { console.warn('[world] interactable needs id and pos', item); return () => {}; }
-      const it = { radius: 1.6, priority: 0, ...item };
+      const it = item;   // kept as is (getters such as a live pos/labelKey keep working); defaults filled in
+      if (it.radius == null) it.radius = 1.6;
+      if (it.priority == null) it.priority = 0;
       map.set(it.id, it);
       return () => { if (map.get(it.id) === it) map.delete(it.id); };
     },

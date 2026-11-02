@@ -85,6 +85,13 @@ export function createControls(ui) {
   act.addEventListener('pointercancel', actUp);
   act.addEventListener('lostpointercapture', actUp);
 
+  // ── side choice (a second, smaller action: e.g. "sit on the edge" while the big button casts) ──
+  const alt = h('button.alt-btn.round.paper-btn.hidden', { type: 'button' });
+  const altIc = h('span.alt-ic');
+  const altLabel = h('span.alt-label');
+  alt.append(altIc, h('span.alt-tag', altLabel));
+  onTap(alt, () => { if (ctx.systems?.interact?.runSecondary?.()) { ui.sfx('ui_tap'); ui.haptic(8); refresh(true); } });
+
   // ── bait selector ──
   const bait = h('button.bait-btn.round.paper-btn', { type: 'button' });
   const baitIc = h('span.bait-ic');
@@ -123,16 +130,16 @@ export function createControls(ui) {
     selectBait(list[(i + 1) % list.length].id);
   }
 
-  el.append(zone, h('div.act-wrap', pop, bait, act));
+  el.append(zone, h('div.act-wrap', pop, h('div.act-side', alt, bait), act));
 
   // ── state refresh ──
-  let lastSig = '', lastBait = '';
+  let lastSig = '', lastBait = '', lastAlt = '';
   function refresh(force = false) {
     const cur = A.interaction();
     const hasSystems = !!ctx.systems;
     let label = '', ic = '', show = true;
     if (cur) {
-      label = cur.label || (cur.labelKey ? t(cur.labelKey) : '') || (cur.icon && ctx.i18n.has('ui.act.' + cur.icon) ? t('ui.act.' + cur.icon) : t('ui.act.default'));
+      label = cur.label || (cur.labelKey ? t(cur.labelKey, cur.labelVars) : '') || (cur.icon && ctx.i18n.has('ui.act.' + cur.icon) ? t('ui.act.' + cur.icon) : t('ui.act.default'));
       ic = cur.icon || 'hand';
       show = cur.disabled !== true;
     } else if (!hasSystems) { label = t('ui.act.default'); ic = 'hand'; }
@@ -146,6 +153,15 @@ export function createControls(ui) {
       act.classList.toggle('idle', !show);
       act.classList.toggle('kb', ctx.input.lastDevice === 'keyboard' && !ctx.input.isTouch);
       act.classList.toggle('hold', !!cur?.hold);
+    }
+    // side choice
+    const sec = ctx.systems?.interact?.secondary || null;
+    const secLabel = sec ? (sec.label || (sec.labelKey ? t(sec.labelKey, sec.labelVars) : '')) : '';
+    const asig = `${sec?.id || ''}|${secLabel}`;
+    if (asig !== lastAlt || force) {
+      lastAlt = asig;
+      alt.classList.toggle('hidden', !sec);
+      if (sec) { altIc.innerHTML = icon(hasIcon(sec.icon) ? sec.icon : 'hand'); altLabel.textContent = secLabel; alt.setAttribute('aria-label', secLabel); }
     }
     // bait
     const b = A.equipped('bait') || 'bait_worm';
@@ -178,5 +194,5 @@ export function createControls(ui) {
     togglePop(false);
   }
 
-  return { el, refresh, setCharge, cycleBait, togglePop, releaseAll, act, bait, zone };
+  return { el, refresh, setCharge, cycleBait, togglePop, releaseAll, act, bait, alt, zone };
 }

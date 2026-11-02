@@ -33,6 +33,94 @@ export function buildPlaces(ctx, env) {
   /** Stone/earth plinth under a building on uneven ground. */
   const plinth = (b, w, d, drop, color = P.stoneDark) => { if (drop > 0.08) b.box(w, drop + 0.4, d, 0, -drop / 2 - 0.05, 0, color, { round: 0.05 }); };
 
+  // ------------------------------------------------------------------ ramps & steps: every deck reachable from land
+  const wet = (x, z) => { const w = env.waterSurfaceAt?.(x, z); return w != null && w - H(x, z) > 0.03; };
+  const hitCol = (c, x, z, r) => {
+    if (c.type === 'circle') return (x - c.x) ** 2 + (z - c.z) ** 2 < (c.r + r) ** 2;
+    const co = Math.cos(c.rot || 0), si = Math.sin(c.rot || 0), dx = x - c.x, dz = z - c.z;
+    return Math.abs(dx * co - dz * si) < c.hw + r && Math.abs(dx * si + dz * co) < c.hd + r;
+  };
+  /** Solid (walker-blocking) collider already placed at x,z (within r)? */
+  const solidAt = (x, z, r = 0) => B.colliders.some(c => c.layer !== 'boat' && hitCol(c, x, z, r));
+  const ramps = [];
+  /** Tag the deck surface deckPlanks just added as part of a dock (for the dock-edge sit spots). */
+  const markDock = name => { const sf = B.surfaces[B.surfaces.length - 1]; if (sf) sf.dock = name; };
+  /**
+   * Find the shortest ramp from a deck edge point (x, z at deck height y) going out along (ux, uz) down to dry,
+   * free land. Returns a plan for buildRamp or null.
+   */
+  function planRamp(x, z, y, ux, uz, { hw = 0.8, maxSlope = 0.24, maxLen = 12, inner = 0.9, minLen = 0.6, spread = 0.8 } = {}) {
+    const px = -uz, pz = ux;   // across the ramp
+    for (let k = 0.25; k <= inner; k += 0.3) for (const sd of [-spread, 0, spread]) if (solidAt(x - ux * k + px * sd * hw, z - uz * k + pz * sd * hw, 0.3)) return null;
+    for (let d = minLen; d <= maxLen; d += 0.2) {
+      const lx = x + ux * d, lz = z + uz * d, h = H(lx, lz);
+      if (wet(lx, lz) || wet(lx + ux * 0.7, lz + uz * 0.7)) continue;
+      const y0 = h + 0.03;
+      if (y0 > y + 0.08) return null;                       // land as high as the deck: nothing to bridge
+      if ((y - y0) / d > maxSlope) continue;
+      let ok = true;
+      for (let t = 0; t <= d + 0.01 && ok; t += 0.25) {
+        const cx = x + ux * t, cz = z + uz * t, ry = y + (y0 - y) * t / d;
+        for (const sd of [-1, 0, 1]) { const qx = cx + px * sd * hw, qz = cz + pz * sd * hw; if (solidAt(qx, qz, 0.05) || H(qx, qz) > ry + 0.3) ok = false; }
+      }
+      if (ok && (solidAt(lx + ux * 0.6, lz + uz * 0.6, 0.45) || terrain.slopeAt(lx + ux * 0.5, lz + uz * 0.5) > 0.75 || wet(lx + ux * 1.2, lz + uz * 1.2))) ok = false;
+      if (ok) return { x, z, y, ux, uz, d, y0, hw };
+    }
+    return null;
+  }
+  /** Build a planned ramp: walkable span surface + planks (or treads) + stringers + posts; keeps foliage off it. */
+  function buildRamp(r, { color = P.wood, color2 = P.woodLight, stairs = false, tag = 'ramp' } = {}) {
+    const { x, z, y, ux, uz, d, y0, hw } = r;
+    const ext = 0.3;                                        // runs a little into the land so the joint is flush
+    const slope = (y - y0) / d;
+    const lx = x + ux * (d + ext), lz = z + uz * (d + ext), ly = y0 - slope * ext;
+    const L = d + ext, dx = -ux, dz = -uz, yaw = Math.atan2(dx, dz);
+    B.surfaces.push({ type: 'span', x0: lx, z0: lz, x1: x, z1: z, hw, y0: ly, y1: y, arch: 0, tag });
+    B.at((x + lx) / 2, (z + lz) / 2);
+    const at = t => [lx + dx * L * t, ly + (y - ly) * t, lz + dz * L * t];
+    if (stairs) {
+      const n = Math.max(2, Math.ceil((y - ly) / 0.17));
+      for (let i = 0; i < n; i++) {
+        const [cx, cy, cz] = at((i + 0.5) / n), top = ly + (y - ly) * (i + 1) / n;
+        const hgt = Math.max(0.12, top - H(cx, cz) + 0.1);
+        B.box(hw * 2, hgt, L / n + 0.02, cx, top - hgt / 2, cz, i % 2 ? color : color2, { ry: yaw, round: 0.03 });
+      }
+    } else {
+      const n = Math.max(2, Math.round(L / 0.33));
+      for (let i = 0; i < n; i++) {
+        const [cx, cy, cz] = at((i + 0.5) / n);
+        B.box(hw * 2 + (i % 2 ? 0.06 : -0.04), 0.09, L / n - 0.04, cx, cy - 0.05, cz, i % 3 === 0 ? color2 : i % 3 === 1 ? color : P.woodGrey, { ry: yaw + (B.R() - 0.5) * 0.02, rx: -Math.atan(slope) });
+      }
+      for (const sd of [-1, 1]) {
+        const ox = -dz * sd * (hw - 0.12), oz = dx * sd * (hw - 0.12);
+        const a = at(0), b = at(1);
+        B.beam(new THREE.Vector3(a[0] + ox, a[1] - 0.16, a[2] + oz), new THREE.Vector3(b[0] + ox, b[1] - 0.16, b[2] + oz), 0.06, P.woodDark);
+        for (const t of [0.5, 1]) {
+          const [cx, cy, cz] = at(t), px = cx + ox, pz = cz + oz, g = H(px, pz);
+          if (cy - g > 0.25) B.cyl(0.09, 0.11, cy - g + 0.5, px, (cy + g - 0.5) / 2 - 0.05, pz, P.woodDeep, { seg: 6 });
+        }
+      }
+    }
+    B.free();
+    for (let t = 0; t <= L; t += 1.5) ex(lx + dx * t, lz + dz * t, hw + 0.9);
+    ramps.push({ x0: lx, z0: lz, x1: x, z1: z, y0: ly, y1: y, hw, tag });
+    return r;
+  }
+  /** Try several deck-edge exits (in order of preference) and build the shortest ramp found (or up to `count`). */
+  function connectDeck(exits, o = {}) {
+    const plans = exits.map(e => planRamp(e.x, e.z, e.y, e.ux, e.uz, { ...o, ...e.o })).filter(Boolean).sort((a, b) => a.d - b.d);
+    const made = [];
+    for (const p of plans) {
+      if (made.length >= (o.count || 1)) break;
+      if (made.some(m => Math.hypot(m.x - p.x, m.z - p.z) < 3)) continue;
+      made.push(buildRamp(p, o));
+    }
+    if (!made.length && ctx.isDebug) console.warn('[world] no ramp for deck', o.tag, exits[0]);
+    return made;
+  }
+  /** Deck-local point (deck centre cx,cz, yaw rot) → world {x, z} and a local direction → world. */
+  const loc = (cx, cz, rot, lx, lz) => ({ x: cx + lx * Math.cos(rot) + lz * Math.sin(rot), z: cz - lx * Math.sin(rot) + lz * Math.cos(rot) });
+
   // ================================================================== HOME BEACH
   const homeTiers = [];
   {
@@ -95,6 +183,7 @@ export function buildPlaces(ctx, env) {
     for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2; B.beam(new THREE.Vector3(Math.cos(a) * 0.75, 0, Math.sin(a) * 0.75), new THREE.Vector3(0, 1.45, 0), 0.03, P.woodDark); }
     B.cyl(0.005, 0.005, 0.45, 0, 1.2, 0, P.metal, { seg: 3 });
     B.cyl(0.2, 0.16, 0.24, 0, 0.92, 0, P.metal, { seg: 10 });
+    B.circle(0, 0, 0.95, 'fire');   // [Fix] the fire ring + tripod were walk-through
     B.pop();
     bench(B, x - 2.4, groundAt(x - 2.4, z), z + 0.2, Math.PI / 2);
     B.free();
@@ -112,12 +201,14 @@ export function buildPlaces(ctx, env) {
     B.at(D.x, cz);
     B.push(D.x, 0, cz);
     deckPlanks(B, D.w, len, D.y, { postDepth: 3.5, step: 2.2, along: 'x' });
+    markDock('home');
     B.pop();
     B.colliders.push({ type: 'box', x: D.x, z: cz, hw: D.w / 2 + 0.2, hd: len / 2, rot: 0, layer: 'boat', tag: 'dock' });
     surfaceHint.push({ x: D.x, z: cz, r: len / 2, y: D.y });
     // end platform
     B.push(D.x + 0.9, 0, D.z1 + 1.2);
     deckPlanks(B, 4.2, 2.8, D.y, { postDepth: 3.5, step: 2.0 });
+    markDock('home');
     B.pop();
     B.colliders.push({ type: 'box', x: D.x + 0.9, z: D.z1 + 1.2, hw: 2.3, hd: 1.5, rot: 0, layer: 'boat', tag: 'dock' });
     // steps from the sand
@@ -169,6 +260,19 @@ export function buildPlaces(ctx, env) {
     poi('village_' + kind, fw.x, fw.y, fw.z, s.rot + Math.PI);
     ex(s.x, s.z, 6);
     B.free();
+    // [Fix] a ramp from the land up to the counter deck (stilt decks stood 1-1.5 m above the beach with no way up).
+    // Exits: beside the counter at the front edge, or the two sides of the front area (never the railed back).
+    // Exits (deck-local): the front edge beside the counter, the sides of the front area, the open back corners
+    // (straight back or angled out) and the sides behind the hut. The shortest ramp to dry land wins.
+    const dy = baseY + deckY, exits = [];
+    const ex2 = (lx, lz, dx, dz, o) => { const p = loc(s.x, s.z, s.rot, lx, lz), l = Math.hypot(dx, dz); exits.push({ ...p, y: dy, ux: (dx * Math.cos(s.rot) + dz * Math.sin(s.rot)) / l, uz: (-dx * Math.sin(s.rot) + dz * Math.cos(s.rot)) / l, o }); };
+    for (const sx of [-1, 1]) {
+      ex2(sx * 2.45, 3.9, 0, 1);
+      ex2(sx * 3.5, 2.95, sx, 0);
+      ex2(sx * 3.5, -2.0, sx, 0, { spread: 0.4 });
+      for (const a of [0, 0.6, 1.0]) ex2(sx * 3.0, -2.9, sx * Math.sin(a), -Math.cos(a), { hw: 0.5, spread: 0 });
+    }
+    connectDeck(exits, { hw: 0.75, maxSlope: 0.3, tag: 'ramp_' + kind });
   }
   // trattoria terrace: tables + string lights
   {
@@ -220,9 +324,13 @@ export function buildPlaces(ctx, env) {
     plinth(B, 10, 7, f.top - f.low);
     const r = aquarium(B);
     aquariumTanks = r.tanks.map(t => { const w = B.world(t.x, t.y, t.z); return { x: w.x, y: w.y, z: w.z, w: t.w, h: t.h, d: t.d, rot: s.rot }; });
-    const d = B.world(r.door.x, 0, r.door.z);
+    // [Fix] the hall sits on a plinth up to ~1 m above the square: a stone landing + steps down to the ground
+    B.box(2.6, 0.22, 0.9, 0, 0.11, 3.75, P.stone, { round: 0.04 });
+    B.deck(0, 3.75, 1.3, 0.45, 0.2, 0, 'landing');
+    const d = B.world(0, 0, 3.85);
     B.pop();
-    poi('village_aquarium', d.x, f.top, d.z, s.rot);
+    { const e = loc(s.x, s.z, s.rot, 0, 4.2); const pl = planRamp(e.x, e.z, f.top + 0.2, Math.sin(s.rot), Math.cos(s.rot), { hw: 1.1, maxSlope: 0.6, minLen: 0.4, inner: 0 }); if (pl) buildRamp(pl, { stairs: true, color: P.stone, color2: P.stoneWarm, tag: 'steps_aquarium' }); }
+    poi('village_aquarium', d.x, f.top + 0.2, d.z, s.rot);
     ex(s.x, s.z, 7);
     B.free();
   }
@@ -302,13 +410,17 @@ export function buildPlaces(ctx, env) {
     B.at(D.x, cz);
     B.push(D.x, 0, cz);
     deckPlanks(B, D.w, len, D.y, { postDepth: 4, step: 2.2 });
+    markDock('village');
     B.pop();
     B.colliders.push({ type: 'box', x: D.x, z: cz, hw: D.w / 2 + 0.2, hd: len / 2, rot: 0, layer: 'boat', tag: 'dock' });
     surfaceHint.push({ x: D.x, z: cz, r: len / 2, y: D.y });
     B.push(D.x, 0, D.z1 + 1.4);
     deckPlanks(B, 8, 2.8, D.y, { postDepth: 4, step: 2.0 });
+    markDock('village');
     B.pop();
     B.colliders.push({ type: 'box', x: D.x, z: D.z1 + 1.4, hw: 4.2, hd: 1.5, rot: 0, layer: 'boat', tag: 'dock' });
+    // [Fix] gangway from the beach up to the planks (the dock started 1.2 m above the sand: nobody could get on)
+    connectDeck([{ x: D.x, z: D.z0, y: D.y, ux: 0, uz: -1 }], { hw: 1.05, maxSlope: 0.2, tag: 'ramp_village_dock' });
     for (let i = 0; i < 4; i++) bollard(B, D.x + (i % 2 ? 1.25 : -1.25), D.y, D.z0 + 4 + i * 4.5);
     lanternPost(B, D.x - 1.35, D.y, D.z0 + 8, 2.2, 0);
     lanternPost(B, D.x + 1.35, D.y, D.z0 + 16, 2.2, Math.PI);
@@ -484,6 +596,7 @@ export function buildPlaces(ctx, env) {
     B.at(jx, jz);
     B.push(jx, 0, jz, yaw);
     deckPlanks(B, 1.8, 4.2, jy, { postDepth: 2, step: 2, along: 'x' });
+    markDock('pond');
     B.pop();
     B.free();
     const end = { x: Pd.x + ux * (Pd.r - 2.4), z: Pd.z + uz * (Pd.r - 2.4) };
@@ -498,10 +611,12 @@ export function buildPlaces(ctx, env) {
         const rx = F.x + s * (F.width / 2 + 0.8 + k * 0.7), rz = F.zTop + 0.5 + k * 1.6;
         const ry = lerp(F.top + 0.4, Pd.level + 0.6, k / 3.2);
         B.rock(1.3 - k * 0.12, rx, ry, rz, k % 2 ? P.stone : P.stoneDark, { variant: k + (s > 0 ? 2 : 0), sy: 1.2 });
+        B.colliders.push({ type: 'circle', x: rx, z: rz, r: (1.3 - k * 0.12) * 0.85, tag: 'rock' });
       }
       B.rock(1.6, F.x + s * (F.width / 2 + 0.6), F.top + 0.3, F.zTop - 0.8, P.stoneDark, { variant: s > 0 ? 1 : 4 });
+      B.colliders.push({ type: 'circle', x: F.x + s * (F.width / 2 + 0.6), z: F.zTop - 0.8, r: 1.35, tag: 'rock' });
     }
-    for (let k = 0; k < 5; k++) { const ang = k / 5 * Math.PI - Math.PI; B.rock(0.6 + R() * 0.5, F.x + Math.cos(ang) * 3.8, Pd.level - 0.1, F.zBottom + 1.4 + Math.abs(Math.sin(ang)) * 0.8, P.stone, { variant: k }); }
+    for (let k = 0; k < 5; k++) { const ang = k / 5 * Math.PI - Math.PI, rs = 0.6 + R() * 0.5, rx = F.x + Math.cos(ang) * 3.8, rz = F.zBottom + 1.4 + Math.abs(Math.sin(ang)) * 0.8; B.rock(rs, rx, Pd.level - 0.1, rz, P.stone, { variant: k }); B.colliders.push({ type: 'circle', x: rx, z: rz, r: rs * 0.8, tag: 'rock' }); }
     B.free();
     ex(F.x, F.zBottom, 4);
   }
@@ -556,6 +671,7 @@ export function buildPlaces(ctx, env) {
     B.at(sx, sz);
     B.push(sx - len / 2 + 2.5, 0, sz, Math.PI / 2);
     deckPlanks(B, 2.2, len, 1.05, { postDepth: 3, step: 2.3 });
+    markDock('palm');
     B.pop();
     B.colliders.push({ type: 'box', x: sx - len / 2 + 2.5, z: sz, hw: len / 2, hd: 1.3, rot: 0, layer: 'boat', tag: 'dock' });
     lanternPost(B, sx - len + 3.2, 1.05, sz + 1.0, 2.0, Math.PI / 2);
@@ -586,7 +702,7 @@ export function buildPlaces(ctx, env) {
     B.cyl(0.04, 0.05, 1.4, 0, 0.6, 0, P.woodLight, { seg: 5, rz: 0.6 });
     B.cyl(0.04, 0.05, 1.4, 0, 0.6, 0, P.woodLight, { seg: 5, rz: -0.6 });
     B.pop();
-    for (let k = 0; k < 5; k++) { const a = k * 1.3; B.rock(0.5 + R() * 0.5, tx + Math.cos(a) * 3.2, ty, tz + Math.sin(a) * 2.6, P.stone, { variant: k }); }
+    for (let k = 0; k < 5; k++) { const a = k * 1.3, rs = 0.5 + R() * 0.5; B.rock(rs, tx + Math.cos(a) * 3.2, ty, tz + Math.sin(a) * 2.6, P.stone, { variant: k }); B.colliders.push({ type: 'circle', x: tx + Math.cos(a) * 3.2, z: tz + Math.sin(a) * 2.6, r: rs * 0.8, tag: 'rock' }); }
     B.free();
     poi('treasure', tx, ty, tz + 1.1, Math.PI);
     ex(tx, tz, 3);
@@ -603,6 +719,7 @@ export function buildPlaces(ctx, env) {
     B.cyl(0.18, 0.24, 2.6, x, y + 0.12, z, 0xa89478, { seg: 7, rz: Math.PI / 2, ry });
     B.cyl(0.08, 0.1, 0.9, x + 0.5, y + 0.3, z + 0.2, 0xa89478, { seg: 5, rz: 0.9, ry: ry + 0.5 });
     B.free();
+    B.colliders.push({ type: 'box', x, z, hw: 1.3, hd: 0.24, rot: ry, tag: 'log' });
     ex(x, z, 1.5);
   }
 
@@ -621,6 +738,7 @@ export function buildPlaces(ctx, env) {
         if (L.zoneAt(x, z) !== zone) continue;
         const h = H(x, z);
         if (h < 0.35 || terrain.slopeAt(x, z) > 0.55 || near(x, z, 1.2)) continue;
+        if (wet(x, z) || wet(x + 1.2, z) || wet(x - 1.2, z) || wet(x, z + 1.2) || wet(x, z - 1.2) || solidAt(x, z, 0.8)) continue;  // [Fix] never in the pond/river
         if (placed.some(p => (p.x - x) ** 2 + (p.z - z) ** 2 < 36)) continue;
         const id = `forage_${zone}_${k + 1}`;
         poi(id, x, h, z, FR() * 6.28, { kind: 'forage' });
@@ -633,11 +751,42 @@ export function buildPlaces(ctx, env) {
     for (const z of Object.keys(want)) if (pois[`forage_${z}_1`]) pois[`forage_${z}`] = { ...pois[`forage_${z}_1`], id: `forage_${z}` };
   }
 
+  // ================================================================== dock-edge sit spots
+  // Every ~2.4 m along the open edges of each dock, 0.15 m in from the edge, facing the water below (≥ 0.45 m deep,
+  // so the legs dangle over the sea), free of props and not where another deck continues (T joints).
+  const sitSpots = [];
+  {
+    const decks = B.surfaces.filter(sf => sf.dock && sf.type === 'box');
+    const onDeck = (x, z, except) => decks.some(sf => sf !== except && sf.dock === except.dock && Math.abs((x - sf.x) * Math.cos(sf.rot || 0) - (z - sf.z) * Math.sin(sf.rot || 0)) <= sf.hw && Math.abs((x - sf.x) * Math.sin(sf.rot || 0) + (z - sf.z) * Math.cos(sf.rot || 0)) <= sf.hd);
+    const deep = (x, z) => { const w = env.waterSurfaceAt?.(x, z); return w != null && w - H(x, z) > 0.45; };
+    const count = {};
+    for (const sf of decks) {
+      const co = Math.cos(sf.rot || 0), si = Math.sin(sf.rot || 0);
+      const W = (lx, lz) => ({ x: sf.x + lx * co + lz * si, z: sf.z - lx * si + lz * co });
+      for (const [ax, az, half, along] of [[1, 0, sf.hd, 'z'], [-1, 0, sf.hd, 'z'], [0, 1, sf.hw, 'x'], [0, -1, sf.hw, 'x']]) {
+        const n = Math.floor((half * 2 - 0.6) / 2.4) + 1;
+        for (let k = 0; k < n; k++) {
+          const t = n === 1 ? 0 : -half + 0.3 + (half * 2 - 0.6) * k / (n - 1);
+          const lx = ax ? ax * (sf.hw - 0.15) : t, lz = az ? az * (sf.hd - 0.15) : t;
+          const p = W(lx, lz), out = W(lx + ax * 0.75, lz + az * 0.75), out2 = W(lx + ax * 1.4, lz + az * 1.4), back = W(lx - ax * 0.5, lz - az * 0.5);
+          const ux = out.x - p.x, uz = out.z - p.z;
+          if (!deep(out.x, out.z) || !deep(out2.x, out2.z) || onDeck(out.x, out.z, sf) || onDeck(out2.x, out2.z, sf)) continue;
+          if (solidAt(p.x, p.z, 0.4) || solidAt(back.x, back.z, 0.35)) continue;
+          if (ramps.some(r => Math.hypot(r.x1 - p.x, r.z1 - p.z) < r.hw + 1)) continue;
+          if (sitSpots.some(o => Math.hypot(o.x - p.x, o.z - p.z) < 1.6)) continue;
+          count[sf.dock] = (count[sf.dock] || 0) + 1;
+          const id = `edge_${sf.dock}_${count[sf.dock]}`;
+          sitSpots.push(poi(id, p.x, sf.y, p.z, Math.atan2(ux, uz), { kind: 'dock_edge', seat: 'edge', dock: sf.dock }));
+        }
+      }
+    }
+  }
+
   // ================================================================== build
   const mats = { solid: materials.solid(), glow: materials.glow(), glass: env.extraMats.glass, tank: env.extraMats.tank, lamp: env.extraMats.lamp, crystal: env.extraMats.crystal };
   const group = B.build(mats, { name: 'Places' });
   return {
     group, pois, exclusions, colliders: B.colliders, surfaces: B.surfaces, glows: B.glows,
-    homeTiers, dyn, riverRocks, aquariumTanks, shopFront,
+    homeTiers, dyn, riverRocks, aquariumTanks, shopFront, sitSpots, ramps,
   };
 }

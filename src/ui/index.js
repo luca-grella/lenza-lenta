@@ -21,7 +21,9 @@ import { createSheets } from './sheets/index.js';
 import { createIntro } from './intro.js';
 import { fishImage, clearArtCache } from './art.js';
 import { resetMapCache } from './sheets/map.js';
+import { buffDuration } from './sheets/common.js';
 import { installGestureGuards, registerServiceWorker, createHaptics, trackViewport } from './pwa.js';
+import { requestPersist } from './savefile.js';
 
 const CSS = ['css/base.css', 'css/hud.css', 'css/sheets.css'];
 
@@ -34,9 +36,30 @@ function ensureCss() {
   }
 }
 
+/**
+ * Debug builds: warn once per key when a translated string still contains a {placeholder} (a t() call that
+ * forgot a variable). Wraps ctx.i18n.t in place, so every module's calls are checked.
+ */
+function guardPlaceholders(ctx) {
+  const i18n = ctx.i18n;
+  if (!i18n?.t || i18n.t.guarded) return;
+  const raw = i18n.t.bind(i18n), warned = new Set();
+  const t = (key, vars) => {
+    const s = raw(key, vars);
+    if (typeof s === 'string' && s.includes('{')) {
+      const left = s.match(/\{\w+(\|[^}]*)?\}/g);
+      if (left && !warned.has(key)) { warned.add(key); console.warn(`[i18n] "${key}" (${i18n.lang}) is missing ${left.join(', ')} — vars passed: ${vars ? Object.keys(vars).join(', ') || 'none' : 'none'}`); }
+    }
+    return s;
+  };
+  t.guarded = true;
+  i18n.t = t;
+}
+
 export async function init(ctx) {
   ensureCss();
   ctx.i18n.addStrings(it, en);
+  if (ctx.isDebug) guardPlaceholders(ctx);
   installGestureGuards();
 
   const root = h('div#ui');
@@ -51,6 +74,9 @@ export async function init(ctx) {
     sfx: (name, o) => { try { ctx.audio?.sfx?.(name, o); } catch { /* audio optional */ } },
   };
   ui.A = createAdapter(ctx);
+  // ask the browser to keep our save (best effort: on iPhone deleting the Home-screen app still deletes it)
+  ui.persisted = null;
+  requestPersist().then(v => { ui.persisted = v; });
   ui.haptic = createHaptics(ctx);
   ctx.haptic = ui.haptic; // also works on iOS (no navigator.vibrate there)
 
@@ -104,11 +130,17 @@ export async function init(ctx) {
     root.classList.toggle('short', portrait && hh < 700);
     root.classList.toggle('wide', w >= 900 && hh >= 600);
     root.classList.toggle('touch', !!ctx.input?.isTouch);
-    requestAnimationFrame(() => {
-      const r = ui.hud.el.getBoundingClientRect();
-      root.style.setProperty('--hud-bottom', Math.round(r.bottom) + 'px');
-    });
+    requestAnimationFrame(syncHudBottom);
   }
+  // --hud-bottom = where the free space under the HUD starts (toasts, zone title, banners and the joystick zone
+  // hang from it). The HUD grows and shrinks (2-line goals, buffs, language): follow its real size.
+  let hudBottom = -1;
+  function syncHudBottom() {
+    const r = ui.hud.el.getBoundingClientRect();
+    const b = Math.round(r.bottom);
+    if (b !== hudBottom && r.height > 0) { hudBottom = b; root.style.setProperty('--hud-bottom', b + 'px'); }
+  }
+  if (typeof ResizeObserver === 'function') new ResizeObserver(syncHudBottom).observe(ui.hud.el);
   layout();
   window.addEventListener('resize', layout);
   window.addEventListener('orientationchange', () => setTimeout(layout, 150));
@@ -240,7 +272,7 @@ export async function init(ctx) {
   on('shop:sell', p => { if (p.total) ui.notify.toast('ui.toast.sold', { n: p.count ?? 1, total: p.total }, { icon: 'coin', kind: 'good' }); });
   on('aquarium:donate', p => ui.notify.toast('ui.toast.donated', { item: ui.A.name(p.speciesId) }, { icon: 'aquarium', kind: 'good' }));
   on('cook:done', p => { const r = ui.A.item(p.recipeId); ui.notify.toast('ui.toast.cooked', { item: ui.A.name(r?.dish || p.recipeId) }, { icon: 'cook', kind: 'good' }); });
-  on('buff:start', p => { if (p.stat) ui.notify.toast('ui.toast.buff', { buff: ctx.i18n.t(`buff.${p.stat}.name`) }, { icon: 'sparkle', kind: 'good' }); ui.hud.refresh(); });
+  on('buff:start', p => { if (p.stat) ui.notify.toast('ui.toast.buff', { buff: ctx.i18n.t(`buff.${p.stat}.name`), lasts: buffDuration(ui, p.hours).replace(/^./, c => c.toLowerCase()) }, { icon: 'sparkle', kind: 'good', ms: 5200 }); ui.hud.refresh(); });
   on('buff:end', p => { if (p.stat) ui.notify.toast('ui.toast.buff_end', { buff: ctx.i18n.t(`buff.${p.stat}.name`) }, { icon: 'sparkle' }); ui.hud.refresh(); });
   on('forage:pick', p => { if (p.itemId) ui.notify.toast('ui.toast.picked', { item: ui.A.name(p.itemId) }, { icon: ui.A.item(p.itemId) ? undefined : 'pick' }); });
   on('home:upgrade', p => ui.notify.banner('ui.banner.upgrade', p.tier !== undefined ? ui.A.name((ctx.data?.home || [])[p.tier]?.id) : '', { kind: 'quest', icon: 'home' }));
@@ -276,11 +308,12 @@ export async function init(ctx) {
   let acc = 1;
   ctx.loop.add(function uiUpdate(dt) {
     ui.dialogs.update(dt);
+    ui.notify.update();
     ui.labels.update();
     ui.hud.tick(dt);
     ui.sheets.spec?.tick?.(dt);
     acc += dt;
-    if (acc >= 0.25) { acc = 0; ui.hud.refresh(); ui.controls.refresh(); }
+    if (acc >= 0.25) { acc = 0; ui.hud.refresh(); ui.controls.refresh(); syncHudBottom(); ui.labels.reserve(); }
   }, ctx.ORDER?.ui ?? 50);
 
   // ── PWA ──

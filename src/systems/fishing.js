@@ -72,7 +72,9 @@ export function createFishing(ctx, env, fx) {
     if (!p?.object) return null;
     if (env.busy.sleep) return null;
     const st = p.state;
-    if (!onBoat() && (st === 'sit' || st === 'sleep' || st === 'talk' || st === 'forage' || st === 'eat' || st === 'cutscene')) return null;
+    // seated on a dock edge (or the pond's edge) you may fish from the seat; on a bench you may not
+    const seatedEdge = st === 'sit' && sys().interact?.sittingKind === 'edge' && (p.seated === undefined || p.seated === 'edge');
+    if (!onBoat() && ((st === 'sit' && !seatedEdge) || st === 'sleep' || st === 'talk' || st === 'forage' || st === 'eat' || st === 'cutscene')) return null;
     if (onBoat() && sys().boat?.speed > 0.6) return null;
     env.playerPos(v.origin);
     const face = env.playerFacing();

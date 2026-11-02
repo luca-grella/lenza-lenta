@@ -214,6 +214,41 @@ export function createEnv(ctx) {
     return r;
   }
   function setControl(v) { try { player().setControl?.(v); } catch { /* ignore */ } }
+
+  /**
+   * Walk the player to x,z with their own controller (real speed, collisions, walk animation): each frame, after
+   * core input and before the player module, the move vector is replaced by "toward the target". Touching the stick
+   * takes over (resolves false), so does getting stuck or the timeout. Resolves true on arrival.
+   */
+  let autoWalk = null;
+  function walkPlayerTo(x, z, { tolerance = 0.2, timeout = 5 } = {}) {
+    if (autoWalk) autoWalk.finish(false);
+    const p = player();
+    if (p === dummy || !p.object || p.seated || ctx.input?.enabled === false) return Promise.resolve(false);
+    return new Promise(resolve => {
+      let t = 0, best = Infinity, bestT = 0;
+      const me = { finish: null };
+      const off = ctx.loop.add(dt => {
+        const m = ctx.input.move;
+        if (m.mag > 0.25 || ctx.input.enabled === false || player().seated) { me.finish(false); return; }   // the player's own thumb (or a panel) wins
+        const pos = playerPos(v3);
+        const dx = x - pos.x, dz = z - pos.z, d = Math.hypot(dx, dz);
+        t += dt;
+        if (d <= tolerance) { me.finish(true); return; }
+        if (t > timeout) { me.finish(false); return; }
+        if (d < best - 0.04) { best = d; bestT = t; } else if (t - bestT > 0.8) { me.finish(false); return; }
+        const mag = Math.max(0.3, Math.min(1, d * 0.8));
+        m.x = dx / d * mag; m.z = dz / d * mag; m.mag = mag;
+      }, (ctx.ORDER?.systems ?? 10) + 1);
+      me.finish = ok => {
+        if (autoWalk !== me) return;
+        autoWalk = null; off();
+        const m = ctx.input.move; m.x = 0; m.z = 0; m.mag = 0;
+        resolve(ok);
+      };
+      autoWalk = me;
+    });
+  }
   function setPlayerState(st) {
     const p = player();
     if (typeof p.setState === 'function') { p.setState(st); return; }
@@ -249,7 +284,13 @@ export function createEnv(ctx) {
   /** Toast only when the real UI isn't there (it already reacts to that bus event). */
   function toastFB(key, vars) { if (!realUI()) toast(key, vars); }
   /** Big announcement: title/sub are i18n keys (vars apply to both). */
-  function banner(title, sub, vars) { try { ui()?.banner?.(title, sub, vars); } catch (e) { console.warn(e); } }
+  function banner(title, sub, vars) {
+    try {
+      const u = ui();
+      // the real UI takes {vars} in its options object; the fallback UI takes vars directly
+      if (u && !u.isFallback) u.banner?.(title, sub, vars ? { vars } : undefined); else u?.banner?.(title, sub, vars);
+    } catch (e) { console.warn(e); }
+  }
   function meter(name, data) { try { ui()?.meter?.(name, data); } catch (e) { console.warn(e); } }
   function uiOpen() { try { return !!ui()?.isOpen?.(); } catch { return false; } }
   /** Dialog with an NPC: lines are i18n keys (or {key, vars}). Returns a Promise resolving to the choice (or undefined). */
@@ -281,7 +322,8 @@ export function createEnv(ctx) {
     STAGE_POIS, S, t, absHours, itemName, questDone, unlocked, flag,
     heightAt, groundY, waterLevel, isWater, waterDepth, waterSurface, habitatAt, zoneAt, walkable, boatWaterOK, weather,
     poi, listPois, nearestWaterAlong,
-    player, playerPos, playerFacing, face, play, setControl, setPlayerState, rodTip, dummy,
+    player, playerPos, playerFacing, face, play, setControl, setPlayerState, rodTip, dummy, walkPlayerTo,
+    get autoWalking() { return !!autoWalk; },
     npcList, npc,
     ui, realUI, toast, toastFB, banner, meter, uiOpen, dialog, sheet, sfx,
     habitatOverride: ctx.params?.get('habitat') || null,

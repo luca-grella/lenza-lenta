@@ -658,7 +658,7 @@ export function createFoliage(ctx, U, env) {
       for (const it of inst.pine) out.push({ type: 'circle', x: it.x, z: it.z, r: 0.35 * it.s, tag: 'tree' });
       for (const it of inst.palm) out.push({ type: 'circle', x: it.x, z: it.z, r: 0.3 * it.s, tag: 'tree' });
       for (const it of inst.broadleaf) out.push({ type: 'circle', x: it.x, z: it.z, r: 0.4 * it.s, tag: 'tree' });
-      for (const it of inst.rock) if (it.s > 0.55) out.push({ type: 'circle', x: it.x, z: it.z, r: 0.8 * it.s, tag: 'rock' });
+      for (const it of inst.rock) if (it.s > 0.42) out.push({ type: 'circle', x: it.x, z: it.z, r: (it.s > 0.55 ? 0.8 : 0.72) * it.s, tag: 'rock' });  // [Fix] knee-high rocks are solid too
       return out;
     },
     /** Force a refresh next frame (after teleports, quality changes). */

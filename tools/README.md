@@ -3,6 +3,13 @@
 Node helpers for local testing. One-time setup: `cd tools && npm install` (installs `puppeteer-core`;
 the tools drive the installed Google Chrome headless with SwiftShader WebGL — set `CHROME_PATH` to override).
 
+## play.mjs — real-touch playtest harness
+Plays the game like a person on an iPhone (real touch events on the joystick, action button, buttons and dialogs,
+walking with the stick). **Use it to verify anything a player does.** See [play-README.md](play-README.md).
+```
+node tools/play.mjs tools/scenarios/fish-home-dock.mjs [--landscape]
+```
+
 ## serve.mjs — static server
 ```
 node tools/serve.mjs 8790        # serves the repo root, no caching

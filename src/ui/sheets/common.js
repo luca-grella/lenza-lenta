@@ -75,3 +75,17 @@ export function statBars(ui, stats, compare) {
 export function needsText(ui, needs) {
   return Object.entries(needs || {}).map(([id, n]) => `${n}× ${ui.A.name(id)}`).join(', ');
 }
+
+/** How long a food bonus lasts, in game hours and (roughly) real minutes: "Dura 4 ore di gioco (circa 4 min reali)". */
+export function buffDuration(ui, hours) {
+  const h = Math.max(1, Math.round(hours || 4));
+  const scale = ui.ctx.time?.scale > 0 ? ui.ctx.time.scale : 60;   // real seconds per game hour
+  const m = Math.max(1, Math.round(h * scale / 60));
+  return ui.ctx.i18n.t('ui.cook.lasts', { h, m });
+}
+/** One line per bonus of a dish: "Calma: i pesci tirano con meno forza." */
+export function buffLines(ui, buffs) {
+  const t = (k, v) => ui.ctx.i18n.t(k, v);
+  return (buffs || []).map(b => h('div.eff-line', h('span.eff-ic', { html: icon('sparkle') }),
+    h('span', h('b', t(`buff.${b.stat}.name`)), ' — ', t(`buff.${b.stat}.desc`))));
+}

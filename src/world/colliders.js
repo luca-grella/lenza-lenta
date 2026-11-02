@@ -4,7 +4,11 @@
 import { clamp, lerp } from '../core/math.js';
 
 const CELL = 8;
+const PAD = 0.7;          // colliders/surfaces are binned with this margin so a walker in the next cell still sees them
 const key = (i, j) => i * 8192 + j;
+/** Walking limits (metres): the feet never step into water deeper than WADE, never climb more than CLIMB in one step,
+ *  never drop more than DROP off a deck/dock/bridge edge (ramps and steps are surfaces, so they are smooth). */
+export const WALK = { WADE: 0.07, CLIMB: 0.62, DROP: 0.55, SLOPE: 1.0, LOOK: 0.75 };
 
 /**
  * @param {{heightAt:(x:number,z:number)=>number, slopeAt:(x:number,z:number)=>number, waterSurfaceAt:(x:number,z:number)=>number|null, bound:number}} q
@@ -22,7 +26,8 @@ export function createColliders(q) {
     return [c.x, c.z, c.x, c.z];
   }
   function insert(map, c) {
-    const [x0, z0, x1, z1] = bbox(c);
+    let [x0, z0, x1, z1] = bbox(c);
+    x0 -= PAD; z0 -= PAD; x1 += PAD; z1 += PAD;
     for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++) for (let j = Math.floor(z0 / CELL); j <= Math.floor(z1 / CELL); j++) {
       const k = key(i, j); if (!map.has(k)) map.set(k, []); map.get(k).push(c);
     }
@@ -87,17 +92,31 @@ export function createColliders(q) {
       }
       return false;
     },
-    /** Terrain/water walkability (ignores colliders). */
+    /**
+     * Terrain/water walkability at x,z (ignores colliders). fromY = height the walker comes from (step rules).
+     * Water deeper than WALK.WADE stops the feet (shore lines and dock edges hold), steps up are limited to WALK.CLIMB
+     * and drops off a deck/dock/bridge to WALK.DROP: docks are entered and left by their ramps/steps.
+     */
     groundOK(x, z, fromY = null) {
       if (Math.abs(x) > q.bound || Math.abs(z) > q.bound) return false;
       const s = api.surfaceAt(x, z);
-      if (s != null) return fromY == null || s - fromY < 0.75;
+      if (s != null) {
+        const h0 = q.heightAt(x, z);
+        const y = Math.max(s, h0);
+        return fromY == null || (y - fromY < WALK.CLIMB && fromY - y < WALK.DROP);
+      }
       const h = q.heightAt(x, z);
       const w = q.waterSurfaceAt(x, z);
-      if (w != null && w - h > 0.32) return false;
-      if (q.slopeAt(x, z) > 1.0) return false;
-      if (fromY != null && h - fromY > 0.75) return false;
+      if (w != null && w - h > WALK.WADE) return false;
+      if (q.slopeAt(x, z) > WALK.SLOPE) return false;
+      if (fromY != null && (h - fromY > WALK.CLIMB || fromY - h > WALK.DROP)) return false;
       return true;
+    },
+    /** How "wrong" a spot is for a walker (0 = fine): used to let someone already in the water/off a ledge walk out. */
+    badness(x, z) {
+      if (api.surfaceAt(x, z) != null) return 0;
+      const h = q.heightAt(x, z), w = q.waterSurfaceAt(x, z);
+      return Math.max(0, w != null ? w - h - WALK.WADE : 0) + Math.max(0, q.slopeAt(x, z) - WALK.SLOPE) * 0.1;
     },
     walkable(x, z) { return api.groundOK(x, z) && !api.blockedAt(x, z, 0, 'walk'); },
     /** Boat: deep enough water and not on a dock footprint. */
@@ -120,33 +139,44 @@ export function createColliders(q) {
       const boat = !!opts.boat;
       const layer = boat ? 'boat' : 'walk';
       const fromY = boat ? 0 : api.groundY(from.x, from.z);
-      const ok = (x, z) => boat ? api.boatOK(x, z) : api.groundOK(x, z, fromY);
       const dx = to.x - from.x, dz = to.z - from.z;
       const len = Math.hypot(dx, dz);
-      let x = to.x, z = to.z, blocked = false;
       if (len < 1e-6) return { x: from.x, y: boat ? 0 : fromY, z: from.z, blocked: false };
-      // 1) terrain limits with angled retries (slide along shores/cliffs)
-      if (!ok(x, z)) {
+      // a walker already standing somewhere wrong (old save in the sea, dropped by a boat in the shallows...) may always
+      // move to a spot that is not worse, so nobody is ever trapped
+      const bad0 = boat ? 0 : (api.groundOK(from.x, from.z, null) ? 0 : api.badness(from.x, from.z));
+      const look = boat ? 0 : radius * WALK.LOOK;
+      // the centre and a probe one body-radius ahead (feet stop at the edge, not the belly button)
+      const ok = (x, z, ux, uz) => {
+        if (boat) return api.boatOK(x, z);
+        if (bad0 > 0) { const b = api.badness(x, z); return b <= bad0 + 1e-4 && Math.abs(x) <= q.bound && Math.abs(z) <= q.bound; }
+        return api.groundOK(x, z, fromY) && (!look || api.groundOK(x + ux * look, z + uz * look, fromY));
+      };
+      let x = to.x, z = to.z, blocked = false;
+      const ux0 = dx / len, uz0 = dz / len;
+      // 1) terrain limits with angled retries (slide along shores, edges, cliffs)
+      if (!ok(x, z, ux0, uz0)) {
         blocked = true;
         const a0 = Math.atan2(dx, dz);
         let found = false;
         for (const da of [0.35, -0.35, 0.7, -0.7, 1.05, -1.05, 1.4, -1.4]) {
           const l = len * Math.cos(da);
-          const tx = from.x + Math.sin(a0 + da) * l, tz = from.z + Math.cos(a0 + da) * l;
-          if (ok(tx, tz)) { x = tx; z = tz; found = true; break; }
+          const ux = Math.sin(a0 + da), uz = Math.cos(a0 + da);
+          const tx = from.x + ux * l, tz = from.z + uz * l;
+          if (ok(tx, tz, ux, uz)) { x = tx; z = tz; found = true; break; }
         }
         if (!found) { x = from.x; z = from.z; }
       }
-      // 2) push out of colliders
-      for (let it = 0; it < 3; it++) {
+      // 2) push out of colliders (several passes: corners between two colliders)
+      for (let it = 0; it < 4; it++) {
         let moved = false;
         for (const c of near(grid, x, z)) {
           if (c.off || (c.layer !== 'all' && c.layer !== layer)) continue;
           if (c.type === 'circle') {
             const ex = x - c.x, ez = z - c.z, d = Math.hypot(ex, ez), m = c.r + radius;
             if (d < m) {
-              const k = d > 1e-5 ? m / d : 1;
-              x = c.x + (d > 1e-5 ? ex * k : m); z = c.z + (d > 1e-5 ? ez * k : 0);
+              if (d > 1e-5) { x = c.x + ex * m / d; z = c.z + ez * m / d; }
+              else { x = c.x - ux0 * m; z = c.z - uz0 * m; }   // dead centre: back out the way we came
               moved = true;
             }
           } else if (c.type === 'box') {
@@ -167,8 +197,10 @@ export function createColliders(q) {
         }
         if (moved) blocked = true; else break;
       }
-      // 3) the push-out must not drop us into water/cliffs
-      if (!ok(x, z)) { x = from.x; z = from.z; blocked = true; }
+      // 3) the push-out must not drop us into water/off an edge; never move farther than asked (no tunnelling)
+      if ((x !== to.x || z !== to.z) && !ok(x, z, 0, 0)) { x = from.x; z = from.z; blocked = true; }
+      const mx = x - from.x, mz = z - from.z, ml = Math.hypot(mx, mz);
+      if (ml > len * 1.5 + 0.02) { const k = (len * 1.5 + 0.02) / ml; x = from.x + mx * k; z = from.z + mz * k; }
       return { x, y: boat ? 0 : api.groundY(x, z), z, blocked };
     },
   };

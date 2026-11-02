@@ -367,9 +367,13 @@
 .need.ok { background: #e2f2d2; color: var(--leaf-d); }
 .need.miss { background: #fbe1da; color: var(--coral-d); }
 .need-ic .ic { width: 14px; height: 14px; }
-.rec-eff { display: flex; flex-wrap: wrap; gap: 4px; }
-.rec-eff .chip { white-space: normal; max-width: 100%; text-align: left; }
-.rec-eff .chip .ic { width: 16px; height: 16px; }
+.rec-eff { display: flex; flex-direction: column; gap: 3px; padding: 7px 10px 8px; border-radius: 12px; background: rgba(245, 197, 66, .14); box-shadow: inset 0 0 0 1.5px rgba(201, 143, 28, .28); }
+.eff-title { font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .06em; color: var(--gold-d); }
+.eff-line, .eff-time { display: flex; align-items: flex-start; gap: 5px; font-size: 13px; line-height: 1.3; }
+.eff-time { font-weight: 800; color: var(--ink-2); }
+.eff-ic { flex: none; display: flex; margin-top: 1px; }
+.eff-ic .ic { width: 16px; height: 16px; }
+.cook-how { margin-bottom: 10px; }
 .rec-act { flex: none; margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 @container (max-width: 420px) {
   .recipe { flex-wrap: wrap; }
@@ -473,3 +477,19 @@
 .version { text-align: center; margin-top: 18px; }
 .sheet-settings .sheet { width: min(600px, 100%); }
 #ui.compact .sheet-settings .sheet { width: 100%; }
+
+/* ── save backup (Settings) ── */
+.save-note { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; font-size: 14px; font-weight: 700; line-height: 1.4; }
+.save-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.save-btns .btn { flex: 1 1 auto; }
+.save-panel { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 18px; margin: 8px 0 4px; }
+.save-panel > * { position: relative; z-index: 1; }
+.save-panel p { margin: 0; }
+#ui .save-code { width: 100%; min-height: 84px; resize: vertical; padding: 9px 11px; border-radius: 12px; border: 2px solid var(--paper-edge); background: #fffdf7;
+  font: 600 12.5px/1.35 ui-monospace, Menlo, monospace; color: var(--ink); word-break: break-all;
+  -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; touch-action: auto; pointer-events: auto; }
+#ui .save-code:focus { outline: 3px solid var(--sea-l); outline-offset: 1px; }
+.save-err { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; background: #fbe1da; color: var(--coral-d); font-weight: 800; font-size: 14px; line-height: 1.3; }
+.save-err .ic { width: 20px; height: 20px; }
+.save-confirm { margin-top: 8px; }
+.save-sum { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 2px; margin-bottom: 12px; font-size: 15px; }
