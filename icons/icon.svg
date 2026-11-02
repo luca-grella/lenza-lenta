@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ee6c47"/><stop offset="1" stop-color="#ffcf8f"/></linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3ccbc6"/><stop offset="1" stop-color="#1b8d96"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <circle cx="372" cy="306" r="74" fill="#fff1c7"/>
+  <g id="art">
+    <rect y="300" width="512" height="212" fill="url(#sea)"/>
+    <path d="M0 300 L120 300 L60 352 Z M150 300 L300 300 L220 360 Z M330 300 L512 300 L512 340 L420 372 Z M40 420 L170 392 L120 470 Z M260 420 L380 400 L330 476 Z M430 440 L512 418 L512 500 Z" fill="#5fd6d0" opacity=".55"/>
+    <path d="M70 330 h70 M300 344 h60 M180 430 h80" stroke="#e9fbf8" stroke-width="8" stroke-linecap="round" opacity=".8"/>
+    <path d="M470 60 L392 344" stroke="#fff8e8" stroke-width="3.5" opacity=".95"/>
+    <ellipse cx="392" cy="372" rx="52" ry="14" fill="none" stroke="#e9fbf8" stroke-width="5" opacity=".75"/>
+    <path d="M366 360 a26 26 0 0 1 52 0 z" fill="#e8432f"/>
+    <path d="M366 360 a26 26 0 0 0 52 0 z" fill="#ffffff"/>
+    <rect x="389" y="318" width="6" height="18" rx="3" fill="#e8432f"/>
+    <!-- faceted straw hat -->
+    <path d="M44 262 L132 222 L250 210 L372 226 L436 262 L372 296 L250 308 L128 298 Z" fill="#e9c975"/>
+    <path d="M44 262 L132 222 L250 210 L250 308 L128 298 Z" fill="#f2d68c"/>
+    <path d="M250 210 L372 226 L436 262 L250 262 Z" fill="#dcb965"/>
+    <path d="M44 262 L250 262 L250 308 L128 298 Z" fill="#d9b25c"/>
+    <path d="M168 238 L196 150 L250 132 L306 150 L332 238 L250 252 Z" fill="#efd283"/>
+    <path d="M250 132 L306 150 L332 238 L250 252 Z" fill="#dcbb68"/>
+    <path d="M170 228 L330 228 L332 240 L250 254 L168 240 Z" fill="#c94a37"/>
+    <path d="M44 262 L132 222 L250 210 L372 226 L436 262 L372 296 L250 308 L128 298 Z" fill="none" stroke="#7c4b27" stroke-width="7" stroke-linejoin="round"/>
+    <path d="M168 238 L196 150 L250 132 L306 150 L332 238" fill="none" stroke="#7c4b27" stroke-width="7" stroke-linejoin="round"/>
+  </g>
+</svg>

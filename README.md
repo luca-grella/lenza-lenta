@@ -22,3 +22,7 @@ Gioco di pesca rilassante su un'isola low-poly in 3D, nel browser.
 Quando il galleggiante affonda premi per ferrare, poi tieni premuto per recuperare. Se il pesce dà uno strattone, molla, altrimenti il filo si spezza.
 
 Un solo file `index.html`, Three.js r128 da cdnjs, nessuna build.
+
+## Installala come app
+
+Su iPhone: apri il link in Safari → Condividi → **Aggiungi alla schermata Home**. Funziona a schermo intero e anche offline. È un gioco separato da [Lenza Lenta 2](https://luca-grella.github.io/lenza-lenta-v2/): ognuno ha la sua icona e i suoi salvataggi.
