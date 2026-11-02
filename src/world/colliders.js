@@ -8,7 +8,17 @@ const PAD = 0.7;          // colliders/surfaces are binned with this margin so a
 const key = (i, j) => i * 8192 + j;
 /** Walking limits (metres): the feet never step into water deeper than WADE, never climb more than CLIMB in one step,
  *  never drop more than DROP off a deck/dock/bridge edge (ramps and steps are surfaces, so they are smooth). */
-export const WALK = { WADE: 0.07, CLIMB: 0.62, DROP: 0.55, SLOPE: 1.0, LOOK: 0.75 };
+export const WALK = { WADE: 0.07, CLIMB: 0.62, DROP: 0.55, SLOPE: 1.0, LOOK: 0.75, SHORE_RUN: 0.35, FOAM: 0.95 };
+/** [Fix] On a gently sloping sea beach 0.07 m of water lies 1-2 m past the waterline (the player stood on turquoise
+ *  water beyond the foam). In the sea the allowed depth also shrinks with the slope, so the feet stop at most
+ *  WALK.SHORE_RUN m past the waterline, where the contact foam is drawn. */
+function wadeLimit(q, x, z, w) {
+  if (w !== 0) return WALK.WADE;   // ponds, river, creek: unchanged
+  // on a flat shelf just under sea level the depth stays tiny for metres: also stop where the shoreline foam ends
+  // (water.js draws the contact foam from the same baked distance-from-land, fading out from 0.6 to 1.6 m)
+  if (q.shoreDistance && q.shoreDistance(x, z) > WALK.FOAM) return -1;
+  return clamp(q.slopeAt(x, z) * WALK.SHORE_RUN, 0.012, WALK.WADE);
+}
 
 /**
  * @param {{heightAt:(x:number,z:number)=>number, slopeAt:(x:number,z:number)=>number, waterSurfaceAt:(x:number,z:number)=>number|null, bound:number}} q
@@ -107,7 +117,7 @@ export function createColliders(q) {
       }
       const h = q.heightAt(x, z);
       const w = q.waterSurfaceAt(x, z);
-      if (w != null && w - h > WALK.WADE) return false;
+      if (w != null && w - h > wadeLimit(q, x, z, w)) return false;
       if (q.slopeAt(x, z) > WALK.SLOPE) return false;
       if (fromY != null && (h - fromY > WALK.CLIMB || fromY - h > WALK.DROP)) return false;
       return true;
@@ -116,7 +126,7 @@ export function createColliders(q) {
     badness(x, z) {
       if (api.surfaceAt(x, z) != null) return 0;
       const h = q.heightAt(x, z), w = q.waterSurfaceAt(x, z);
-      return Math.max(0, w != null ? w - h - WALK.WADE : 0) + Math.max(0, q.slopeAt(x, z) - WALK.SLOPE) * 0.1;
+      return Math.max(0, w != null ? w - h - wadeLimit(q, x, z, w) : 0) + Math.max(0, q.slopeAt(x, z) - WALK.SLOPE) * 0.1;
     },
     walkable(x, z) { return api.groundOK(x, z) && !api.blockedAt(x, z, 0, 'walk'); },
     /** Boat: deep enough water and not on a dock footprint. */

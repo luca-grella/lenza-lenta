@@ -237,7 +237,16 @@ export async function init(ctx) {
   on('weather:change', () => ui.hud.refresh());
   on('time:phase', () => ui.hud.refresh());
   on('time:day', p => { ui.hud.refresh(); if (p.day > 1) ui.notify.toast('ui.toast.day', { n: p.day }, { icon: 'sun' }); });
-  on('zone:enter', p => { if (p.zone && p.zone !== ui.zone) { ui.zone = p.zone; if (!ui.intro.open) ui.notify.showZone(p.zone); } });
+  // a zone name shown less than 40 s ago is not shown again (back and forth across a border)
+  const zoneShown = {};
+  on('zone:enter', p => {
+    if (!p.zone || p.zone === ui.zone) return;
+    ui.zone = p.zone;
+    const now = performance.now();
+    if (ui.intro.open || now - (zoneShown[p.zone] ?? -1e9) < 40000) return;
+    zoneShown[p.zone] = now;
+    ui.notify.showZone(p.zone);
+  });
 
   // fishing
   const BITE = 'bite';

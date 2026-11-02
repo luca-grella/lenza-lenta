@@ -16,7 +16,7 @@ export const CAMERA_MODES = {
  * @param {{camera:THREE.PerspectiveCamera, ctx:any, dom?:HTMLElement}} opts
  */
 export function createCameraRig({ camera, ctx, dom }) {
-  const _v = new THREE.Vector3(), _goal = new THREE.Vector3(), _prev = new THREE.Vector3();
+  const _v = new THREE.Vector3(), _goal = new THREE.Vector3(), _prev = new THREE.Vector3(), _prev2 = new THREE.Vector3();
   const vel = new THREE.Vector3();
   let followed = null, focus = null, hasPrev = false;
   let trauma = 0, shakeT = 0;
@@ -80,7 +80,20 @@ export function createCameraRig({ camera, ctx, dom }) {
       cur.dist = damp(cur.dist, goalDist, 2.2 * k, dt);
       cur.pitch = damp(cur.pitch, goalPitch, 2.2 * k, dt);
       cur.fov = damp(cur.fov, goalFov, 3 * k, dt);
-      cur.yaw = angleDamp(cur.yaw, rig.yaw + m.yawOffset, 1.8 * k, dt);
+      // [Fix] dialogue: turn so the two speakers stand side by side on screen, not one behind the other (Rosa's
+      // bandana hid the player's hat on her narrow deck); never more than ~50° away from the player's own view
+      let yawGoal = rig.yaw + m.yawOffset;
+      if (rig.mode === 'dialog' && focus?.isObject3D && followed) {
+        focus.getWorldPosition(_v); followed.getWorldPosition(_prev2);
+        const dx = _v.x - _prev2.x, dz = _v.z - _prev2.z;
+        if (dx * dx + dz * dz > 0.04) {
+          const a = Math.atan2(dx, dz);
+          const wrap = x => Math.atan2(Math.sin(x), Math.cos(x));
+          const c1 = wrap(a + Math.PI / 2 - yawGoal), c2 = wrap(a - Math.PI / 2 - yawGoal);
+          yawGoal += clamp(Math.abs(c1) < Math.abs(c2) ? c1 : c2, -0.9, 0.9);
+        }
+      }
+      cur.yaw = angleDamp(cur.yaw, yawGoal, 1.8 * k, dt);
       cur.focusW = damp(cur.focusW, focus ? m.focusW : 0, 1.6 * k, dt);
       cur.height = damp(cur.height, m.height, 2 * k, dt);
 

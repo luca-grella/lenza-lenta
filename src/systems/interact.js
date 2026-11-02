@@ -59,6 +59,15 @@ export function createInteract(ctx, env) {
     return { id: 'npc:' + id, kind: 'talk', npcId: id, d, at: o.position, priority: 3, icon: 'talk', labelKey: 'sys.act.talk', labelVars: { name: env.t(rec.nameKey) }, run: () => sys().quests?.talkTo?.(id) };
   }
 
+  /** A villager is sitting on (or right at) this seat. */
+  function seatTaken(q) {
+    for (const n of env.npcList()) {
+      const o = n.object;
+      if (o?.visible && Math.hypot(o.position.x - q.x, o.position.z - q.z) < 0.5) return true;
+    }
+    return false;
+  }
+
   function candidates(p) {
     const out = [];
     const boat = sys().boat;
@@ -100,7 +109,7 @@ export function createInteract(ctx, env) {
         out.push({ id: 'campfire', kind: 'cook', d, at: q, priority: 2, icon: 'cook', labelKey: 'sys.act.cook', run: () => openCook('campfire') });
       } else if (q.type === 'chest' && d < 2.2 && !S().flags?.treasure_open) {
         out.push({ id: 'chest', kind: 'chest', d, at: q, priority: 2, icon: 'treasure', labelKey: 'sys.act.open_chest', run: () => openChest() });
-      } else if (q.type === 'bench' && d < (q.seat === 'edge' ? 2.3 : 1.9)) {   // an edge seat lies at the very rim, the planks end ~1.9 m before it; a bench seat point is inside its collider
+      } else if (q.type === 'bench' && d < (q.seat === 'edge' ? 2.3 : 1.9) && !seatTaken(q)) {   // an edge seat lies at the very rim, the planks end ~1.9 m before it; a bench seat point is inside its collider
         const edge = q.seat === 'edge';
         out.push({ id: 'bench:' + q.id, kind: 'sit', seat: q.seat, d, at: q, priority: edge ? 2.4 : 1, icon: 'sit', labelKey: edge ? 'sys.act.sit_edge' : 'sys.act.sit', run: () => sit(q) });
       }
@@ -132,6 +141,8 @@ export function createInteract(ctx, env) {
         const cat = sys().cat;
         const fish = (S().basket || []).some(e => D().get?.(e.id)?.kind === 'fish');
         if (!cat.befriended && fish) out.push({ id: 'cat', kind: 'feed_cat', d, at: cp, priority: 2.2, icon: 'paw', labelKey: 'sys.act.feed_cat', run: () => cat.feed() });
+        // [Fix] a shy cat can't be petted yet: the button says "Saluta Biscotto" and really does it (walk up, hold out a hand)
+        else if (!cat.befriended) out.push({ id: 'cat', kind: 'pet', d, at: cp, priority: 2.2, icon: 'paw', labelKey: 'sys.act.greet_cat', run: () => cat.greet() });
         else out.push({ id: 'cat', kind: 'pet', d, at: cp, priority: 2.2, icon: 'pet', labelKey: 'sys.act.pet', run: () => cat.pet() });
       }
     }
@@ -161,6 +172,8 @@ export function createInteract(ctx, env) {
   const PLACE = new Set(['shop', 'sell', 'donate', 'sleep', 'cook', 'chest']);
   /** World interactables Systems handles itself (seats, the cat). */
   const WORLD_SKIP = new Set(['sit', 'pet']);
+  /** Main actions that may show a runner-up on the side button (besides Cast). */
+  const SIDE_FOR = new Set(['talk', 'pet', 'feed_cat', 'sit']);
   function choose(list, p, castOK) {
     const face = env.playerFacing();
     let best = null, bs = castOK ? CAST_SCORE : -Infinity;
@@ -174,6 +187,9 @@ export function createInteract(ctx, env) {
       if (castOK && SOFT.has(e.kind) && !(e.seat === 'edge' && !e.side) && !(off < 0.35 && e.d < 1.1) && !(e.kind === 'talk' && off < 0.5 && e.d < 2.0)) s = Math.min(s, CAST_SCORE - 0.01);
       // [Fix] a shop counter / fixed place you stand at and face wins over the water behind it (pescheria on its stilt deck)
       else if (castOK && PLACE.has(e.kind) && e.d < 2.6 && off < 1.0) s = Math.max(s, CAST_SCORE + 0.01);
+      // [Fix] a free bench seat right in front of you wins over a villager sitting next to it (Ettore on the lighthouse
+      // bench all day hid "Siediti"); the villager then goes on the side button
+      if (e.kind === 'sit' && e.seat === 'bench' && e.d < 1.35 && off < 0.6) s += 4;   // the bench collider keeps you ~1 m from the seat point
       if (s > bs) { bs = s; best = e; }
     }
     return best;
@@ -297,9 +313,12 @@ export function createInteract(ctx, env) {
       if (current?.kind === 'cast') {
         side = list.filter(e => e.kind === 'sit').sort((a, b) => a.d - b.d)[0]
           || list.filter(e => e !== pick).sort((a, b) => (b.priority * 2 - b.d) - (a.priority * 2 - a.d))[0] || null;
-      } else if (current?.kind === 'talk') {
-        // two villagers side by side (Rosa strolling with Marta at dusk): the other one goes on the side button
-        side = list.filter(e => e.kind === 'talk' && e.id !== current.id).sort((a, b) => a.d - b.d)[0] || null;
+      } else if (current && SIDE_FOR.has(current.kind)) {
+        // two villagers side by side (Rosa strolling with Marta at dusk), the cat next to Nonna Pina, a free seat next
+        // to Ettore: the runner-up goes on the side button (another villager first, then the cat, then a bench seat)
+        const others = list.filter(e => e.id !== current.id && !e.side && (e.kind === 'talk' || e.kind === 'pet' || e.kind === 'feed_cat' || (e.kind === 'sit' && e.seat === 'bench')));
+        const near = k => others.filter(k).sort((a, b) => a.d - b.d)[0];
+        side = near(e => e.kind === 'talk') || near(e => e.kind === 'pet' || e.kind === 'feed_cat') || near(e => e.kind === 'sit') || null;
       }
       secondary = side ? label({ ...side }) : null;
       // run non-fishing actions on Space / action button tap, or E

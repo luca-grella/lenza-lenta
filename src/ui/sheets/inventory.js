@@ -107,8 +107,16 @@ export default function inventory(ui, data) {
         out.push(section(t('ui.inv.dishes'), 'eat'));
         out.push(...groups.dish.map(([id, n]) => {
           const r = A.item(id), rec = A.item(r.recipe);
-          const eat = h('button.btn.small.leaf', { type: 'button' }, t('ui.inv.eat'));
-          onTap(eat, () => { const res = A.eat(id); if (res.ok) { ui.sfx('eat'); ui.toast('ui.toast.ate', { item: A.name(id) }, { icon: 'eat' }); spec.refresh(); } else ui.toast('ui.toast.unavailable', { icon: 'info' }); });
+          // [Fix] the kitty treat is handed to the cat ("Dai a Biscotto"): the panel closes and the player walks over
+          const forCat = !!rec?.effect?.cat;
+          const eat = h('button.btn.small.leaf', { type: 'button' }, t(forCat ? 'ui.inv.give_cat' : 'ui.inv.eat'));
+          onTap(eat, () => {
+            const res = A.eat(id);
+            if (res.ok && res.cat) { ui.sfx('ui_tap'); spec.close(); }
+            else if (res.ok) { ui.sfx('eat'); ui.toast('ui.toast.ate', { item: A.name(id) }, { icon: 'eat' }); spec.refresh(); }
+            else if (res.reason === 'cat_far') ui.toast('sys.cat.far', null, { icon: 'paw' });
+            else ui.toast('ui.toast.unavailable', { icon: 'info' });
+          });
           const hours = Math.max(...(rec?.buffs || []).map(b => b.hours || 4), 0);
           const buffs = (rec?.buffs || []).map(b => t(`buff.${b.stat}.name`)).join(' · ');
           return row(h('span.thing-ic', { html: itemIcon(r) }), `${A.name(id)} ×${n}`, buffs ? `${t('ui.cook.bonus')}: ${buffs} · ${buffDuration(ui, hours)}` : A.desc(id), eat);

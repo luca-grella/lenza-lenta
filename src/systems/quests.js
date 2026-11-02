@@ -228,8 +228,10 @@ export function createQuests(ctx, env) {
     for (const sq of D().sideQuests || []) {
       if (Q().side[sq.id] === 'active' && sq.npc === npcId && !Q().offered[sq.id]) { Q().offered[sq.id] = true; const ch = shopChoices(); toShop(await say(npcId, sq.dialogKeys.offer, ch ? { choices: ch } : {})); return; }
     }
-    const daily = await sys().dailies?.talk?.(npcId);
-    if (daily) return;
+    // [Fix] a daily request no longer ends the talk without choices: the shopkeeper's counter is offered under it
+    // (Gino repeated "ha bisogno di 2 × Cavedano" about every other talk and you could not sell by day)
+    const daily = await sys().dailies?.talk?.(npcId, { choices: shopChoices() });
+    if (daily) { toShop(daily.choice); return; }
     const k = npcData.dialogKeys || {};
     const lines = [];
     if (step && step.npc === npcId) lines.push(pick(step.dialogKeys?.hint));

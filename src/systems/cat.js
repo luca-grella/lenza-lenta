@@ -40,8 +40,8 @@ export function createCat(ctx, env) {
   }
 
   let approaching = false;
-  /** Walk next to the cat. pet: use the cat's own petting spot. Resolves true when there (or close enough). */
-  async function approach(forPet) {
+  /** Walk next to the cat. pet: use the cat's own petting spot; dist: stop this far from it (a shy cat keeps away). */
+  async function approach(forPet, dist = 0.85) {
     const cr = creature(), o = cr?.object;
     if (!o) return false;
     const p = env.playerPos();
@@ -50,7 +50,7 @@ export function createCat(ctx, env) {
     if (!spot || spot.ok === false) {
       // fallback: 0.85 m from the cat, on the player's side
       const dx = p.x - o.position.x, dz = p.z - o.position.z, d = Math.hypot(dx, dz) || 1;
-      spot = { standPos: { x: o.position.x + dx / d * 0.85, z: o.position.z + dz / d * 0.85 }, facing: Math.atan2(-dx, -dz), tolerance: 0.25 };
+      spot = { standPos: { x: o.position.x + dx / d * dist, z: o.position.z + dz / d * dist }, facing: Math.atan2(-dx, -dz), tolerance: 0.25 };
     }
     approaching = true;
     let ok = true;
@@ -60,7 +60,7 @@ export function createCat(ctx, env) {
     approaching = false;
     // close enough counts: the cat does the last few cm itself
     const q = env.playerPos();
-    const near = Math.hypot(o.position.x - q.x, o.position.z - q.z) < 1.3;
+    const near = Math.hypot(o.position.x - q.x, o.position.z - q.z) < Math.max(1.3, dist + 0.4);
     if (ok || near) { if (Number.isFinite(spot.facing)) env.face(spot.facing); return true; }
     if (forPet) call('cancelPet');
     return false;
@@ -71,6 +71,7 @@ export function createCat(ctx, env) {
     return o ? { x: o.position.x, z: o.position.z } : undefined;
   }
 
+  const TREAT_REACH = 10;   // farther than this the Backpack asks you to walk over first (the walk-up has a 5 s budget)
   const cat = {
     get friend() { return C().friend || 0; },
     get befriended() { return !!C().befriended; },
@@ -97,8 +98,37 @@ export function createCat(ctx, env) {
       gain(1, 'basket');
       return true;
     },
-    /** Kitty treat dish. */
-    giveTreat(n = 1) { env.play('crouch_pick', { loop: false }); gain(n + 1, 'treat'); return true; },
+    /** Can the kitty treat be handed over now? null = yes, else 'none' (no cat) | 'far'. */
+    treatBlocked() {
+      const o = creature()?.object;
+      if (!o) return 'none';
+      const p = env.playerPos();
+      return Math.hypot(o.position.x - p.x, o.position.z - p.z) > TREAT_REACH ? 'far' : null;
+    },
+    /**
+     * Kitty treat dish, given from the Backpack: [Fix] it used to reach the cat from any distance with no walk and no
+     * gesture. Now the player walks up to the cat (once the panel has closed), crouches and hands it over; onGiven()
+     * (removing the dish) runs only if the cat was reached. Resolves true when given.
+     */
+    async giveTreat(n = 1, onGiven = null) {
+      if (approaching || cat.treatBlocked()) { if (cat.treatBlocked() === 'far') env.toast('sys.cat.far'); return false; }
+      // the walk needs the controls back: wait for the Backpack to close
+      for (let k = 0; k < 40 && ctx.input?.enabled === false; k++) await new Promise(r => setTimeout(r, 50));
+      if (!(await approach(false))) { env.toast('sys.cat.far'); return false; }
+      onGiven?.();
+      env.play('crouch_pick', { loop: false });
+      gain(n + 1, 'treat');
+      return true;
+    },
+    /** Not friends yet and no fish to offer: walk up slowly, crouch and hold out a hand; the cat sniffs it and backs off. */
+    async greet() {
+      if (approaching) return false;
+      await approach(false, 1.25);
+      env.play('crouch_pick', { loop: false });
+      env.sfx('cat_meow', { pitch: 1.4, vol: 0.6, delay: 0.4, pos: catPos() });
+      env.toast('sys.cat.sniff');
+      return true;
+    },
     /** Walk up to the cat (to the spot where the hand lands on its back), then pet it. */
     async pet() {
       const c = C();

@@ -136,7 +136,8 @@ export default function map(ui, data) {
   const t = (k, v) => ctx.i18n.t(k, v);
   let view, layer, overlay, player, src;
   const st = { scale: 1, tx: 0, ty: 0, base: 300 };
-  const markers = []; // {node, x, z}
+  const markers = []; // {node, x, z, kind: 'zone'|'poi'|'goal', span?}
+  let lastPl = null;
 
   const toMap = (x, z) => [(x - src.bounds.minX) / (src.bounds.maxX - src.bounds.minX) * st.base, (z - src.bounds.minZ) / (src.bounds.maxZ - src.bounds.minZ) * st.base];
   function apply() {
@@ -147,9 +148,51 @@ export default function map(ui, data) {
     layer.style.transform = `translate(${st.tx}px, ${st.ty}px) scale(${st.scale})`;
     for (const m of markers) {
       const [mx, my] = toMap(m.x, m.z);
-      m.node.style.transform = `translate(${(st.tx + mx * st.scale).toFixed(1)}px, ${(st.ty + my * st.scale).toFixed(1)}px)`;
+      m.sx = st.tx + mx * st.scale; m.sy = st.ty + my * st.scale;
+      m.node.style.transform = `translate(${m.sx.toFixed(1)}px, ${m.sy.toFixed(1)}px)`;
     }
     tickPlayer();
+    layoutLabels();
+  }
+  /**
+   * [Fix] Zone names dodge the icons: the You arrow covered the "e" of "Home Beach" and the harbour shops sat on
+   * "Slow Harbor". Each name tries a few spots around its centre (centre, below, above, right, left, farther) and takes
+   * the one that overlaps the least with icons, the goal pin, the You arrow and the names already placed.
+   */
+  function layoutLabels() {
+    if (!view) return;
+    const obst = [];
+    const box = (x, y, w, hh) => ({ x0: x - w / 2, y0: y - hh / 2, x1: x + w / 2, y1: y + hh / 2 });
+    for (const m of markers) {
+      if (m.kind === 'poi') obst.push(box(m.sx + 2, m.sy + 2, 40, 40));   // 30 px icon + 2 px border + shadow
+      else if (m.kind === 'goal') { obst.push(box(m.sx, m.sy - 21, 38, 44)); obst.push(box(m.sx, m.sy + 11, 52, 20)); }
+    }
+    if (player && !player.classList.contains('hidden') && lastPl) {
+      obst.push(box(lastPl.x, lastPl.y, 40, 40));
+      obst.push(box(lastPl.x, lastPl.y + 27, 50, 20));
+    }
+    const over = (a, b) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
+    const placed = [];
+    for (const m of markers) {
+      if (m.kind !== 'zone' || !m.span) continue;
+      const w = m.w || (m.w = m.span.offsetWidth || 90), hh = m.hh || (m.hh = m.span.offsetHeight || 18);
+      const dy = hh / 2 + 23, dx = w / 2 + 25;
+      const around = [[0, dy], [0, -dy], [dx, 0], [-dx, 0], [dx * 0.75, dy], [-dx * 0.75, dy], [dx * 0.75, -dy], [-dx * 0.75, -dy],
+        [0, dy + 18], [0, -dy - 18], [dx + 14, 0], [-dx - 14, 0], [0, dy * 2 + 10], [0, -dy * 2 - 10]];
+      const tries = m.pinned ? around : [[0, 0], ...around];
+      let best = null, bs = Infinity;
+      for (const [ox, oy] of tries) {
+        const r = box(m.sx + ox, m.sy + oy, w + 4, hh + 2);
+        let sc = 0;
+        for (const o of obst) sc += over(r, o);
+        for (const o of placed) sc += over(r, o) * 1.5;
+        sc += Math.hypot(ox, oy) * 0.05;   // prefer the centre when it is free
+        if (sc < bs - 1e-6) { bs = sc; best = { ox, oy, r }; }
+      }
+      placed.push(best.r);
+      m.span.style.transform = `translate(calc(-50% + ${best.ox.toFixed(0)}px), calc(-50% + ${best.oy.toFixed(0)}px))`;
+      m.span.style.top = '0px';
+    }
   }
   function fit() {
     const vw = view.clientWidth || 300, vh = view.clientHeight || 300;
@@ -169,15 +212,20 @@ export default function map(ui, data) {
     st.tx = cx - (cx - st.tx) * k; st.ty = cy - (cy - st.ty) * k; st.scale = ns;
     apply();
   }
-  function tickPlayer() {
+  function tickPlayer(fromTick = false) {
     if (!player || !src) return;
     const p = A.playerPos();
     if (!p) { player.classList.add('hidden'); return; }
     const [mx, my] = toMap(p.x, p.z);
     const f = A.playerFacing();
     player.classList.remove('hidden');
-    player.style.transform = `translate(${(st.tx + mx * st.scale).toFixed(1)}px, ${(st.ty + my * st.scale).toFixed(1)}px)`;
+    const px = st.tx + mx * st.scale, py = st.ty + my * st.scale;
+    player.style.transform = `translate(${px.toFixed(1)}px, ${py.toFixed(1)}px)`;
     player.firstChild.style.transform = `rotate(${((Math.PI - f) * 180 / Math.PI).toFixed(1)}deg)`;
+    // the names move out of the way when You moves a few pixels (cheap: a handful of labels)
+    const movedPl = !lastPl || Math.hypot(lastPl.x - px, lastPl.y - py) > 3;
+    lastPl = { x: px, y: py };
+    if (movedPl && fromTick) layoutLabels();
   }
 
   const spec = {
@@ -192,11 +240,13 @@ export default function map(ui, data) {
       layer.append(cv);
       overlay = h('div.map-overlay');
       markers.length = 0;
-      const addMarker = (x, z, node) => { markers.push({ x, z, node }); overlay.append(node); };
+      const addMarker = (x, z, node, kind = 'poi', extra = {}) => { markers.push({ x, z, node, kind, ...extra }); overlay.append(node); };
       const pinAt = (x, z) => (src.pois || []).some(p => p && typeof p.x === 'number' && Math.hypot(p.x - x, p.z - z) < 9);
       for (const zn of src.zones) {
         if (!ctx.i18n.has(`zone.${zn.id}.name`)) continue;
-        addMarker(zn.x, zn.z, h('div.mk.mk-zone' + (zn.id === ui.zone ? '.here' : '') + (pinAt(zn.x, zn.z) ? '.pinned' : ''), h('span', t(`zone.${zn.id}.name`))));
+        const pinned = pinAt(zn.x, zn.z);
+        const node = h('div.mk.mk-zone' + (zn.id === ui.zone ? '.here' : '') + (pinned ? '.pinned' : ''), h('span', t(`zone.${zn.id}.name`)));
+        addMarker(zn.x, zn.z, node, 'zone', { span: node.firstChild, pinned });
       }
       const poiFn = ctx.world?.poi;
       const seen = new Set();
@@ -212,7 +262,7 @@ export default function map(ui, data) {
       // quest pin
       const goalPoi = data.focus || A.currentGoal()?.marker;
       const gp = goalPoi ? poiPos(goalPoi) : null;
-      if (gp) addMarker(gp.x, gp.z, h('div.mk.mk-goal', h('span.mk-ic', { html: icon('pin') }), h('span.mk-goal-txt', t('ui.map.goal'))));
+      if (gp) addMarker(gp.x, gp.z, h('div.mk.mk-goal', h('span.mk-ic', { html: icon('pin') }), h('span.mk-goal-txt', t('ui.map.goal'))), 'goal');
       player = h('div.mk.mk-player', h('div.mk-arrow', { html: `<svg viewBox="0 0 32 32"><path d="M16 3l9 22-9-5-9 5z" fill="#e8604a" stroke="#fff6e4" stroke-width="2.6" stroke-linejoin="round"/></svg>` }), h('span.mk-you', t('ui.map.you')));
       overlay.append(player);
 
@@ -261,7 +311,7 @@ export default function map(ui, data) {
       spec._ro = new ResizeObserver(() => fit());
       spec._ro.observe(view);
     },
-    tick() { if (view?.isConnected) tickPlayer(); },
+    tick() { if (view?.isConnected) tickPlayer(true); },
     onClose() { spec._ro?.disconnect(); },
   };
   return spec;

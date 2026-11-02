@@ -25,6 +25,7 @@ export const it = {
   'sys.act.cook': 'Cucina al falò',
   'sys.act.feed_cat': 'Dai un pesce al gatto',
   'sys.act.pet': 'Accarezza Biscotto',
+  'sys.act.greet_cat': 'Saluta Biscotto',
   'sys.act.open_chest': 'Apri il forziere',
   'sys.act.too_dark': 'Troppo buio',
   'sys.act.use': 'Usa',
@@ -60,7 +61,7 @@ export const it = {
   'sys.shop.owned': 'Ce l\'hai già.',
   'sys.shop.locked': 'Non ancora disponibile.',
   'sys.shop.not_yet': 'Prima serve il passo precedente.',
-  'sys.shop.closed': '{name} è chiuso adesso. Torna di giorno!',
+  'sys.shop.closed': 'Adesso {name} è chiusa. Torna di giorno!',   // every shop that closes is feminine (Bottega, Falegnameria, Trattoria)
   'sys.shop.honesty': 'Gino dorme: lasci il pesce nella cassetta della fiducia.',
   'sys.shop.nothing_to_sell': 'Il cestino è vuoto.',
 
@@ -117,6 +118,8 @@ export const it = {
   'sys.cat.friend_sub': 'Biscotto ora ti segue.',
   'sys.cat.no_fish': 'Non hai pesci da dargli.',
   'sys.cat.shy': 'Il gatto ti guarda, diffidente. Forse con un pesce…',
+  'sys.cat.sniff': 'Biscotto ti annusa la mano, poi fa un passo indietro. Portagli un pesce!',
+  'sys.cat.far': 'Biscotto è troppo lontano: raggiungilo, poi daglielo dallo Zaino.',
   'sys.cat.follow': 'Biscotto ti segue.',
   'sys.cat.stay': 'Biscotto resta qui a sonnecchiare.',
 
@@ -159,6 +162,7 @@ export const en = {
   'sys.act.cook': 'Cook at the campfire',
   'sys.act.feed_cat': 'Give the cat a fish',
   'sys.act.pet': 'Pet Biscuit',
+  'sys.act.greet_cat': 'Say hi to Biscuit',
   'sys.act.open_chest': 'Open the chest',
   'sys.act.too_dark': 'Too dark',
   'sys.act.use': 'Use',
@@ -242,6 +246,8 @@ export const en = {
   'sys.cat.friend_sub': 'Biscuit follows you now.',
   'sys.cat.no_fish': 'You have no fish to give.',
   'sys.cat.shy': 'The cat eyes you warily. Maybe with a fish…',
+  'sys.cat.sniff': 'Biscuit sniffs your hand, then steps back. Bring a fish!',
+  'sys.cat.far': 'Biscuit is too far away: walk over, then give it from your Backpack.',
   'sys.cat.follow': 'Biscuit follows you.',
   'sys.cat.stay': 'Biscuit stays here for a snooze.',
 

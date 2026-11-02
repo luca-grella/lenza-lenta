@@ -74,7 +74,7 @@ export async function init(ctx) {
   // ---------------------------------------------------------------- places (buildings, props) + colliders
   const places = buildPlaces(ctx, { terrain, materials, U, extraMats, waterSurfaceAt });
   root.add(places.group);
-  const colliders = createColliders({ heightAt: H, slopeAt: terrain.slopeAt, waterSurfaceAt, bound: L.HALF - 3 });
+  const colliders = createColliders({ heightAt: H, slopeAt: terrain.slopeAt, waterSurfaceAt, shoreDistance: terrain.shoreDistance, bound: L.HALF - 3 });
   for (const c of places.colliders) colliders.add(c);
   for (const s of places.surfaces) colliders.addSurface(s);
   // home tiers: all built, only one visible
@@ -163,6 +163,8 @@ export async function init(ctx) {
   }
   let lighthouseForced = null;
   let curZone = null, zoneTimer = 0, audioTimer = 0, lightTimer = 0;
+  let zonePending = null, zoneHold = 0, zoneAt0 = null;
+  const ZONE_BAND = 4;   // metres: how deep into a new zone you walk before its name shows
   const amb = { waves: -1, waterfall: -1, river: -1 };
   const tmpC = new THREE.Color();
 
@@ -341,7 +343,21 @@ export async function init(ctx) {
       if (zoneTimer <= 0) {
         zoneTimer = 0.3;
         const z = L.zoneAt(p.x, p.z);
-        if (z !== curZone) { const prev = curZone; curZone = z; ctx.bus.emit('zone:enter', { zone: z, prev }); }
+        // [Fix] hysteresis: along a wavy border (Bosco dei Pini / Cascata on the north-west shore) the name flashed
+        // 7 times in 11 s. A new zone counts only once the old one is not found within ZONE_BAND m around the
+        // player (several samples), and after it held for ~0.6 s; a teleport/far jump switches at once.
+        if (z !== curZone) {
+          const jump = !zoneAt0 || Math.hypot(p.x - zoneAt0.x, p.z - zoneAt0.z) > 12;
+          let inside = true;
+          if (curZone && !jump) for (let k = 0; k < 8 && inside; k++) {
+            const a = k * Math.PI / 4;
+            if (L.zoneAt(p.x + Math.sin(a) * ZONE_BAND, p.z + Math.cos(a) * ZONE_BAND) === curZone) inside = false;
+          }
+          zoneHold = inside && zonePending === z ? zoneHold + 1 : inside ? 1 : 0;
+          zonePending = inside ? z : null;
+          if (!curZone || jump || zoneHold >= 2) { const prev = curZone; curZone = z; zonePending = null; zoneHold = 0; ctx.bus.emit('zone:enter', { zone: z, prev }); }
+        } else { zonePending = null; zoneHold = 0; }
+        zoneAt0 = { x: p.x, z: p.z };
       }
       audioTimer -= dt;
       if (audioTimer <= 0) { audioTimer = 0.4; updateAudio(p); }

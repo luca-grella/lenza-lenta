@@ -505,7 +505,9 @@ export function buildPlaces(ctx, env) {
     // bench looking at the sea + a few crates and a rowing boat upside-down
     const bx = x - 3, bz = z + 6.5;
     bench(B, bx, groundAt(bx, bz), bz, Math.PI, 1.7);
-    poi('bench_lighthouse', bx, groundAt(bx, bz) + 0.46, bz - 0.05, Math.PI, { kind: 'bench' });
+    // [Fix] two seats on the 1.7 m bench: Ettore sits on one end all day, the other end stays free for the player
+    poi('bench_lighthouse', bx + 0.42, groundAt(bx, bz) + 0.46, bz - 0.05, Math.PI, { kind: 'bench' });
+    poi('bench_lighthouse_2', bx - 0.42, groundAt(bx, bz) + 0.46, bz - 0.05, Math.PI, { kind: 'bench' });
     lanternPost(B, x - 2, groundAt(x - 2, z + 4), z + 4, 2.2, 0);
     B.free();
   }

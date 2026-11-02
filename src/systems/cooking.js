@@ -97,9 +97,11 @@ export function createCooking(ctx, env) {
       const r = recipe(dishId);
       if (!r || !(S().items?.[r.dish] > 0)) return { ok: false, reason: 'missing' };
       if (r.effect?.cat) {
-        // the kitty treat is for Biscotto, not for you
-        if (!sys().cat?.giveTreat?.(r.effect.cat)) return { ok: false, reason: 'cat' };
-        sys().inventory.remove(r.dish, 1);
+        // the kitty treat is for Biscotto, not for you: the player walks over and hands it (systems/cat.js); the dish
+        // leaves the Backpack only once the cat is reached
+        const why = sys().cat?.treatBlocked ? sys().cat.treatBlocked() : 'none';
+        if (why) return { ok: false, reason: why === 'far' ? 'cat_far' : 'cat' };
+        sys().cat.giveTreat(r.effect.cat, () => sys().inventory.remove(r.dish, 1));
         return { ok: true, cat: true };
       }
       sys().inventory.remove(r.dish, 1);

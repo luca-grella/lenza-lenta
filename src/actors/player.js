@@ -7,6 +7,8 @@ import * as STR from './rig/strings.js';
 
 const WALK = 2.6, SLOW = 1.15;               // m/s (cozy: full stick / half stick or Shift)
 const RADIUS = 0.35;
+/** [Fix] player body + villager body: you no longer walk through the villagers (centres stay this far apart). */
+const NPC_GAP = 0.78;
 const FISHING = new Set(['cast_windup', 'cast_hold', 'cast_release', 'fish_wait', 'strike', 'reel', 'reel_struggle', 'catch_show', 'catch_happy', 'catch_hold', 'fail_shrug']);
 /** Clips that can play on the upper body while seated (dock edge, bench, boat) or walking. */
 const UPPER_OK = new Set([...FISHING, 'wave', 'talk', 'eat']);
@@ -295,8 +297,24 @@ export function init(ctx) {
       else if (ctx.stage?.heightAt && ctx.stage.water) {   // placeholder island: don't walk into the sea
         if (ctx.stage.heightAt(nx, nz) < 0.02 && ctx.stage.heightAt(from.x, from.z) >= 0.02) { nx = from.x; nz = from.z; }
       }
+      const pushed = npcPush(nx, nz);
+      if (pushed) {
+        // slide round the villager; the slide itself must respect the terrain/colliders, else stay put
+        const r2 = w?.resolveMove ? w.resolveMove(from, pushed, RADIUS) : pushed;
+        if (!npcPush(r2.x, r2.z, 0.03)) { nx = r2.x; nz = r2.z; } else if (!npcPush(from.x, from.z, 0.03)) { nx = from.x; nz = from.z; }
+      }
       moved = Math.hypot(nx - from.x, nz - from.z);
       obj.position.x = nx; obj.position.z = nz;
+    } else if (!seated && !settle && (state === 'idle' || state === 'walk')) {
+      // a villager walking into a player who stands still nudges them aside (never through a wall or into the sea)
+      const pushed = npcPush(obj.position.x, obj.position.z);
+      if (pushed) {
+        const w = W();
+        const k = Math.min(1, dt * 8);
+        const tx = obj.position.x + (pushed.x - obj.position.x) * k, tz = obj.position.z + (pushed.z - obj.position.z) * k;
+        const r = w?.resolveMove ? w.resolveMove(obj.position, { x: tx, z: tz }, RADIUS) : { x: tx, z: tz };
+        obj.position.x = r.x; obj.position.z = r.z;
+      }
     }
     if (settle) {   // glide onto / off a seat (smoothstep), independent of colliders
       settle.t += dt;
@@ -355,6 +373,26 @@ export function init(ctx) {
         ctx.save.commit?.();
       }
     }
+  }
+
+  /** Where x,z would go to keep NPC_GAP from every visible villager (null when no one is that close). slack: tolerance. */
+  function npcPush(x, z, slack = 0) {
+    const list = ctx.npcs?.list;
+    if (!list?.length) return null;
+    let px = x, pz = z, hit = false;
+    for (let it = 0; it < 2; it++) {
+      for (const n of list) {
+        const o = n.object;
+        if (!o?.visible) continue;
+        const dx = px - o.position.x, dz = pz - o.position.z, d = Math.hypot(dx, dz);
+        if (d >= NPC_GAP - slack) continue;
+        if (Math.abs(o.position.y - obj.position.y) > 1.6) continue;   // up the lighthouse, on a deck above...
+        hit = true;
+        const ux = d > 1e-4 ? dx / d : -Math.sin(facing), uz = d > 1e-4 ? dz / d : -Math.cos(facing);
+        px = o.position.x + ux * NPC_GAP; pz = o.position.z + uz * NPC_GAP;
+      }
+    }
+    return hit ? { x: px, z: pz } : null;
   }
 
   function lookTarget(dt) {

@@ -125,8 +125,12 @@ export function createDailies(ctx, env) {
         }
       }
     },
-    /** Called when talking to an NPC. Returns true if the conversation was about a request. */
-    async talk(npcId) {
+    /**
+     * Called when talking to an NPC. Returns false if the conversation was not about a request, else {choice}.
+     * opts.choices: answers to offer under the request line (a shopkeeper's "Vediamo cosa c'è / A dopo!"), so a
+     * request never hides the counter.
+     */
+    async talk(npcId, opts = {}) {
       const d = list().find(x => x.npc === npcId && !x.done);
       if (!d) return false;
       const q = sys().quests;
@@ -138,14 +142,15 @@ export function createDailies(ctx, env) {
           ctx.bus.emit('deliver', { npcId, itemId: d.itemId, n: d.need });
           // reward first: the thank-you line may wait in the dialog queue (sheet open, fishing...)
           finish(d);
-          q?.say?.(npcId, [{ key: d.thanksKey || `npc.${npcId}.thanks.1` }]);
-          return true;
+          const lines = [{ key: d.thanksKey || `npc.${npcId}.thanks.1` }];
+          if (!opts.choices) { q?.say?.(npcId, lines); return { choice: null }; }
+          return { choice: (await q?.say?.(npcId, lines, { choices: opts.choices })) ?? null };
         }
       }
       if (d.seenDay === ctx.time.day && Math.random() < 0.5) return false; // don't repeat it every single time
       d.seenDay = ctx.time.day;
-      await q?.say?.(npcId, [{ key: d.textKey, vars: vars(d) }]);
-      return true;
+      const r = await q?.say?.(npcId, [{ key: d.textKey, vars: vars(d) }], opts.choices ? { choices: opts.choices } : {});
+      return { choice: r ?? null };
     },
     update() { if (list()[0]?.day !== ctx.time.day && (D().dailies || []).length) refresh(); },
   };
