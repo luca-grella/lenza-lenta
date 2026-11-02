@@ -10,6 +10,7 @@ export default function settings(ui) {
   const { ctx } = ui;
   const t = (k, v) => ctx.i18n.t(k, v);
   let confirmReset = false, creditsOpen = false;
+  let qNote = null;
   // save backup panel: null | 'code' (export code shown) | 'import' (file / paste) | 'confirm' (summary + yes/no)
   let savePanel = null, codeText = '', pasted = '', importErr = '', pending = null, busy = false;
   const fileIn = h('input.hidden', { type: 'file', accept: 'application/json,.json,text/plain,.txt' });
@@ -125,7 +126,12 @@ export default function settings(ui) {
 
   const spec = {
     title: t('ui.sheet.settings'), icon: 'settings', cls: 'settings',
-    refreshOn: ['quality:change'],
+    // no refreshOn 'quality:change': the FPS watchdog emits it on its own (dynamic resolution) and a re-render in the
+    // middle of a tap swallowed it (Esporta / Importa did nothing on a busy phone); tick() updates the note in place
+    tick() {
+      const tier = ctx.quality?.tier;
+      if (qNote && tier && tier !== qNote.dataset.tier) { qNote.dataset.tier = tier; qNote.textContent = t('ui.set.quality_now', { tier: t('quality.' + tier) }); }
+    },
     render(body) {
       const st = ctx.save.state.settings || {};
       const parts = [];
@@ -140,7 +146,8 @@ export default function settings(ui) {
       const q = ctx.quality;
       parts.push(h('div.set-row', h('span.set-ic', { html: icon('quality') }),
         seg(['auto', 'low', 'mid', 'high'].map(k => [k, t('quality.' + k)]), q?.setting || st.quality || 'auto', v => { q?.set?.(v); spec.refresh(); })));
-      if (q?.tier) parts.push(h('div.set-note.muted.small', t('ui.set.quality_now', { tier: t('quality.' + q.tier) })));
+      qNote = q?.tier ? h('div.set-note.muted.small', { dataset: { tier: q.tier } }, t('ui.set.quality_now', { tier: t('quality.' + q.tier) })) : null;
+      if (qNote) parts.push(qNote);
 
       parts.push(h('div.set-row', h('span.set-ic', { html: icon('vibrate') }), h('span.set-k', h('span', t('ui.set.haptics')), h('small.muted', t('ui.set.haptics_desc'))),
         (() => {

@@ -134,7 +134,8 @@ button.pill:active { transform: translateY(2px); }
 .act.hold::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid rgba(255, 248, 234, .7); animation: hold-pulse 1.6s ease-out infinite; }
 @keyframes hold-pulse { 0% { transform: scale(.95); opacity: .9 } 100% { transform: scale(1.25); opacity: 0 } }
 
-.act-side { display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; }
+.act-side { display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none;
+  margin-bottom: 22px; } /* above the action button's wooden tag: a long label ("Parla con Nonna Pina") ran over the bait count */
 .act-side > * { pointer-events: auto; }
 .alt-btn { position: relative; width: 56px; height: 56px; animation: ui-pop .3s cubic-bezier(.2,1.5,.4,1) both; }
 .alt-ic { display: flex; }
@@ -144,14 +145,14 @@ button.pill:active { transform: translateY(2px); }
   background: var(--wood-grain), linear-gradient(180deg, var(--wood-l), var(--wood) 55%, var(--wood-d)); box-shadow: 0 2px 0 var(--wood-dd), 0 4px 8px rgba(60, 35, 15, .25); }
 #ui.compact .alt-btn { width: 48px; height: 48px; }
 #ui.compact .alt-ic .ic { width: 28px; height: 28px; }
-#ui.compact .act-side { gap: 8px; }
+#ui.compact .act-side { gap: 8px; margin-bottom: 18px; }
 #ui.reeling .alt-btn, #ui.busy .alt-btn { display: none; }
 .bait-btn { position: relative; width: 60px; height: 60px; margin-bottom: 4px; }
 .bait-ic .ic { width: 38px; height: 38px; }
 .bait-n { position: absolute; right: -7px; bottom: -6px; min-width: 25px; height: 23px; padding: 0 6px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
   background: var(--wood); color: #fff8ea; font-size: 12.5px; font-weight: 900; box-shadow: 0 2px 0 var(--wood-dd); border: 2px solid #fff6e4; }
 .bait-btn.empty .bait-n { background: var(--coral); box-shadow: 0 2px 0 #8f3020; }
-#ui.reeling .bait-btn { opacity: 0; pointer-events: none; }
+#ui.reeling .bait-btn, #ui.charging .bait-btn, #ui.charging .alt-btn { opacity: 0; pointer-events: none; }
 .bait-pop { position: absolute; right: 0; bottom: calc(100% + 18px); width: 260px; max-width: calc(100vw - var(--gl) - var(--gr) - 16px);
   max-height: min(340px, calc(var(--vh, 1vh) * 100 - var(--hud-bottom, 80px) - 170px)); display: flex; flex-direction: column; padding: 10px; animation: ui-rise .22s ease both; }
 .pop-title { font-weight: 900; font-size: 13px; color: var(--ink-2); padding: 2px 8px 8px; text-transform: uppercase; letter-spacing: .06em; }
@@ -209,8 +210,10 @@ button.pill:active { transform: translateY(2px); }
 
 /* ───────────── world labels ───────────── */
 .wlabels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.wl { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; opacity: 0; transition: opacity .3s ease; pointer-events: none; }
-.wl.on { opacity: 1; }
+/* labels leave fast (.08 s) and arrive slowly after a short wait, so two labels swapping places never show crossed */
+.wl { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; opacity: 0; transition: opacity .08s ease; pointer-events: none; }
+.wl.on { opacity: 1; transition: opacity .3s ease .1s; }
+#ui.has-banner .wl { opacity: 0 !important; transition-duration: .08s; }   /* a big banner is up: names and signs step aside */
 .wl.bye { opacity: 0 !important; }
 .wl > *, .wl-npc .wl-txt, .wl-sign .wl-txt { position: absolute; }
 .wl-npc .wl-txt { left: 0; bottom: 8px; transform: translateX(-50%); white-space: nowrap; padding: 3px 11px 4px; border-radius: 999px; font-size: 13.5px; font-weight: 900;

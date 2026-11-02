@@ -273,6 +273,8 @@ export function createInteract(ctx, env) {
           current = castHere
             ? label({ id: 'cast', kind: 'cast', icon: 'cast', hold: true, labelKey: 'sys.act.cast', run: () => {} })
             : label({ id: 'stand', kind: 'stand', icon: 'stand', labelKey: 'sys.act.stand', run: standUp });
+          // casting from the seat: "Alzati" moves to the small side button (the stick stands up too)
+          if (castHere) secondary = label({ id: 'stand', kind: 'stand', icon: 'stand', labelKey: 'sys.act.stand', run: standUp });
           if ((input.move?.mag || 0) > 0.3 && cooldown <= 0) standUp();
           else if (!castHere && (input.action.down || input.pressed('interact')) && cooldown <= 0) { cooldown = 0.35; standUp(); }
           return;

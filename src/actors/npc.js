@@ -21,13 +21,18 @@ const UNSEEN = 32;                // farther than this from the player = off scr
 // ------------------------------------------------------------------------------------------------ navigation
 /**
  * Lazy navigation grid + A*. A point is "dry" when the world says it is walkable and it is not sea (a deck above
- * the water is fine). A cell is free when its centre and its 4 neighbours' centres are dry (≈ 0.5 m of clearance
- * for a 0.3 m villager) and none of them is a step taller than STEP away (no dock edges, no cliffs).
+ * the water is fine). A cell is free when its centre and the 4 points a quarter-metre round it are dry and none of
+ * them is a step taller than STEP away (no dock edges, no cliffs). [Fix] the clearance used to be half a metre,
+ * which closed every 1 m ramp and the narrow shop decks: Gino, Rosa and Tonio could never leave their counters.
+ * Cells with less than half a metre of room ("tight") cost more, so paths keep to the middle of lanes and ramps.
  * Plans run as jobs sliced over frames (BUDGET ms per frame) so a phase change never stalls the game.
  */
 function createNav(ctx) {
-  const CELL = 0.5, STEP = 0.7, MAX_NODES = 40000, BUDGET = 2.5, RADIUS = 0.3;
-  let dryC = new Map(), freeC = new Map();
+  // STEP must stay below the world's own walking limits (src/world/colliders.js WALK: climb 0.62, drop 0.55):
+  // [Fix] it was 0.7, so plans stepped off the side of ramps/decks where the movement solver then held them back
+  const CELL = 0.5, STEP = 0.42, MAX_NODES = 40000, BUDGET = 2.5, RADIUS = 0.3;
+  let dryC = new Map(), freeC = new Map(), tightC = new Map();
+  const TIGHT = 0.9;   // extra cost of a cell with < 0.5 m of room
   const W = () => ctx.world;
   const key = (i, j) => (i + 4096) * 8192 + (j + 4096);
   /** Ground height at a point of the half-cell lattice (I, J in CELL/2 units) when dry & walkable, else null (cached). */
@@ -50,8 +55,28 @@ function createNav(ctx) {
     let v = freeC.get(k);
     if (v !== undefined) return v;
     v = dryY(2 * i, 2 * j);
-    if (v != null) for (const [a, b] of N4) { const y = dryY(2 * (i + a), 2 * (j + b)); if (y == null || Math.abs(y - v) > STEP) { v = null; break; } }
+    if (v != null) for (const [a, b] of N4) { const y = dryY(2 * i + a, 2 * j + b); if (y == null || Math.abs(y - v) > STEP) { v = null; break; } }
+    // [Fix] the villager's whole body must fit: walkable() only tests the point, so gaps between props/rails narrower
+    // than a villager were "free" and they pushed against them forever
+    if (v != null && pinched(i * CELL, j * CELL, RADIUS - 0.02)) v = null;
     freeC.set(k, v);
+    return v;
+  }
+  /** Does a body of radius r at x,z overlap a collider? (asks the world's own movement solver: it pushes us out) */
+  function pinched(x, z, r) {
+    const res = W()?.resolveMove?.({ x, z }, { x: x + 0.001, z }, r);
+    return !!res?.blocked;
+  }
+  /** A free cell without half a metre of room all round (next to a wall, a rail, the edge of a ramp). */
+  function tight(i, j) {
+    const k = key(i, j);
+    let v = tightC.get(k);
+    if (v !== undefined) return v;
+    const y0 = cellY(i, j);
+    v = false;
+    if (y0 != null) for (const [a, b] of N4) { const y = dryY(2 * (i + a), 2 * (j + b)); if (y == null || Math.abs(y - y0) > STEP) { v = true; break; } }
+    if (y0 != null && !v) v = pinched(i * CELL, j * CELL, RADIUS + 0.2);
+    tightC.set(k, v);
     return v;
   }
   /** Can a villager step from cell (i,j) to its neighbour (i+di, j+dj)? The midpoint catches thin fences/rails. */
@@ -97,7 +122,7 @@ function createNav(ctx) {
     return true;
   }
   /** Learn from a villager that got blocked here: the cell ahead is not walkable after all. */
-  function block(x, z) { freeC.set(key(ci(x), ci(z)), null); }
+  function block(x, z) { freeC.set(key(ci(x), ci(z)), null); tightC.delete(key(ci(x), ci(z))); }
 
   // binary heap on f
   function heap() {
@@ -116,8 +141,9 @@ function createNav(ctx) {
   const neighbours = function* (i, j) {
     for (const [di, dj, c] of NB) {
       if (!edgeOK(i, j, di, dj)) continue;
-      if (c > 1 && (!edgeOK(i, j, di, 0) || !edgeOK(i, j, 0, dj))) continue; // no corner cutting
-      yield [i + di, j + dj, c];
+      // no corner cutting: both orthogonal steps OK, or (narrow diagonal ramps) the ground a quarter-metre along each axis dry
+      if (c > 1 && !(edgeOK(i, j, di, 0) && edgeOK(i, j, 0, dj)) && !(dryY(2 * i + di, 2 * j) != null && dryY(2 * i, 2 * j + dj) != null && dryY(2 * (i + di) - di, 2 * (j + dj)) != null && dryY(2 * (i + di), 2 * (j + dj) - dj) != null)) continue;
+      yield [i + di, j + dj, tight(i + di, j + dj) ? c + TIGHT : c];
     }
   };
 
@@ -220,7 +246,7 @@ function createNav(ctx) {
     }
   }
 
-  const nav = { plan, request, tick, block, free, nearestFree, los, cellY, CELL, ms: 0, maxMs: 0, plans: 0, get busy() { return jobs.length; }, clear() { dryC = new Map(); freeC = new Map(); } };
+  const nav = { plan, request, tick, block, free, nearestFree, los, cellY, CELL, ms: 0, maxMs: 0, plans: 0, get busy() { return jobs.length; }, clear() { dryC = new Map(); freeC = new Map(); tightC = new Map(); } };
   return nav;
 }
 
@@ -268,7 +294,7 @@ export function init(ctx, opts = {}) {
       idleT: rand(3, 8), wanderT: rand(2, 5), waveCd: rand(0, 4), talkT: 0, acc: 0,
       lookOverride: null, home: null,
       // walking
-      path: null, wp: 0, goal: null, planning: null, watchT: 0, watchD: Infinity, replans: 0, retryT: 0, yieldT: 0, passT: 0,
+      path: null, wp: 0, goal: null, planning: null, watchT: 0, watchD: Infinity, replans: 0, gaveUp: 0, retryT: 0, yieldT: 0, passT: 0,
       // seats / indoors / up the lighthouse
       seat: null, seatMove: null, rising: 0, away: 0, awayThen: null, fixedY: null,
       lastMove: null,
@@ -283,6 +309,8 @@ export function init(ctx, opts = {}) {
       /** Where the villager is heading ({x,z} or null) and the remaining path. */
       get goal() { return st.goal; },
       get path() { return st.path ? st.path.slice(st.wp) : null; },
+      /** True while a route is being planned (time-sliced A*). */
+      get planning() { return !!st.planning; },
       headObject: ch.bones?.head || null,
       /** Play a clip. 'talk' / 'idle' from the dialog flow start / end the talking state (never left looping). */
       play(name, o = {}) {
@@ -364,9 +392,12 @@ export function init(ctx, opts = {}) {
 
     function applyRoutine(teleport) {
       const spot = routineSpot();
+      // already up the lighthouse and staying there (Ettore, dusk → night): don't walk down and up again
+      const e0 = st.home?.elevated, e1 = spot.elevated;
+      if (!teleport && st.fixedY != null && e0 && e1 && Math.hypot(e0.x - e1.x, e0.z - e1.z) < 0.1) { st.home = { ...spot }; st.act = spot.act; return; }
       st.home = spot;
       st.planning?.(); st.planning = null;
-      st.retryT = 0; st.replans = 0;
+      st.retryT = 0; st.replans = 0; st.gaveUp = 0;
       if (st.away > 0 || st.asleep || st.fixedY != null) {
         // inside a house / up the lighthouse: come out of the door first
         const wasUp = st.fixedY != null;
@@ -441,7 +472,8 @@ export function init(ctx, opts = {}) {
     }
     /** Blocked for good: settle down here (on free ground) and try again later. */
     function giveUp(why, retry = why === 'blocked' ? 20 : 150) {
-      stats.giveUps++; log(`give up: ${why}`);
+      stats.giveUps++; st.gaveUp++; log(`give up: ${why}${st.gaveUp >= 3 ? ' (stays here until the next phase)' : ''}`);
+      if (st.gaveUp >= 3) retry = Infinity;
       st.path = null; st.speed = 0;
       const g = st.goal;
       if (g && !debug.noHop && unseen(g.x, g.z) && st.home) { hop(st.home, 'after give up'); return; }
@@ -450,7 +482,7 @@ export function init(ctx, opts = {}) {
         if (q) { st.path = [q]; st.wp = 0; st.goal = null; st.retryT = retry; startWalk(); return; }
       }
       st.retryT = retry + rand(0, 10);
-      st.act = 'idle';
+      st.act = 'idle'; st.goal = null;   // not heading anywhere until the retry
       if (ch.animator.current !== 'locomotion') ch.play('locomotion', { fade: 0.3 });
     }
 

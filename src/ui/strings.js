@@ -340,7 +340,7 @@ export const it = {
   'ui.tip.menu': 'Nello zaino trovi diario, mappa, missioni e impostazioni',
   'ui.tip.keys': 'Scorciatoie: J diario · M mappa · I zaino · Q missioni · Esc menu',
   'ui.tip.got_it': 'Ok!',
-  'ui.tip.sit_edge': 'Da qui puoi pescare senza alzarti: tieni premuto Lancia. Per rimetterti in piedi muovi il joystick.',
+  'ui.tip.sit_edge': 'Da qui puoi pescare senza alzarti: tieni premuto Lancia. Per rimetterti in piedi tocca Alzati o muovi il joystick.',
   'ui.tip.sit_bench': 'Goditi il panorama. Per alzarti tocca Alzati o muovi il joystick.',
 
   // ── misc ──
@@ -676,7 +676,7 @@ export const en = {
   'ui.tip.menu': 'Your backpack holds the journal, map, quests and settings',
   'ui.tip.keys': 'Shortcuts: J journal · M map · I backpack · Q quests · Esc menu',
   'ui.tip.got_it': 'Got it!',
-  'ui.tip.sit_edge': 'Sitting on the edge you can fish: hold Cast. Move the stick to stand up.',
+  'ui.tip.sit_edge': 'Sitting on the edge you can fish: hold Cast. To stand up, tap Stand up or move the stick.',
   'ui.tip.sit_bench': 'Enjoy the view. To stand up, tap Stand up or move the stick.',
 
   'ui.misc.coins_n': '{n} {n|coin|coins}',

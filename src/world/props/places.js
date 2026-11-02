@@ -118,6 +118,25 @@ export function buildPlaces(ctx, env) {
     if (!made.length && ctx.isDebug) console.warn('[world] no ramp for deck', o.tag, exits[0]);
     return made;
   }
+  /**
+   * Little wooden side stairs from the dry beach up to a dock that runs over the sand (south-running dock D {x, z0, z1,
+   * w, y}): a player walking on the sand beside the planks met a waist-high wall and had to go back round to the root.
+   * One stair per side at most, where the sand is dry and ≥ 0.35 m below the planks.
+   */
+  function dockSideStairs(D, tag) {
+    for (const s of [-1, 1]) {
+      const exits = [];
+      for (let zz = D.z0 + 1.5; zz < D.z1 - 1; zz += 0.75) {
+        const ex0 = D.x + s * D.w / 2, gy = H(ex0 + s * 0.8, zz);
+        if (D.y - gy < 0.35 || wet(ex0 + s * 0.8, zz) || wet(ex0 + s * 2.5, zz)) continue;
+        exits.push({ x: ex0, z: zz, y: D.y, ux: s, uz: 0 });
+      }
+      // the middle of the dry stretch (where someone walking along the beach beside the planks meets the dock)
+      const o = { hw: 0.55, maxSlope: 0.62, minLen: 0.5, maxLen: 3.2, inner: 0.6, spread: 0.6 };
+      const plans = exits.map(e => planRamp(e.x, e.z, e.y, e.ux, e.uz, o)).filter(Boolean);
+      if (plans.length) buildRamp(plans[Math.floor(plans.length / 2)], { stairs: true, tag: `${tag}_${s < 0 ? 'w' : 'e'}` });
+    }
+  }
   /** Deck-local point (deck centre cx,cz, yaw rot) → world {x, z} and a local direction → world. */
   const loc = (cx, cz, rot, lx, lz) => ({ x: cx + lx * Math.cos(rot) + lz * Math.sin(rot), z: cz - lx * Math.sin(rot) + lz * Math.cos(rot) });
 
@@ -221,6 +240,7 @@ export function buildPlaces(ctx, env) {
     barrel(B, D.x - 0.65, ey, D.z0 + 5.0, 0.85);
     ropeCoil(B, D.x + 0.6, ey, D.z1 - 2.0);
     B.free();
+    dockSideStairs(D, 'stairs_home_dock');
     poi('dock_home', D.x + 0.9, ey, D.z1 + 2.2, 0);
     poi('boat_mooring_home', D.x - 2.6, 0, D.z1 - 1.5, 0);
     poi('bench_dock_home', D.x + 0.9 - 1.2, ey, D.z1 + 2.55, 0, { kind: 'edge' });
@@ -430,6 +450,7 @@ export function buildPlaces(ctx, env) {
     hangingNet(B, D.x - 1.6, D.y, D.z0 + 2.4, Math.PI / 2, 2.0, 1.2);
     for (let i = 0; i < 4; i++) buoy(B, D.x + (i % 2 ? 1.45 : -1.45), D.y - 0.35, D.z0 + 6 + i * 3.6, i % 2 ? P.clothRed : P.trimWhite);
     B.free();
+    dockSideStairs(D, 'stairs_village_dock');
     poi('dock_village', D.x, D.y, D.z1 + 2.3, 0);
     poi('boat_mooring_village', D.x + 2.7, 0, D.z0 + 13, 0);
     poi('bench_harbor', D.x + 2.5, D.y, D.z1 + 2.65, 0, { kind: 'edge' });
@@ -774,6 +795,8 @@ export function buildPlaces(ctx, env) {
           if (solidAt(p.x, p.z, 0.4) || solidAt(back.x, back.z, 0.35)) continue;
           if (ramps.some(r => Math.hypot(r.x1 - p.x, r.z1 - p.z) < r.hw + 1)) continue;
           if (sitSpots.some(o => Math.hypot(o.x - p.x, o.z - p.z) < 1.6)) continue;
+          // the dock-end / pond seats (kind 'edge') already sit you there: no second, competing spot next to them
+          if (Object.values(pois).some(o => o.kind === 'edge' && Math.hypot(o.x - p.x, o.z - p.z) < 1.6)) continue;
           count[sf.dock] = (count[sf.dock] || 0) + 1;
           const id = `edge_${sf.dock}_${count[sf.dock]}`;
           sitSpots.push(poi(id, p.x, sf.y, p.z, Math.atan2(ux, uz), { kind: 'dock_edge', seat: 'edge', dock: sf.dock }));

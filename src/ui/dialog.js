@@ -21,7 +21,9 @@ export function createDialog(ui) {
     if (l.key) return t(l.key, l.vars);
     return String(l);
   };
-  const choiceText = c => (typeof c === 'string' ? (ctx.i18n.has(c) ? t(c) : c) : c.label || c.text || (c.key ? t(c.key, c.vars) : String(c.id ?? '')));
+  // choices: 'key' | {label | text | key + vars | labelKey + labelVars (Systems' shape) | id}
+  const choiceText = c => (typeof c === 'string' ? (ctx.i18n.has(c) ? t(c) : c)
+    : c.label || c.text || (c.key || c.labelKey ? t(c.key || c.labelKey, c.vars || c.labelVars) : String(c.id ?? '')));
 
   function dialog(npcId, lines = [], choices = null, opts = {}) {
     const p = chain.then(() => run(npcId, Array.isArray(lines) ? lines : [lines], choices, opts));

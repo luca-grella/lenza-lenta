@@ -175,6 +175,8 @@ export async function init(ctx) {
       set visible(v) { root.classList.toggle('hud-hidden', !v); },
     },
     onboarding: ui.tips,
+    /** Result of navigator.storage.persist() at startup: true | false | null (not supported / not answered yet). */
+    get persisted() { return ui.persisted; },
     haptic: ui.haptic,
     refresh() { ui.hud.refresh(true); ui.controls.refresh(true); ui.sheets.refresh(); },
     adapter: ui.A,
@@ -240,6 +242,8 @@ export async function init(ctx) {
   // fishing
   const BITE = 'bite';
   const bobberPos = p => p.pos || p.point || p.bobber || ctx.systems?.fishing?.bobber || ctx.systems?.fishing?.bobberPos || null;
+  // while charging a cast the bait and side buttons step aside (the long "Lascia per lanciare" tag covered the bait count)
+  on('fishing:state', p => root.classList.toggle('charging', p.state === 'charge'));
   on('fishing:cast', () => { ui.tips.done('cast'); ui.tips.show('wait', 'ui.tip.wait', { ms: 7000 }); });
   on('fishing:bite', p => {
     const pos = bobberPos(p);

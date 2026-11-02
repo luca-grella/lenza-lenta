@@ -2,11 +2,11 @@
 // sit, groom, sleep curled, loaf, eat) blended by an AnimationMixer, plus procedural layers on top
 // (head look-at, blinks, meow with a little mouth, purring, tail flicks). Lives near its home spot until
 // befriended, then follows the player at a cozy distance and sits beside them while they fish.
-// Head look-at has natural limits (yaw ±57° split neck/head, pitch up 34° / down 14°, rate-limited, lets go when
+// Head look-at has natural limits (yaw ±57° split neck/head, pitch up 29° / down 14°, rate-limited, lets go when
 // the player is behind instead of whipping round). Petting: approachForPet() tells Gameplay where the player must
 // stand (the cat stops and turns its body), pet() lies the cat down with its back right under the player's palm.
 import * as THREE from 'three';
-import { RigBuilder, instantiate, makeClip, cycle, creatureMaterial, addRot, addEyes } from './rig.js';
+import { RigBuilder, instantiate, makeClip, cycle, creatureMaterial, addRot, addEyes, resetPose } from './rig.js';
 import { ellipsoid, cone, aim, mat, col, sweep as sweepTube } from './geo.js';
 
 const V = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
@@ -48,7 +48,7 @@ export const PET_HAND = { fwd: 0.38, side: 0.57, h: 0.3 };
 const PET_REACH = Math.hypot(PET_HAND.fwd, PET_HAND.side);   // player ↔ palm (0.68 m)
 const PET_ANGLE = Math.atan2(PET_HAND.side, PET_HAND.fwd);   // palm direction = player facing + this
 const PET_BACK = 0.15;   // the palm lands on the cat's back this far ahead of its origin (loaf pose, back at ≈0.3 m)
-const LOOK = { yaw: 1.0, up: 0.6, down: 0.25, rate: 2.4 };   // natural head limits (rad) and max turn speed (rad/s)
+const LOOK = { yaw: 1.0, up: 0.5, down: 0.25, rate: 2.0 };   // natural head limits (rad) and max turn speed (rad/s)
 /** Bones the procedural layers touch (reset every frame before the mixer). */
 const LAYER_BONES = ['neck', 'head', 'earL', 'earR', 'eyes', 'mouth', 'tail4'];
 const wrap = a => THREE.MathUtils.euclideanModulo(a + Math.PI, Math.PI * 2) - Math.PI;
@@ -271,21 +271,40 @@ export function createCat(ctx, env, root, fx, def = {}) {
   const mixer = new THREE.AnimationMixer(rig.group);
   const actions = {};
   for (const k in clips) { actions[k] = mixer.clipAction(clips[k]); actions[k].enabled = true; }
-  let current = null, animName = 'idle';
+  // [Fix] clip blending with our own weights: three's crossFadeTo + reset() snapped a clip that was still fading out
+  // back to full weight (or to 0, showing the rest pose) whenever the cat went back to it within the fade, e.g.
+  // walk ↔ sit while turning to the player: the whole head and body popped. Now weights move at a steady rate from
+  // wherever they are and always sum to 1; a clip is restarted only once it has fully faded out.
+  let current = null, animName = 'idle', fadeRate = 2;
+  const weights = {};
   function play(name, fade = 0.45, timeScale = 1) {
     const a = actions[name]; if (!a) return;
     a.timeScale = timeScale;
     if (current === a) return;
-    a.reset(); a.setEffectiveWeight(1); a.play();
-    if (current) current.crossFadeTo(a, fade, false);
+    // three saves a bone's "original" value when a clip first binds it and blends it back in for the weight the clips
+    // don't cover: put the skeleton at rest first, or last frame's look-at gets baked in and the head jumps (≈30°)
+    // every time the cat switches idle ↔ walk (idle has no head/leg tracks)
+    if (!a.isRunning() || !(weights[name] > 0.001)) { resetPose(rig); for (const n of LAYER_BONES) rig.bones[n]?.scale.set(1, 1, 1); a.reset(); a.play(); weights[name] = 0; }
+    if (fade <= 0 || !current) { for (const k in weights) weights[k] = 0; weights[name] = 1; }
+    fadeRate = 1 / Math.max(0.05, fade);
     current = a; animName = name;
+    blend(0);
+  }
+  function blend(dt) {
+    let sum = 0;
+    for (const k in weights) { const t = actions[k] === current ? 1 : 0; weights[k] += THREE.MathUtils.clamp(t - weights[k], -fadeRate * dt, fadeRate * dt); sum += weights[k]; }
+    for (const k in weights) {
+      const a = actions[k], w = sum > 0 ? weights[k] / sum : 0;
+      if (w <= 0.0005 && a !== current) { if (a.isRunning()) a.stop(); delete weights[k]; continue; }
+      a.setEffectiveWeight(w);
+    }
   }
 
   const pos = group.position, look = V(), _t = V(), _d = V();
   let facing = 0, speed = 0, state = 'idle', stateT = 0, stateDur = 3, target = null, home = null;
   let lookW = 0, lookYaw = 0, lookPitch = 0, blinkT = 2, blink = 0, meowT = -1, nextMeow = 6, purrT = 0, zT = 0;
   let sitTarget = null, sitFace = null, eatT = 0, eatFish = null, visibleNear = true, tailFlick = 0;
-  let debugHold = false, lastApproach = null, turningBody = false, petSpot = null, petFace = 0, petRest = 'idle', petW = 0, petHold = 3, tracking = true;
+  let debugHold = false, lastApproach = null, turningBody = false, petTurning = false, petSpot = null, petFace = 0, petRest = 'idle', petW = 0, petHold = 3, tracking = true;
   const _h = V();
   const R = Math.random;
 
@@ -295,9 +314,19 @@ export function createCat(ctx, env, root, fx, def = {}) {
 
   function placeAt(x, z) { pos.set(x, env.ground(x, z), z); }
   function setState(s, dur = 3) { state = s; stateT = 0; stateDur = dur; }
+  // [Fix] home a few metres from the shop counter, not right under it: within 2.6 m of Nonna Pina the action button
+  // offers "Parla" (priority 3) instead of "Accarezza" (1.5), so the cat could hardly be petted at home
+  let homeSpot = null;
+  const awayFromCounter = (x, z) => !homeSpot || Math.hypot(x - homeSpot.x, z - homeSpot.z) > 3.0;
   function pickHome() {
     const spot = env.poi(def.spot || 'village_trattoria') || env.poi('home_campfire');
-    if (spot) return { x: spot.x + 1.2, z: spot.z + 1.2 };
+    if (spot) {
+      homeSpot = spot;
+      const R1 = (() => { let k = 7; return () => ((k = (k * 16807) % 2147483647) / 2147483647); })();   // same spot every launch
+      const s = env.findSpot(spot.x, spot.z, 3.4, 6, (x, z) => env.walkable(x, z) && !env.isWater?.(x, z) && env.height(x, z) > 0.15
+        && env.walkable(x + 0.6, z) && env.walkable(x - 0.6, z) && env.walkable(x, z + 0.6) && env.walkable(x, z - 0.6), R1, 60);
+      return s || { x: spot.x + 1.2, z: spot.z + 1.2 };
+    }
     const p = env.player();
     const s = env.findSpot(p.x, p.z, 3, 6, (x, z) => env.walkable(x, z) && env.height(x, z) > 0.15) || { x: p.x + 3, z: p.z + 2 };
     return s;
@@ -477,7 +506,8 @@ export function createCat(ctx, env, root, fx, def = {}) {
       else if (state === 'waitPet') {
         // the player is walking over to pet: stay put, turn the body toward them
         speed += (0 - speed) * Math.min(1, dt * 8);
-        turning = turnToward(petFace, 2.2, dt) > 0.2;
+        const left = turnToward(petFace, 2.2, dt);
+        petTurning = petTurning ? left > 0.08 : left > 0.3; turning = petTurning;
         if (stateT > stateDur) { petSpot = null; setState(petRest === 'sit' ? 'sit' : 'idle', 3); }
       } else if (state === 'goPet') {
         if (moveToward(petSpot.x, petSpot.z, 3.0, dt, 0.06) || stateT > 1.4) setState('petted', petHold);
@@ -531,7 +561,7 @@ export function createCat(ctx, env, root, fx, def = {}) {
           if (dist < 6 && dist > 2.0 && state !== 'sleep' && R() < dt * 0.06) {
             const k = 1.4 / dist; target = { x: p.x - dx * k, z: p.z - dz * k }; setState('move', 10);
           } else if (state === 'idle' && stateT > stateDur) {
-            const s = env.findSpot(home.x, home.z, 0.5, 5, dryOK);
+            const s = env.findSpot(home.x, home.z, 0.5, 3, (x, z) => dryOK(x, z) && awayFromCounter(x, z));
             if (s && R() < 0.7) { target = s; setState('move', 12); } else setState('sit', 4 + R() * 6);
           } else restPose(t, night);
         }
@@ -564,6 +594,7 @@ export function createCat(ctx, env, root, fx, def = {}) {
       // clip has no head, most clips no ears/eyes) were never reset, so the look-at piled up frame after frame and
       // the head spun round. Put them back to rest first; the mixer then overwrites the ones it animates.
       for (const n of LAYER_BONES) { const b = rig.bones[n]; if (b) { b.quaternion.copy(rig.rest[n].quat); b.scale.set(1, 1, 1); } }
+      blend(dt);
       mixer.update(dt);
 
       // ---- procedural layers ----
@@ -576,12 +607,14 @@ export function createCat(ctx, env, root, fx, def = {}) {
       if (tracking && Math.abs(yawTo) > 2.0) tracking = false; else if (!tracking && Math.abs(yawTo) < 1.55) tracking = true;
       const lookable = !asleep && !['eat', 'groom', 'goPet', 'petted'].includes(state) && dist < 7 && dh > 0.3 && tracking;
       const wantLook = lookable ? (moving ? 0.35 : state === 'loaf' ? 0.6 : 1) : 0;
-      lookW += THREE.MathUtils.clamp(wantLook - lookW, -dt * 2, dt * 2);
-      const yawGoal = tracking ? THREE.MathUtils.clamp(yawTo, -LOOK.yaw, LOOK.yaw) : 0;
-      const pitchGoal = THREE.MathUtils.clamp(-Math.atan2(tgt.y - hy, Math.max(0.4, dh)) * 0.7, -LOOK.up, LOOK.down);
+      // the applied turn itself (goal × weight) is what gets rate-limited, so letting go or a weight change can never
+      // add up to a fast swing: the head eases back to straight ahead at the same calm speed it turns
+      const yawGoal = wantLook * THREE.MathUtils.clamp(yawTo, -LOOK.yaw, LOOK.yaw);
+      const pitchGoal = wantLook * THREE.MathUtils.clamp(-Math.atan2(tgt.y - hy, Math.max(0.4, dh)) * 0.7, -LOOK.up, LOOK.down);
       lookYaw += THREE.MathUtils.clamp((yawGoal - lookYaw) * Math.min(1, dt * 5), -LOOK.rate * dt, LOOK.rate * dt);
       lookPitch += THREE.MathUtils.clamp((pitchGoal - lookPitch) * Math.min(1, dt * 4), -LOOK.rate * 0.75 * dt, LOOK.rate * 0.75 * dt);
-      if (lookW > 0.01) { addRot(rig, 'neck', lookPitch * 0.4 * lookW, lookYaw * 0.4 * lookW, 0); addRot(rig, 'head', lookPitch * 0.6 * lookW, lookYaw * 0.6 * lookW, -lookYaw * 0.12 * lookW); }
+      lookW = Math.max(Math.abs(lookYaw), Math.abs(lookPitch));
+      if (lookW > 0.002) { addRot(rig, 'neck', lookPitch * 0.4, lookYaw * 0.4, 0); addRot(rig, 'head', lookPitch * 0.6, lookYaw * 0.6, -lookYaw * 0.12); }
       // being petted: lean the head up into the hand, slow happy rub, ears soft
       petW += THREE.MathUtils.clamp((state === 'petted' ? 1 : 0) - petW, -dt * 2.5, dt * 2.5);
       if (petW > 0.01) {

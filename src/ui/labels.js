@@ -110,7 +110,7 @@ export function createLabels(ui) {
     for (const c of cand) {
       const ok = c.prio >= 4 || (!reserved.some(r => hit(c.rect, r)) && !kept.some(k => hit(c.rect, k)));
       if (ok) kept.push(c.rect);
-      if (ok !== c.l.shown) { c.l.shown = ok; c.l.node.classList.toggle('on', ok); }
+      if (ok !== c.l.shown) { c.l.shown = ok; c.l.node.classList.toggle('on', ok); }   // (css: leave fast, arrive after a beat)
     }
   }
 
