@@ -1,5 +1,5 @@
 // Lenza Lenta (v1) service worker. Bump CACHE on every release so phones pick up the new version.
-const CACHE = 'lenza-lenta-v1-r1';
+const CACHE = 'lenza-lenta-v1-r2';
 const CORE = ['./', 'index.html', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/icon.svg'];
 const CDN = ['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js'];
 

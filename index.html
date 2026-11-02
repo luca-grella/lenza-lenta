@@ -327,7 +327,8 @@ function load(data){
 }
 function serialize(){return JSON.parse(JSON.stringify(Object.assign({},S,{pos:{x:player.x,z:player.z},face:player.face})));}
 let saveT=0;
-function save(){tryStore(()=>localStorage.setItem(KEY,JSON.stringify(serialize())));}
+let importing=false;
+function save(){if(importing)return;tryStore(()=>localStorage.setItem(KEY,JSON.stringify(serialize())));}
 
 /* ================= WORLD SHAPE ================= */
 const HX=-9,HZ=-15,PX=-2,PZ=-4;
@@ -717,10 +718,48 @@ function showDiary(){
  openSheet(`<header><h2>Diario di pesca</h2><button class="close" aria-label="Chiudi">×</button></header>
   <p class="sub">Specie trovate <b>${n}/${SP.length}</b> · pesci venduti <b>${S.sold}</b> · canna livello <b>${S.rod}</b></p>
   <div class="dex">${SP.map(sp=>{const j=S.journal[sp.id],r=RAR[sp.rar];return`<div class="dex-card"><img src="${j?ICON[sp.id]:ICON_UNK[sp.id]}" alt=""><span class="rar" style="background:${r.c}">${r.n}</span><b>${j?sp.name:'???'}</b><span>${sp.hab.map(h=>HABN[h]).join(', ')}</span>${j?`<span>Record ${sizeTxt(sp,j.best)} · ${j.n} pescat${j.n===1?'o':'i'}</span>${sp.baits.length?`<span>Esca: ${sp.baits.map(b=>BAITS[b]).join(', ')}</span>`:''}`:'<span>Non ancora pescato</span>'}</div>`;}).join('')}</div>
+  <button class="btn2" id="saveBtn" style="justify-self:start">Esporta / importa salvataggio</button>
   <div id="resetBox"><button class="danger-link" id="reset">Ricomincia da capo</button></div>`,el=>{
+  el.querySelector('#saveBtn').addEventListener('click',showSave);
   el.querySelector('#reset').addEventListener('click',()=>{el.querySelector('#resetBox').innerHTML='<div class="confirm"><span>Perdi monete, diario e acquisti.</span><button class="btn2" id="yes">Sì, ricomincia</button><button class="btn2" id="no">Annulla</button></div>';
    el.querySelector('#yes').addEventListener('click',()=>{S=DEF();S.muted=AU.muted;player.x=6;player.z=DOCK.z0-4;player.face=0;save();closeSheet();toast('Nuova partita');});
    el.querySelector('#no').addEventListener('click',showDiary);});});}
+
+
+/* ================= SAVE EXPORT / IMPORT ================= */
+function b64e(t){return btoa(unescape(encodeURIComponent(t)));}
+function b64d(t){return decodeURIComponent(escape(atob(t)));}
+function parseSave(txt){txt=(txt||'').trim();let o=null;try{o=JSON.parse(txt.startsWith('LL1:')?b64d(txt.slice(4).replace(/\s+/g,'')):txt);}catch(e){return null;}
+ if(!o||typeof o!=='object'||typeof o.coins!=='number'||!o.journal||typeof o.journal!=='object')return null;return o;}
+function showSave(){
+ const data=serialize(),code='LL1:'+b64e(JSON.stringify(data));
+ openSheet(`<header><h2>Salvataggio</h2><button class="close" aria-label="Chiudi">×</button></header>
+  <p class="sub">I progressi restano solo in questo browser. Safari e l'app sulla schermata Home hanno memorie separate, e se elimini l'app perdi i dati: esporta prima, poi importa dove ti serve.</p>
+  <section style="display:grid;gap:8px"><h3>Esporta</h3>
+   <div class="btns" style="justify-content:flex-start"><button class="btn2 primary" id="exFile">Salva come file</button><button class="btn2" id="exCopy">Copia codice</button></div>
+   <textarea id="exCode" readonly rows="3" style="width:100%;box-sizing:border-box;font:12px ui-monospace,Menlo,monospace;border-radius:10px;border:2px solid var(--wood);padding:8px;background:var(--paper-2);color:var(--ink);user-select:text;-webkit-user-select:text;resize:vertical">${code}</textarea></section>
+  <section style="display:grid;gap:8px"><h3>Importa</h3>
+   <textarea id="imCode" rows="3" placeholder="Incolla qui il codice" style="width:100%;box-sizing:border-box;font:12px ui-monospace,Menlo,monospace;border-radius:10px;border:2px solid var(--wood);padding:8px;background:var(--paper-2);color:var(--ink);user-select:text;-webkit-user-select:text;resize:vertical"></textarea>
+   <div class="btns" style="justify-content:flex-start"><button class="btn2 primary" id="imGo">Importa codice</button><label class="btn2" style="display:inline-block;cursor:pointer">Scegli file<input type="file" id="imFile" accept=".json,application/json,text/plain" hidden></label></div>
+   <div id="imMsg" class="sub"></div></section>`,el=>{
+  el.querySelector('#exFile').addEventListener('click',()=>{
+   const blob=new Blob([JSON.stringify(data)],{type:'application/json'}),name='lenza-lenta-salvataggio.json';
+   let file=null;try{file=new File([blob],name,{type:'application/json'});}catch(e){}
+   if(file&&navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:'Lenza Lenta'}).catch(()=>{});return;}
+   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);toast('File salvato');});
+  el.querySelector('#exCopy').addEventListener('click',()=>{const ta=el.querySelector('#exCode');
+   const sel=()=>{ta.focus();ta.select();ta.setSelectionRange(0,ta.value.length);};
+   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(code).then(()=>toast('Codice copiato')).catch(()=>{sel();toast('Tieni premuto sul codice e copia');});
+   else{sel();toast('Tieni premuto sul codice e copia');}});
+  const msg=el.querySelector('#imMsg');
+  function tryImport(txt){const o=parseSave(txt);
+   if(!o){msg.textContent='Codice non valido. Controlla di averlo copiato e incollato tutto.';return;}
+   msg.innerHTML=`<div class="confirm"><span>Sostituisce i progressi di adesso con quelli importati: ${o.coins} monete e ${Object.keys(o.journal).length} specie nel diario.</span><button class="btn2" id="imYes">Sì, importa</button><button class="btn2" id="imNo">Annulla</button></div>`;
+   msg.querySelector('#imYes').addEventListener('click',()=>{importing=true;tryStore(()=>localStorage.setItem(KEY,JSON.stringify(o)));location.reload();});
+   msg.querySelector('#imNo').addEventListener('click',()=>{msg.textContent='';});}
+  el.querySelector('#imGo').addEventListener('click',()=>tryImport(el.querySelector('#imCode').value));
+  el.querySelector('#imFile').addEventListener('change',e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>tryImport(String(rd.result));rd.readAsText(f);});
+ });}
 
 /* ================= INPUT ================= */
 const btnA=$('#btnAction');
