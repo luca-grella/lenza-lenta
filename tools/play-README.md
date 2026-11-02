@@ -17,10 +17,13 @@ The debug hooks (`?debug`, `window.__lenza`) are used only to
 
 ## Run
 ```
-node tools/serve.mjs 8810 &                 # one port per agent
-node tools/play.mjs tools/scenarios/walk-village-dock.mjs
-node tools/play.mjs tools/scenarios/fish-home-dock.mjs --landscape
+node tools/serve.mjs 8810 &                 # one port per agent (--port N on play.mjs)
+node tools/play.mjs tools/scenarios/walk-village-dock.mjs                 # spawn → village dock → onto it → its end
+node tools/play.mjs tools/scenarios/fish-home-dock.mjs --landscape        # intro by touch, fish once from the home dock
+node tools/play.mjs tools/scenarios/approach-village.mjs                  # walk up to every shop counter + 2 villagers
 ```
+Put your own scenarios in `tmp/<area>/` (git-ignored) and pass `--out tmp/<area>/<name>` so screenshots stay yours.
+
 Flags (a scenario can also `export const options = { ... }` with the same keys; CLI wins):
 
 | flag | default | what |
@@ -69,13 +72,29 @@ export default async function (play) {
 - `hitAt(x, y)` what is on top at that point.
 
 **Walking (joystick only)**
-- `walkTo(x, z, {tolerance=0.6, timeout=40, avoid=false, slow=1.8, stuckTime=1.5})` — closed loop: every 3 frames it reads the player position, projects player and target through the **real camera** to get the screen direction, and moves the thumb there. Returns `{ok, reason: 'arrived'|'stuck'|'timeout'|'ui-blocked', pos:[x,z,y], dist, time, path:[[x,z,y,'wet'|'over-water']…], wetSamples, zones, sidesteps}`. `stuck` = no 0.25 u of progress for `stuckTime` s. `avoid:true` tries short sidesteps before giving up. `ui-blocked` = a dialog/sheet took the input (`tapDialogs:true` taps through a dialogue that opens on the way and keeps walking). `wetSamples` counts path samples with the player in the sea (not on a dock).
-- `walkPath([[x,z], …], opts)` — waypoints, stops at the first failed leg.
-- `goTo(x, z, opts)` — plans a route with A* over `world.walkable()` (and not over open water unless a dock/bridge surface is there), then `walkPath` with `avoid:true`. The plan is only a list of where to steer: the walking is real, so collisions, steps and edges are tested for real. `plan(x, z)` returns the plan without walking.
+- `walkTo(x, z, {tolerance=0.6, timeout=40, avoid=false, slow=1.8, stuckTime=1.5, from, y})` — closed loop: every 3 frames it reads the player position, projects player and aim point through the **real camera** to get the screen direction, and moves the thumb there. With `from:[ax,az]` it follows the segment from→target (pure pursuit: aims at a point 0.7 u ahead on the line, so it does not cut corners); with `y` it only counts as arrived at that height (on the ramp, not beside it). Returns `{ok, reason: 'arrived'|'stuck'|'timeout'|'ui-blocked', pos:[x,z,y], dist, time, path:[[x,z,y,'wet'|'over-water']…], wetSamples, zones, sidesteps}`. `stuck` = no 0.25 u of progress for `stuckTime` s. `avoid:true` tries short sidesteps (`maxSidesteps`, 6) before giving up. `ui-blocked` = a dialog/sheet took the input (`tapDialogs:true` taps through a dialogue that opens on the way and keeps walking). `wetSamples` counts path samples with the feet in the sea (not on a dock).
+- `walkPath([[x,z,y?], …], opts)` — waypoints (each leg follows the segment from the previous one), stops at the first failed leg.
+- **`goTo(x, z, opts)`** — the one to use for "walk over there". Plans a route, then walks it with the stick:
+  - the planner (A*, planning only) tests every grid edge and every shortcut with the game's own movement solver
+    `world.resolveMove` (buildings and props, the shore line, wading depth, climb/drop step rules of docks, decks and ramps)
+    with a body fatter than the player, and keeps shortcuts only if they also hold 0.2 u to either side. It tries
+    1 u cells / 0.5 u body first, then 0.5 u cells / 0.42 u, then 0.5 u / 0.37 u (narrow ramps onto the stilt decks);
+  - a leg that gets stuck sidesteps twice, then the route is **re-planned** from where the player is (`replans`, 2);
+  - if no route exists under the game's rules, it logs `planner found no route` with the closest reachable point (that is a
+    finding: e.g. a dock nobody can step onto) and tries a straight walk anyway, so you see where the player stops.
+  - returns the `walkPath` result + `{plan, legs, replans, wetSamples}`. `plan(x, z, {step, clearance, goalSlack})` only plans.
+- **`approach(target, {expect, reach, ...goTo opts})`** — walk up to something like a player does, then check that the
+  action button offers it. `target` = `'npc:rosa'` (a villager, re-planned if it walks away), a POI id
+  (`'village_bottega'`, `'bench_…'`, `'dock_village'`…), a world interactable id, or `{x, z, radius}`. If the button offers
+  something else (typically casting when facing the sea) it turns toward the target with `face()` first, as a thumb would.
+  Returns the goTo result + `{target, interact, action, reached}`; `expect` (string/RegExp on interact id + label) tightens `reached`.
+  Nothing is tapped: then `tapSel('.act')` / `hold('action', s)` yourself.
+- `face(x, z, {seconds=0.2, mag=0.3})` — a short light push of the stick toward a point (turn to face it; may shuffle a few cm).
+- `pois(prefix)`, `npcs()`, `interactables(kind)` — where things are (`{id, x, z, …}`), to pick targets.
 - `project(x, y, z)` world → screen px.
 
 **Reading**
-- `state()` → `{t, time, lang, player:{x,y,z,facing,state}, zone, inWater, ui (classes of #ui), intro, sheet, dialog:{name,text,choices}, camera, inputEnabled, isTouch, interact:{kind,label,id}, action:{label,shown}, fishing:{state,tension,progress}, toasts, banners, zoneTitle, tips, goal, coins, basket, errors}`
+- `state()` → `{t, time, lang, player:{x,y,z,facing,state}, zone, overWater (sea below, also on a dock), inWater (feet in the sea), groundY, ui (classes of #ui), intro, sheet, dialog:{name,text,choices}, camera, inputEnabled, isTouch, interact:{kind,label,id}, action:{label,shown}, fishing:{state,tension,progress}, toasts, banners, zoneTitle, tips, goal, coins, basket, errors}`
 - `overlaps(minArea=30)` — visible text boxes of different UI components that overlap (e.g. zone title over the goal card).
 - `shot(name)` renders the scene and saves `NN-name.png` with the HUD. **Look at it with Read.**
 - `log(...)`, `expect(cond, msg, extra)`, `issue(text)`, `eval(fn, ...args)` (raw `page.evaluate`), `page`, `cdp`.
@@ -91,8 +110,21 @@ keeps the finger on the covered spot instead (to reproduce a "dead stick").
 ## Known limits
 - Headless Chrome + SwiftShader: no real GPU, no `env(safe-area-inset-*)` (notch/home bar insets are 0), no haptics,
   no audio output. Layout follows the emulated viewport only.
-- Speed: on an idle Mac a run loads in ~10 s and a screenshot takes ~1 s; when other headless Chromes are running
-  the load can take 1-2 min and a screenshot up to a minute (timeouts are generous on purpose). Use `--speed 0`
-  for long walks if you don't care about UI timers, and take few screenshots.
-- `walkTo` steers in a straight line; use `goTo` / `walkPath` around buildings.
+- Time: the rAF loop is frozen; `step()` calls `__lenza.advance()` (simulation without rendering, 6 frames per call) and
+  `shot()` renders once before the screenshot. Real-time pacing (`--speed 1`) keeps UI `setTimeout`s/CSS transitions in
+  step with game time; with `--speed 0` they lag behind (fine for long walks, not for dialog/toast timing tests).
+- Speed: on an idle Mac a run loads in ~10 s and a screenshot takes ~1 s; with other headless Chromes running the load
+  takes 30-60 s (seen 2 Nov: 32-60 s) and a screenshot up to a minute (timeouts are generous on purpose). Take few screenshots.
+- `walkTo` alone steers in a straight line: use `goTo` / `approach` around buildings and onto docks/decks.
 - `tapText` matches the visible text of the *current language*: pass the Italian text after `onboard({lang:'it'})`.
+- `?debug` without `intro` skips the language/title screens but grandpa's letter still opens: call `onboard()` anyway
+  (it handles both), or the stick is "not visible (UI busy)".
+- Debug teleports (`__lenza.teleport`) are for diagnosis or to start next to the thing under test; anything about
+  movement must be walked (`goTo`/`approach`).
+
+## Reliability (2 Nov 2026, this machine, load avg 10-35)
+- walk-village-dock: 4/4 portrait and landscape (3 runs, ~70 u route + up the ramp + to the dock end).
+- fish-home-dock: 8/8 portrait and landscape (onboarding, cast, bite, strike, reel, catch card, Tieni, letter).
+- approach-village: 7/7 (5 shop counters + Rosa + Gino, stilt-deck ramps included), 0 re-plans on the last run.
+- Before the movement-solver planner, the old planner (world.walkable points only) routed through the bottega and got
+  stuck against it; and cutting corners at the pescheria ramp got stuck beside it. Both fixed (see above).

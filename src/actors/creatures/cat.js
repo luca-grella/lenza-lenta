@@ -48,7 +48,10 @@ export const PET_HAND = { fwd: 0.38, side: 0.57, h: 0.3 };
 const PET_REACH = Math.hypot(PET_HAND.fwd, PET_HAND.side);   // player ↔ palm (0.68 m)
 const PET_ANGLE = Math.atan2(PET_HAND.side, PET_HAND.fwd);   // palm direction = player facing + this
 const PET_BACK = 0.15;   // the palm lands on the cat's back this far ahead of its origin (loaf pose, back at ≈0.3 m)
-const LOOK = { yaw: 1.0, up: 0.5, down: 0.25, rate: 2.0 };   // natural head limits (rad) and max turn speed (rad/s)
+const LOOK = { yaw: 1.0, up: 0.5, down: 0.25, rate: 2.0 };
+// [Fix] last line of defence against head pops: whatever layer changes (clip crossfade, look-at, petting lean, meow),
+// the neck and head never turn faster than this relative to the chest (rad/s). Normal motion stays well below it.
+const HEAD_RATE = 3.5;   // natural head limits (rad) and max turn speed (rad/s)
 /** Bones the procedural layers touch (reset every frame before the mixer). */
 const LAYER_BONES = ['neck', 'head', 'earL', 'earR', 'eyes', 'mouth', 'tail4'];
 const wrap = a => THREE.MathUtils.euclideanModulo(a + Math.PI, Math.PI * 2) - Math.PI;
@@ -277,6 +280,14 @@ export function createCat(ctx, env, root, fx, def = {}) {
   // wherever they are and always sum to 1; a clip is restarted only once it has fully faded out.
   let current = null, animName = 'idle', fadeRate = 2;
   const weights = {};
+  const poseSnap = {};
+  // [Fix] the clip pose of the bones the procedural layers touch (look-at, petting lean, meow, blink...), as the mixer
+  // left it last frame. three's PropertyMixer only writes a bone when its blended value changes, so with a held pose
+  // (sit, loaf, groom: constant neck/head keys) it stopped writing them, and resetting those bones to rest every frame
+  // showed the REST neck/head instead of the clip's (sitting: the head tipped ≈24° down) until the next crossfade, where
+  // the clip pose came back in one frame: the head "popped" 12° per bone on every clip change (sit → walk, sit → loaf).
+  const layerClean = {};
+  for (const n of LAYER_BONES) { const b = rig.bones[n]; if (b) layerClean[n] = { q: b.quaternion.clone(), s: b.scale.clone() }; }
   function play(name, fade = 0.45, timeScale = 1) {
     const a = actions[name]; if (!a) return;
     a.timeScale = timeScale;
@@ -284,7 +295,13 @@ export function createCat(ctx, env, root, fx, def = {}) {
     // three saves a bone's "original" value when a clip first binds it and blends it back in for the weight the clips
     // don't cover: put the skeleton at rest first, or last frame's look-at gets baked in and the head jumps (≈30°)
     // every time the cat switches idle ↔ walk (idle has no head/leg tracks)
-    if (!a.isRunning() || !(weights[name] > 0.001)) { resetPose(rig); for (const n of LAYER_BONES) rig.bones[n]?.scale.set(1, 1, 1); a.reset(); a.play(); weights[name] = 0; }
+    // (the pose on screen is put back right after: the mixer only writes a bone when its blended value changes, so a
+    // bone left at rest here would show the rest pose until the next crossfade)
+    if (!a.isRunning() || !(weights[name] > 0.001)) {
+      for (const n in rig.bones) { const b = rig.bones[n], k = (poseSnap[n] ||= { p: V(), q: new THREE.Quaternion(), s: V() }); k.p.copy(b.position); k.q.copy(b.quaternion); k.s.copy(b.scale); }
+      resetPose(rig); for (const n of LAYER_BONES) rig.bones[n]?.scale.set(1, 1, 1); a.reset(); a.play(); weights[name] = 0;
+      for (const n in rig.bones) { const b = rig.bones[n], k = poseSnap[n]; b.position.copy(k.p); b.quaternion.copy(k.q); b.scale.copy(k.s); }
+    }
     if (fade <= 0 || !current) { for (const k in weights) weights[k] = 0; weights[name] = 1; }
     fadeRate = 1 / Math.max(0.05, fade);
     current = a; animName = name;
@@ -306,6 +323,8 @@ export function createCat(ctx, env, root, fx, def = {}) {
   let sitTarget = null, sitFace = null, eatT = 0, eatFish = null, visibleNear = true, tailFlick = 0;
   let debugHold = false, lastApproach = null, turningBody = false, petTurning = false, petSpot = null, petFace = 0, petRest = 'idle', petW = 0, petHold = 3, tracking = true;
   const _h = V();
+  const headPrev = { neck: new THREE.Quaternion(), head: new THREE.Quaternion() };
+  let headPrevOK = false, headClamp = 0;
   const R = Math.random;
 
   const saveCat = () => { const s = ctx.save?.state; if (!s) return {}; s.cat = s.cat || { friend: 0, following: false }; return s.cat; };
@@ -589,13 +608,14 @@ export function createCat(ctx, env, root, fx, def = {}) {
       if (!moving && state !== 'sit') sitFace = null;
       group.rotation.y = facing;
       pos.y += (env.ground(pos.x, pos.z) - pos.y) * Math.min(1, dt * 12);
-      if (!visibleNear) return;
+      if (!visibleNear) { headPrevOK = false; return; }
       // [Fix] the procedural layers below add rotations on top of the pose. Bones a clip has no track for (the idle
       // clip has no head, most clips no ears/eyes) were never reset, so the look-at piled up frame after frame and
       // the head spun round. Put them back to rest first; the mixer then overwrites the ones it animates.
-      for (const n of LAYER_BONES) { const b = rig.bones[n]; if (b) { b.quaternion.copy(rig.rest[n].quat); b.scale.set(1, 1, 1); } }
+      for (const n in layerClean) { const b = rig.bones[n], c = layerClean[n]; b.quaternion.copy(c.q); b.scale.copy(c.s); }
       blend(dt);
       mixer.update(dt);
+      for (const n in layerClean) { const b = rig.bones[n], c = layerClean[n]; c.q.copy(b.quaternion); c.s.copy(b.scale); }
 
       // ---- procedural layers ----
       const asleep = state === 'sleep';
@@ -646,7 +666,20 @@ export function createCat(ctx, env, root, fx, def = {}) {
       if (R() < dt * 0.15) tailFlick = 0.6;
       if (tailFlick > 0) { tailFlick -= dt; const k = Math.sin(tailFlick / 0.6 * Math.PI); addRot(rig, 'tail4', 0, 0.6 * k, 0); addRot(rig, R() < 0.5 ? 'earL' : 'earR', 0, 0, 0.25 * k); }
       if (asleep) { zT -= dt; if (zT < 0) { zT = 1.6; fx.zzz(_t.copy(pos).add(V(0.15, 0.45, 0))); } }
+      // neck & head rate limit (see HEAD_RATE): ease toward this frame's pose from last frame's, never snap
+      headClamp = 0;
+      for (const n in headPrev) {
+        const b = rig.bones[n], q = headPrev[n]; if (!b) continue;
+        if (headPrevOK && dt > 0) {
+          const ang = q.angleTo(b.quaternion), max = HEAD_RATE * dt;
+          if (ang > max) { headClamp = Math.max(headClamp, ang); q.rotateTowards(b.quaternion, max); b.quaternion.copy(q); continue; }
+        }
+        q.copy(b.quaternion);
+      }
+      headPrevOK = dt > 0;
     },
+    /** Debug readout of the procedural head layers (tests). */
+    debugInfo() { const w = {}; for (const k in weights) w[k] = +weights[k].toFixed(3); return { state, anim: animName, petW: +petW.toFixed(3), lookYaw: +lookYaw.toFixed(3), lookPitch: +lookPitch.toFixed(3), meowT: +meowT.toFixed(2), headClamp: +headClamp.toFixed(3), weights: w }; },
     dispose() { mixer.stopAllAction(); group.removeFromParent(); },
   };
   return cat;

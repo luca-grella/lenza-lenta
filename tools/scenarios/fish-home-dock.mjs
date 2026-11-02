@@ -5,7 +5,7 @@
 const DOCK = { x: 4.5, z0: 64, z1: 84, y: 1.15 };   // src/world/layout.js HOME_DOCK (runs south into the sea)
 
 export default async function (play) {
-  await play.onboard({ lang: 'it' });
+  await play.onboard();   // --lang en to play in English (tapText strings below are Italian)
 
   // onto the home dock and out toward its end (the stick only)
   const walk = await play.walkPath([[DOCK.x, DOCK.z0 + 1.5], [DOCK.x, DOCK.z1 - 2]], { timeout: 20, label: 'home dock' });

@@ -100,7 +100,7 @@ export function createInteract(ctx, env) {
         out.push({ id: 'campfire', kind: 'cook', d, at: q, priority: 2, icon: 'cook', labelKey: 'sys.act.cook', run: () => openCook('campfire') });
       } else if (q.type === 'chest' && d < 2.2 && !S().flags?.treasure_open) {
         out.push({ id: 'chest', kind: 'chest', d, at: q, priority: 2, icon: 'treasure', labelKey: 'sys.act.open_chest', run: () => openChest() });
-      } else if (q.type === 'bench' && d < (q.seat === 'edge' ? 2.3 : 1.6)) {   // an edge seat lies at the very rim, the planks end ~1.9 m before it
+      } else if (q.type === 'bench' && d < (q.seat === 'edge' ? 2.3 : 1.9)) {   // an edge seat lies at the very rim, the planks end ~1.9 m before it; a bench seat point is inside its collider
         const edge = q.seat === 'edge';
         out.push({ id: 'bench:' + q.id, kind: 'sit', seat: q.seat, d, at: q, priority: edge ? 2.4 : 1, icon: 'sit', labelKey: edge ? 'sys.act.sit_edge' : 'sys.act.sit', run: () => sit(q) });
       }

@@ -5,7 +5,7 @@
 const DOCK = { x: 58.5, z0: 39, z1: 62, y: 1.25 };   // src/world/layout.js VILLAGE.dock
 
 export default async function (play) {
-  await play.onboard({ lang: 'it' });
+  await play.onboard();   // --lang en to play in English (tapText strings below are Italian)
   await play.shot('start');
 
   // 1) to the beach right in front of the dock (planned on walkable ground, walked with the stick)

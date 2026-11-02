@@ -2,7 +2,7 @@
 
 /* ───────────── layers & busy states ───────────── */
 #ui .l-hud, #ui .l-controls, #ui .l-world, #ui .l-meters { transition: opacity .35s ease; }
-#ui.busy .l-controls { opacity: 0; pointer-events: none; }
+#ui.busy .l-controls { opacity: 0; pointer-events: none; transition-duration: 0s; }   /* gone at once (a dialogue box opens over the bait/action corner in landscape), fades back in */
 #ui.busy .l-controls * { pointer-events: none !important; }
 #ui.has-intro .l-hud, #ui.has-intro .l-world, #ui.has-intro .l-meters, #ui.has-sheet .l-world { opacity: 0; }
 #ui.has-intro .l-hud * { pointer-events: none !important; }
@@ -245,7 +245,9 @@ button.pill:active { transform: translateY(2px); }
 .toasts:empty, .tip-slot:empty { display: none; }
 .tip-slot { display: flex; justify-content: center; width: 100%; }
 .toast { display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 7px 16px 7px 8px; border-radius: 999px; font-weight: 800; font-size: 14.5px; line-height: 1.25;
-  animation: ui-drop .35s cubic-bezier(.2,1.4,.4,1) both; pointer-events: none; }
+  animation: toast-in .3s ease-out both; pointer-events: none; }
+/* toasts and the zone title grow/shrink in place (no sliding): in the top stack a slide crossed the neighbour's slot */
+@keyframes toast-in { from { opacity: 0; transform: scale(.9) } to { opacity: 1; transform: none } }
 .toast.tappable { pointer-events: auto; cursor: pointer; }
 .toast-ic { flex: none; display: flex; }
 .toast-ic .ic { width: 28px; height: 28px; }
@@ -254,7 +256,7 @@ button.pill:active { transform: translateY(2px); }
 .toast.warn { border-color: #f2a594; }
 .toast.again { animation: ui-pulse .35s ease; }
 .toast.bye { animation: toast-out .4s ease forwards; }
-@keyframes toast-out { to { opacity: 0; transform: translateY(-10px) scale(.96) } }
+@keyframes toast-out { to { opacity: 0; transform: scale(.9) } }
 #ui.compact .toast { font-size: 13.5px; padding: 5px 14px 5px 6px; }
 #ui.compact .toast-ic .ic { width: 24px; height: 24px; }
 
@@ -296,7 +298,7 @@ button.pill:active { transform: translateY(2px); }
 #ui.compact .banner-sub { font-size: 19px; }
 
 .zone-title { position: relative; width: 100%; display: flex; align-items: center; justify-content: center; gap: 14px;
-  opacity: 0; transform: translateY(10px); transition: opacity 1.1s ease, transform 1.1s ease; pointer-events: none; }
+  opacity: 0; transform: scale(.94); transition: opacity 1.1s ease, transform 1.1s ease; pointer-events: none; }
 .zone-title.on { opacity: 1; transform: none; }
 .zone-title.gone { display: none; }
 .zt-name { font-size: clamp(20px, 4.4vw, 34px); font-weight: 900; color: #fff8ea; text-align: center; letter-spacing: .4px; line-height: 1.1;

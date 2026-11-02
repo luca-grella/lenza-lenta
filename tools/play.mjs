@@ -85,12 +85,23 @@ function installHelpers() {
       return { x: r.left + (v.x * 0.5 + 0.5) * r.width, y: r.top + (-v.y * 0.5 + 0.5) * r.height, behind: v.z > 1 };
     },
     /** Player position + the unit screen direction (px, y down) that moves it toward x,z (via the camera). */
-    walkProbe(tx, tz) {
+    walkProbe(tx, tz, seg) {
       const c = L().ctx, p = c.player.position, w = c.world;
-      const dx = tx - p.x, dz = tz - p.z, dist = Math.hypot(dx, dz);
+      const dist = Math.hypot(tx - p.x, tz - p.z);
+      // steer at the target, or (seg = [ax, az, lookahead]) at a carrot on the planned segment A→target:
+      // pure pursuit keeps the walker on the planned line (narrow ramps, gangways) instead of cutting corners
+      let ax = tx, az = tz;
+      if (seg) {
+        const [sx0, sz0, look] = seg, Lx = tx - sx0, Lz = tz - sz0, LL = Math.hypot(Lx, Lz);
+        if (LL > 1e-3) {
+          const t = ((p.x - sx0) * Lx + (p.z - sz0) * Lz) / LL, along = Math.min(LL, Math.max(0, t) + look);
+          ax = sx0 + Lx / LL * along; az = sz0 + Lz / LL * along;
+        }
+      }
+      const dx = ax - p.x, dz = az - p.z, dd = Math.hypot(dx, dz);
       let sx = 0, sy = 0;
-      if (dist > 1e-3) {
-        const k = 1.5 / dist;
+      if (dd > 1e-3) {
+        const k = 1.5 / dd;
         const a = P.project(p.x, p.y, p.z), b = P.project(p.x + dx * k, p.y, p.z + dz * k);
         const m = Math.hypot(b.x - a.x, b.y - a.y) || 1; sx = (b.x - a.x) / m; sy = (b.y - a.y) / m;
       }
@@ -98,51 +109,102 @@ function installHelpers() {
       return { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), dist, sx, sy, water, wet: water && p.y < (w?.waterLevel ?? 0) + 0.25, groundY: Number.isFinite(gy) ? +gy.toFixed(2) : null,
         zone: w?.zoneAt?.(p.x, p.z) ?? null, enabled: c.input.enabled, pstate: c.player.state, joy: { x: +c.input.moveScreen.x.toFixed(2), y: +c.input.moveScreen.y.toFixed(2) } };
     },
-    /** Grid A* on world.walkable (1 u cells, radius check), simplified by line of sight. Only plans: walking is done by touch. */
+    /**
+     * Can a walker go in a straight line from a to b? Simulated with the game's own movement solver
+     * (world.resolveMove: colliders, wading, climb/drop step rules) in small steps, with a fatter body than the
+     * player (clearance) so a thumb that drifts a little still gets through. Never moves anything.
+     */
+    segOK(ax, az, bx, bz, rad = 0.5, allowWater = false) {
+      const w = L().ctx.world, wl = w.waterLevel ?? 0, d = Math.hypot(bx - ax, bz - az);
+      if (d < 1e-6) return true;
+      const n = Math.max(1, Math.ceil(d / 0.15)), ux = (bx - ax) / d, uz = (bz - az) / d, seg = d / n;
+      let x = ax, z = az;
+      for (let i = 1; i <= n; i++) {
+        const tx = ax + ux * seg * i, tz = az + uz * seg * i;
+        const r = w.resolveMove({ x, z }, { x: tx, z: tz }, rad);
+        if (!r || r.blocked || Math.hypot(r.x - tx, r.z - tz) > 0.02) return false;
+        // shallow sea (under WALK.WADE) is "walkable" for the solver; a planned route stays dry unless allowWater
+        if (!allowWater && w.isWater(tx, tz) && w.groundY(tx, tz) <= wl + 0.3) return false;
+        x = tx; z = tz;
+      }
+      return true;
+    },
+    /**
+     * Route planner (planning only: the walking is done by touch). A* on a grid whose edges are tested with
+     * segOK (the real movement solver), so buildings, props, the shore line and dock steps/ramps are respected,
+     * then shortened by line of sight (also through the solver). o: step (cell, 1 u), clearance (0.5), margin (24),
+     * allowWater. Returns {ok, points:[[x,z]...], length, goalMoved} or {ok:false, reason, closest:[x,z]}.
+     */
     plan(sx, sz, gx, gz, o = {}) {
-      const w = L().ctx.world, step = o.step || 1, rad = o.clearance ?? 0.4, margin = o.margin ?? 30;
-      // world.walkable() alone says yes over open water, so dry = not water, or a deck/dock/bridge surface above it
-      const wl = w.waterLevel ?? 0;
-      const dry = (x, z) => w.walkable(x, z) && (o.allowWater || !w.isWater(x, z) || w.groundY(x, z) > wl + 0.3);
-      const ok = (x, z) => dry(x, z) && dry(x + rad, z) && dry(x - rad, z) && dry(x, z + rad) && dry(x, z - rad);
+      const step = o.step || 1, rad = o.clearance ?? 0.5, margin = o.margin ?? 24, aw = !!o.allowWater;
+      const seg = (a, b) => P.segOK(a[0], a[1], b[0], b[1], rad, aw);
       const x0 = Math.min(sx, gx) - margin, z0 = Math.min(sz, gz) - margin;
       const W = Math.ceil((Math.max(sx, gx) + margin - x0) / step) + 1, H = Math.ceil((Math.max(sz, gz) + margin - z0) / step) + 1;
-      const idx = (i, j) => j * W + i, cx = i => x0 + i * step, cz = j => z0 + j * step;
-      const cache = new Int8Array(W * H); // 0 unknown 1 ok 2 blocked
-      const free = (i, j) => { if (i < 0 || j < 0 || i >= W || j >= H) return false; const k = idx(i, j); if (!cache[k]) cache[k] = ok(cx(i), cz(j)) ? 1 : 2; return cache[k] === 1; };
-      const cell = (x, z) => [Math.round((x - x0) / step), Math.round((z - z0) / step)];
-      let [si, sj] = cell(sx, sz), [gi, gj] = cell(gx, gz);
-      const nearestFree = (i0, j0, r) => { if (free(i0, j0)) return [i0, j0]; for (let d = 1; d <= r; d++) for (let a = -d; a <= d; a++) for (const [i, j] of [[i0 + a, j0 - d], [i0 + a, j0 + d], [i0 - d, j0 + a], [i0 + d, j0 + a]]) if (free(i, j)) return [i, j]; return null; };
-      const s = nearestFree(si, sj, 3), g = nearestFree(gi, gj, Math.ceil(3 / step));
-      if (!s) return { ok: false, reason: 'start not walkable' };
-      if (!g) return { ok: false, reason: 'goal not walkable (nothing walkable within 3 u)' };
-      [si, sj] = s; [gi, gj] = g;
-      const gS = new Float32Array(W * H).fill(Infinity), from = new Int32Array(W * H).fill(-1), closed = new Uint8Array(W * H);
-      const open = [[0, si, sj]]; gS[idx(si, sj)] = 0;
-      const hh = (i, j) => Math.hypot(i - gi, j - gj);
-      let found = false, iter = 0;
-      while (open.length && iter++ < 200000) {
-        let bi = 0; for (let k = 1; k < open.length; k++) if (open[k][0] < open[bi][0]) bi = k;
-        const [, i, j] = open[bi]; open[bi] = open[open.length - 1]; open.pop();
-        const k = idx(i, j); if (closed[k]) continue; closed[k] = 1;
-        if (i === gi && j === gj) { found = true; break; }
-        for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
-          if (!di && !dj) continue; const ni = i + di, nj = j + dj;
-          if (!free(ni, nj) || (di && dj && (!free(i + di, j) || !free(i, j + dj)))) continue;
-          const nk = idx(ni, nj), ng = gS[k] + Math.hypot(di, dj);
-          if (ng < gS[nk]) { gS[nk] = ng; from[nk] = k; open.push([ng + hh(ni, nj), ni, nj]); }
+      const N = W * H, cx = k => x0 + (k % W) * step, cz = k => z0 + Math.floor(k / W) * step;
+      const cellOf = (x, z) => { const i = Math.round((x - x0) / step), j = Math.round((z - z0) / step); return i < 0 || j < 0 || i >= W || j >= H ? -1 : j * W + i; };
+      const START = N, GOAL = N + 1;   // virtual nodes for the exact start/goal points
+      const pos = k => (k === START ? [sx, sz] : k === GOAL ? [gx, gz] : [cx(k), cz(k)]);
+      const gS = new Float64Array(N + 2).fill(Infinity), from = new Int32Array(N + 2).fill(-1), closed = new Uint8Array(N + 2);
+      // binary heap of [f, node]
+      const heap = [];
+      const push = (f, k) => { heap.push([f, k]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+      const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+      const hh = k => { const p = pos(k); return Math.hypot(p[0] - gx, p[1] - gz); };
+      // goal: reachable from the cells around it (the exact point may be inside a prop: then the nearest cell that
+      // connects is used and goalMoved is set)
+      const gc = cellOf(gx, gz), goalLinks = new Map();
+      if (gc >= 0) for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
+        const k = gc + dj * W + di; if (k < 0 || k >= N) continue;
+        const p = pos(k); if (Math.hypot(p[0] - gx, p[1] - gz) <= 2.2 * step && seg(p, [gx, gz])) goalLinks.set(k, Math.hypot(p[0] - gx, p[1] - gz));
+      }
+      gS[START] = 0; push(hh(START), START);
+      let found = -1, iter = 0, bestK = START, bestH = hh(START);
+      const sc = cellOf(sx, sz);
+      while (heap.length && iter++ < (o.maxIter || 120000)) {
+        const [, k] = pop();
+        if (closed[k]) continue; closed[k] = 1;
+        if (k === GOAL) { found = GOAL; break; }
+        const hk = hh(k); if (hk < bestH) { bestH = hk; bestK = k; }
+        const p = pos(k), nb = [];
+        if (k === START) { for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const n = sc + dj * W + di; if (sc >= 0 && n >= 0 && n < N) nb.push(n); } }
+        else {
+          const i = k % W;
+          for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { if (!di && !dj) continue; const ii = i + di, n = k + dj * W + di; if (ii >= 0 && ii < W && n >= 0 && n < N) nb.push(n); }
+          if (goalLinks.has(k)) nb.push(GOAL);
+        }
+        if (k === START && Math.hypot(sx - gx, sz - gz) < 2.5 * step) nb.push(GOAL);
+        for (const n of nb) {
+          if (closed[n]) continue;
+          const q = pos(n), c = Math.hypot(q[0] - p[0], q[1] - p[1]);
+          const ng = gS[k] + c;
+          if (ng >= gS[n]) continue;
+          if (!seg(p, q)) continue;
+          gS[n] = ng; from[n] = k; push(ng + hh(n), n);
         }
       }
-      if (!found) return { ok: false, reason: 'no walkable path' };
-      const cells = []; for (let k = idx(gi, gj); k >= 0; k = from[k]) cells.push([cx(k % W), cz(Math.floor(k / W))]);
-      cells.reverse();
-      const los = (a, b) => { const d = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.ceil(d / 0.25); for (let t = 1; t < n; t++) if (!ok(a[0] + (b[0] - a[0]) * t / n, a[1] + (b[1] - a[1]) * t / n)) return false; return true; };
-      const pts = [[sx, sz]];
-      let a = [sx, sz];
-      for (let k = 1; k < cells.length; k++) if (!los(a, cells[k])) { a = cells[k - 1]; pts.push(a); }
-      const goal = (gi === cell(gx, gz)[0] && gj === cell(gx, gz)[1]) ? [gx, gz] : cells[cells.length - 1];
-      pts.push(goal);
-      return { ok: true, points: pts.slice(1).map(p => [+p[0].toFixed(2), +p[1].toFixed(2)]), length: +gS[idx(gi, gj)].toFixed(1), goalMoved: goal !== undefined && (goal[0] !== gx || goal[1] !== gz) };
+      const chain = end => { const out = []; for (let k = end; k >= 0; k = from[k]) out.push(pos(k)); return out.reverse(); };
+      let goalMoved = false, end = found;
+      if (found < 0 && bestK !== START && bestH <= (o.goalSlack ?? 1.2)) { end = bestK; goalMoved = true; }   // goal inside a prop: stop next to it
+      else if (found < 0) {
+        // the goal itself is not reachable: say so, with the closest point the solver could reach
+        const c = pos(bestK);
+        return { ok: false, reason: iter >= (o.maxIter || 120000) ? 'search too large (raise maxIter/step?)' : 'no walkable path (with the game movement rules)', closest: [+c[0].toFixed(2), +c[1].toFixed(2)], closestDist: +bestH.toFixed(2), explored: iter };
+      }
+      const cells = chain(end);
+      // line-of-sight shortening, through the solver too
+      // a shortcut must also hold for a walker 0.2 u to either side of it (a thumb never tracks a line exactly):
+      // otherwise the route keeps the corner cells (narrow ramps and gangways are approached square-on)
+      const wide = (a, b) => {
+        if (!seg(a, b)) return false;
+        const dx = b[0] - a[0], dz = b[1] - a[1], d = Math.hypot(dx, dz) || 1, nx = -dz / d * 0.2, nz = dx / d * 0.2;
+        return seg([a[0] + nx, a[1] + nz], [b[0] + nx, b[1] + nz]) && seg([a[0] - nx, a[1] - nz], [b[0] - nx, b[1] - nz]);
+      };
+      const pts = [cells[0]];
+      let a = cells[0];
+      for (let k = 2; k < cells.length; k++) if (!wide(a, cells[k])) { a = cells[k - 1]; pts.push(a); }
+      pts.push(cells[cells.length - 1]);
+      const w = L().ctx.world;
+      return { ok: true, points: pts.slice(1).map(p => [+p[0].toFixed(2), +p[1].toFixed(2), +w.groundY(p[0], p[1]).toFixed(2)]), length: +gS[end].toFixed(1), goalMoved, explored: iter };
     },
     state() {
       const c = L()?.ctx; if (!c) return { ready: false };
@@ -154,7 +216,10 @@ function installHelpers() {
         t: +c.loop.t.toFixed(2), frame: c.loop.frame, time: c.time?.format?.(), lang: c.i18n?.lang,
         player: p ? { x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), facing: +(c.player.facing ?? 0).toFixed(2), state: c.player.state } : null,
         zone: p ? w?.zoneAt?.(p.x, p.z) ?? null : null,
-        inWater: p ? !!w?.isWater?.(p.x, p.z) : null,
+        // isWater() is also true under a dock: overWater = sea below, inWater = feet actually in the sea (no deck under them)
+        overWater: p ? !!w?.isWater?.(p.x, p.z) : null,
+        inWater: p ? !!w?.isWater?.(p.x, p.z) && p.y < (w?.waterLevel ?? 0) + 0.25 : null,
+        groundY: p && Number.isFinite(w?.groundY?.(p.x, p.z)) ? +w.groundY(p.x, p.z).toFixed(2) : null,
         ui: root ? root.className : null,
         intro: !!c.ui?.intro?.open, sheet: c.ui?.currentSheet || null,
         dialog: dlgEl ? { name: norm(dlgEl.querySelector('.dlg-name')?.innerText), text: norm(dlgEl.querySelector('.dlg-text')?.innerText), choices: texts('.dlg-choice'), visible: visible(dlgEl) && dlgEl.classList.contains('in') } : null,
@@ -242,6 +307,8 @@ export async function createPlay(o = {}) {
 
   const play = {
     page, cdp, browser, out, url: target, landscape, width: W, height: H, checks, issues,
+    /** Default language for onboard() (--lang, 'it'). */
+    lang: o.lang === 'en' ? 'en' : 'it',
     /** strictThumb: never move the thumb away from a covered joystick spot (reproduce the "dead stick" exactly). */
     strictThumb: !!o.strictThumb,
     /** Record a finding seen while playing (deduplicated, listed in the summary). Not a failure by itself. */
@@ -412,7 +479,8 @@ export async function createPlay(o = {}) {
     async walkTo(x, z, o = {}) {
       const tol = o.tolerance ?? 0.6, timeout = o.timeout ?? 40, slow = o.slow ?? 1.8, stuckTime = o.stuckTime ?? 1.5, every = 3;
       const path = [], zones = [];
-      let s = await P('walkProbe', x, z);
+      const seg = o.from ? [o.from[0], o.from[1], o.lookahead ?? 0.7] : null;
+      let s = await P('walkProbe', x, z, seg);
       const t0 = s && (await simT());
       let t = 0, lastSample = -1, best = s.dist, bestT = 0, sidesteps = 0, dialogsSeen = 0, reason = 'timeout', side = null, sideUntil = 0, wet = 0;
       const rec = st => { const fl = st.wet ? 'wet' : st.water ? 'over-water' : ''; path.push([st.x, st.z, st.y, fl].filter(v => v !== '')); if (st.wet) wet++; if (st.zone && zones[zones.length - 1] !== st.zone) zones.push(st.zone); };
@@ -420,14 +488,15 @@ export async function createPlay(o = {}) {
       await play.joyDown();
       try {
         while (t < timeout) {
-          if (s.dist <= tol) { reason = 'arrived'; break; }
+          // arrived = close enough AND at the planned height (on the ramp, not beside/under it)
+          if (s.dist <= tol && (o.y == null || Math.abs(s.y - o.y) < 0.35)) { reason = 'arrived'; break; }
           if (!s.enabled) {
             // a dialogue popped up mid-walk (quest, villager…): with {tapDialogs:true} tap through it and keep walking
             if (o.tapDialogs && dialogsSeen < 3) {
               dialogsSeen++; await play.joyUp();
               await play.log(`walkTo: dialogue on the way: ${JSON.stringify((await play.state()).dialog)}`);
               await play.tapThroughDialogs({ firstWait: 1 });
-              await play.joyDown(); s = await P('walkProbe', x, z); bestT = t; continue;
+              await play.joyDown(); s = await P('walkProbe', x, z, seg); bestT = t; continue;
             }
             reason = 'ui-blocked'; break;
           }
@@ -438,7 +507,7 @@ export async function createPlay(o = {}) {
           await play.joyMove(dx * (side ? 1 : mag), dy * (side ? 1 : mag));
           await play.step(every);
           t += every / FPS;
-          s = await P('walkProbe', x, z);
+          s = await P('walkProbe', x, z, seg);
           if (t - lastSample >= (o.sample ?? 0.5)) { lastSample = t; rec(s); }
           if (s.dist < best - 0.25) { best = s.dist; bestT = t; }
           else if (t - bestT > stuckTime && !side) {
@@ -448,34 +517,118 @@ export async function createPlay(o = {}) {
         }
       } finally { await play.joyUp(); }
       await play.step(12);   // let the player decelerate
-      s = await P('walkProbe', x, z);
+      s = await P('walkProbe', x, z, seg);
       rec(s);
-      if (reason === 'timeout' && s.dist <= tol) reason = 'arrived';
+      if (reason === 'timeout' && s.dist <= tol && (o.y == null || Math.abs(s.y - o.y) < 0.35)) reason = 'arrived';
       const r = { ok: reason === 'arrived', reason, target: [x, z], pos: [s.x, s.z, s.y], dist: +s.dist.toFixed(2), time: +((await simT()) - t0).toFixed(2), wetSamples: wet, zones, sidesteps, path };
       await play.log(`walkTo ${o.label ? o.label + ' ' : ''}(${x}, ${z}) → ${r.reason} at (${s.x}, ${s.z}) y=${s.y} dist ${r.dist} in ${r.time}s${wet ? ` [in water ${wet} samples]` : ''} zones ${zones.join('>')}`);
       return r;
+    },
+    /**
+     * Turn the player toward world x,z with a short, light push of the stick (what a thumb does to face a villager,
+     * the sea, a bench). o: seconds (0.2), mag (0.3 of the knob travel). The player may shuffle a few cm.
+     */
+    async face(x, z, o = {}) {
+      const s = await P('walkProbe', x, z);
+      if (s.dist < 0.05) return s;
+      await play.joy(s.sx * (o.mag ?? 0.3), s.sy * (o.mag ?? 0.3), o.seconds ?? 0.2);
+      await play.step(6);
+      return P('walkProbe', x, z);
     },
     /** Walk through waypoints [[x,z], ...] with the joystick. Stops at the first failure. */
     async walkPath(points, o = {}) {
       const legs = [];
       for (let i = 0; i < points.length; i++) {
         const last = i === points.length - 1;
-        const r = await play.walkTo(points[i][0], points[i][1], { ...o, tolerance: last ? (o.tolerance ?? 0.6) : (o.waypointTolerance ?? 1.0), slow: last ? o.slow : 0.01, label: `${o.label || 'path'} ${i + 1}/${points.length}` });
+        const r = await play.walkTo(points[i][0], points[i][1], { ...o, y: points[i][2], from: i ? points[i - 1] : o.from, tolerance: last ? (o.tolerance ?? 0.6) : (o.waypointTolerance ?? 0.5), slow: last ? o.slow : 0.01, label: `${o.label || 'path'} ${i + 1}/${points.length}` });
         legs.push(r);
-        if (!r.ok) return { ok: false, reason: r.reason, failedAt: i, legs, pos: r.pos };
+        if (!r.ok) return { ok: false, reason: r.reason, failedAt: i, legs, pos: r.pos, wetSamples: legs.reduce((a, l) => a + l.wetSamples, 0) };
       }
       const lastLeg = legs[legs.length - 1];
       return { ok: true, reason: 'arrived', legs, pos: lastLeg?.pos, wetSamples: legs.reduce((a, l) => a + l.wetSamples, 0) };
     },
     /** Plan a route on world.walkable (A*, planning only) and walk it with the joystick. */
     async goTo(x, z, o = {}) {
-      const st = await play.state();
-      const pl = await P('plan', st.player.x, st.player.z, x, z, o.plan || {});
-      if (!pl.ok) { await play.log(`goTo (${x}, ${z}): planner failed: ${pl.reason} — walking straight`); return play.walkTo(x, z, { avoid: true, ...o }); }
-      await play.log(`goTo (${x}, ${z}): ${pl.points.length} waypoints, ~${pl.length} u${pl.goalMoved ? ' (goal not walkable: nearest walkable cell used)' : ''}`);
-      return play.walkPath(pl.points, { avoid: true, ...o, label: o.label || 'goTo' });
+      // coarse and roomy first (1 u cells, body 0.5 u: easy to follow with a thumb), then finer for narrow ramps,
+      // gangways and decks (0.5 u cells, body down to 0.37 u = the player's 0.35 + a hair). o.plan pins one setting.
+      const tiers = o.plan?.step || o.plan?.clearance ? [o.plan] : [{ step: 1, clearance: 0.5 }, { step: 0.5, clearance: 0.42 }, { step: 0.5, clearance: 0.37 }];
+      const legs = [];
+      let r = null, pl = null, wet = 0;
+      // a leg that gets stuck is re-planned from where the player is (a player backs off and tries again), o.replans times
+      for (let attempt = 0; attempt <= (o.replans ?? 2); attempt++) {
+        const st = await play.state();
+        for (const tier of tiers) {
+          pl = await P('plan', st.player.x, st.player.z, x, z, { ...(o.plan || {}), ...tier });
+          pl.tier = tier;
+          if (pl.ok) break;
+        }
+        if (!pl.ok) {
+          // no route under the game's own movement rules: that is a finding in itself (e.g. a dock nobody can step onto)
+          await play.log(`goTo (${x}, ${z}): planner found no route: ${pl.reason}; closest reachable ${JSON.stringify(pl.closest)} (${pl.closestDist} u from the goal) — trying a straight walk`);
+          r = await play.walkTo(x, z, { avoid: true, ...o });
+          return { ...r, plan: pl, replans: attempt, wetSamples: wet + r.wetSamples };
+        }
+        await play.log(`goTo (${x}, ${z})${attempt ? ` re-plan ${attempt}` : ''}: ${pl.points.length} waypoints, ~${pl.length} u (cells ${pl.tier.step} u, body ${pl.tier.clearance} u)${pl.goalMoved ? ' (goal not walkable: nearest walkable cell used)' : ''}`);
+        // fine routes (narrow ramps, gangways) are followed more tightly; a stuck leg sidesteps twice, then re-plans
+        const fine = pl.tier.step < 1;
+        r = await play.walkPath(pl.points, { avoid: true, maxSidesteps: 2, waypointTolerance: fine ? 0.3 : 0.5, lookahead: fine ? 0.45 : 0.7, ...o, from: [st.player.x, st.player.z], label: o.label || 'goTo' });
+        legs.push(...r.legs); wet += r.wetSamples || 0;
+        if (r.ok || r.reason === 'ui-blocked') break;
+      }
+      return { ...r, legs, wetSamples: wet, plan: pl, replans: Math.max(0, legs.filter(l => !l.ok).length) };
     },
     plan: (x, z, o = {}) => play.state().then(st => P('plan', st.player.x, st.player.z, x, z, o)),
+    /** Interactables registered in the world ({id, kind, x, z, radius}), optionally of one kind ('shop', 'talk', 'sit'…). */
+    interactables: kind => ev(k => window.__lenza.ctx.world.interactables.list(k || undefined)
+      .map(i => ({ id: i.id, kind: i.kind, x: +i.pos.x.toFixed(2), z: +i.pos.z.toFixed(2), radius: i.radius })), kind || null),
+    /** Where things are: world POIs ({id, x, z, kind}) whose id starts with prefix ('village_', 'bench_', 'dock_'…). */
+    pois: (prefix = '') => ev(pre => window.__lenza.ctx.world.poiList(pre).map(p => ({ id: p.id, kind: p.kind || null, x: +p.x.toFixed(2), z: +p.z.toFixed(2) })), prefix),
+    /** Villagers right now ({id, x, z, state}). */
+    npcs: () => ev(() => { const n = window.__lenza.ctx.npcs, l = Array.isArray(n) ? n : Array.isArray(n?.list) ? n.list : typeof n?.list === 'function' ? n.list() : n?.all || [];
+      return l.filter(v => v.object).map(v => ({ id: v.id || v.data?.id, x: +v.object.position.x.toFixed(2), z: +v.object.position.z.toFixed(2), state: v.state ?? null })); }),
+    /**
+     * Walk (planned route, joystick only) up to something, like a player walking to a shop counter, a villager, a bench.
+     * target: 'npc:<id>' (a villager, followed if it moves), an interactable id (world.interactables), a POI id
+     * (world.poi: 'village_bottega', 'bench_…', 'dock_village'…) or {x, z, radius}. o: goTo options + reach (stop
+     * distance, default from the thing) + expect (string/RegExp tested on systems.interact.current id + label).
+     * Returns the goTo result + {target, interact (what the action button offers now), action, reached}.
+     * reached = the action button offers something other than casting (and matches o.expect if given).
+     * Nothing is tapped: tap/hold the action button yourself.
+     */
+    async approach(target, o = {}) {
+      const where = () => ev(tg => {
+        const c = window.__lenza.ctx, w = c.world;
+        if (tg && typeof tg === 'object') return { id: 'point', kind: 'point', x: tg.x, z: tg.z, radius: tg.radius ?? 1.4 };
+        if (tg.startsWith('npc:')) {
+          const id = tg.slice(4), n = c.npcs, l = Array.isArray(n) ? n : Array.isArray(n?.list) ? n.list : typeof n?.list === 'function' ? n.list() : n?.all || [];
+          const v = n?.get?.(id) || l.find(e => (e.id || e.data?.id) === id);
+          return v?.object ? { id: tg, kind: 'talk', x: v.object.position.x, z: v.object.position.z, radius: 2.0 } : null;
+        }
+        const i = w.interactables.get(tg);
+        if (i) return { id: i.id, kind: i.kind, x: i.pos.x, z: i.pos.z, radius: i.radius };
+        const p = w.poi(tg);
+        if (p) return { id: p.id, kind: p.kind || 'poi', x: p.x, z: p.z, radius: /^village_/.test(p.id) ? 2.6 : 1.8 };
+        return null;
+      }, target);
+      let it = await where();
+      if (!it) throw new Error(`approach: nothing called ${JSON.stringify(target)} (see play.interactables(), play.pois(), play.npcs())`);
+      const reach = o.reach ?? it.radius * 0.6;
+      const test = st => { const c = st.interact; if (!c || c.kind === 'cast') return false; if (!o.expect) return true; const s = `${c.id} ${c.label}`; return o.expect instanceof RegExp ? o.expect.test(s) : s.includes(o.expect); };
+      let r = null;
+      for (let tries = 0; tries < (it.kind === 'talk' ? 3 : 1); tries++) {   // a walking villager: re-plan toward where it is now
+        r = await play.goTo(it.x, it.z, { tolerance: reach, label: `approach ${it.id}`, ...o, plan: { goalSlack: it.radius * 0.9, ...(o.plan || {}) } });
+        await play.step(10);
+        if (test(await play.state())) break;
+        // in reach but the button offers something else (e.g. casting, facing the sea): turn toward it, as a player would
+        await play.face(it.x, it.z);
+        if (test(await play.state())) break;
+        it = (await where()) || it;
+      }
+      const st = await play.state();
+      const out = { ...r, target: it, interact: st.interact, action: st.action, reached: test(st) };
+      await play.log(`approach ${it.id} (${it.kind}) → ${out.reached ? 'in reach' : 'NOT in reach'}; action button: ${JSON.stringify(st.action)} interact ${JSON.stringify(st.interact)}`);
+      return out;
+    },
     /** World point → screen CSS px. */
     project: (x, y, z) => P('project', x, y, z),
 
@@ -512,7 +665,7 @@ export async function createPlay(o = {}) {
       return taps;
     },
     /** Tap through: language → title Start → every dialog line (grandpa's letter). Real taps only. */
-    async onboard({ lang = 'it', maxTaps = 60 } = {}) {
+    async onboard({ lang = play.lang, maxTaps = 60 } = {}) {
       await play.step(30);
       let st = await play.state();
       if (st.intro && await play.findSel('.lang-btn')) { await play.tapText(lang === 'en' ? 'English' : 'Italiano'); await play.step(40); }
