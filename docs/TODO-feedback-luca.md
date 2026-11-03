@@ -99,3 +99,4 @@ Da fare alla ripresa, in ordine:
 2. Problemi noti del secondo giro: pesci piccoli poco visibili sulla stuoia; primo piano della cattura coperto dalla scheda in verticale (aprire la scheda ~1.5 s dopo); rotolo di corda sul pontile di casa sovrapposto alla stuoia.
 3. Feedback 3 nov (sopra): riva morbida + guado, compenetrazioni (tenda, alzarsi dal pontile), distanza camera regolabile, impronte, acqua più realistica e limpida vicino alla riva, delfini + avvistamenti con scene dedicate.
 4. Pubblicare tutto insieme su main (bump SW, oggi r8 nel ramo) dopo la verifica.
+- [ ] Dal video di riferimento (vedi docs/REFERENCE.md): anello di progresso sopra il cappello durante carica/recupero, scintille del sole sul mare aperto, linee di schiuma delle onde sulla battigia, fascia di sabbia bagnata più scura, passerelle di corda mezze rotte sul fiume.
