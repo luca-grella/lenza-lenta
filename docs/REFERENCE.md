@@ -56,6 +56,32 @@ descrizione completa, scena per scena, con cosa Lenza Lenta 2 ha già e cosa man
 Limite di questa descrizione: il video non ha audio utile né mostra i comandi, e tra un fotogramma e l'altro passano
 0,5 s, quindi animazioni velocissime potrebbero non essere catturate.
 
+## Controllo fotogramma per fotogramma (30 fps, 860 fotogrammi, 4 nov)
+
+Ordine reale del video (che gira in loop): pontile → cascata → pontile (il pescatore cammina verso riva) → spiaggia
+in primo piano ("Pack up") → baia vista dall'alto con lancio → capanno sul fiume → bosco e torrente → di nuovo cascata.
+
+Dettagli che solo l'analisi completa ha mostrato:
+- **La sequenza "Pack up" nel dettaglio:** i pesci si sollevano **uno alla volta** dalla stuoia verso il pescatore e
+  finiscono nella cesta-barilotto; poi la stuoia **si arrotola partendo dal lato lontano verso il pescatore**, diventa un
+  rotolo e viene raccolta; il pescatore riparte con barilotto e rotolo sulla schiena e **entra camminando nell'acqua
+  bassa** (le caviglie spariscono sotto la superficie). Durante tutta la sequenza l'etichetta dell'obiettivo sparisce
+  con una dissolvenza e ricompare dopo.
+- **Movimento di camera continuo:** dal primo piano dall'alto la camera **si alza e si allontana senza stacchi** fino
+  alla vista larga della baia (gru); sulla cascata parte dall'alto del salto e **scende inclinandosi** fino al laghetto;
+  sul capanno **gira lentamente intorno** all'edificio.
+- **Interfaccia che va e viene:** l'interfaccia compare e scompare in dissolvenza; nel bosco, mentre si cammina, **non
+  c'è nessuna interfaccia a schermo**; l'icona dell'esca riappare quando serve. L'etichetta dell'obiettivo si aggiorna
+  con una dissolvenza ("Into the creel 2/3" → nuovo obiettivo).
+- **Etichette agganciate agli oggetti:** passando vicino a qualcosa sulla veranda del capanno (una fioriera, il bordo
+  del fiume) compare **un piccolo cartellino sopra l'oggetto** con il tasto e l'azione, che svanisce quando ci si
+  allontana.
+- **Capanno:** scala che scende sulla spiaggia, veranda che gira intorno con ringhiera, tetto di assi più chiare.
+- **Baia:** la schiuma lungo la riva **pulsa** a ondate; un **gabbiano attraversa** lo schermo in volo; il filo resta
+  teso dal pescatore al galleggiante tra i coralli.
+- **Bosco:** l'erba si muove al vento; il pescatore cammina con la canna in spalla; le chiome si schiariscono quando lui
+  passa sotto; il torrente scuro ha rapide bianche che si muovono di continuo.
+
 Interfaccia: minima. Obiettivo in alto a sinistra (icona tonda + testo + contatore), piccoli indicatori in alto a
 destra, in basso a sinistra l'esca attiva con icona e nome (Worm, Bread, Shrimp).
 
@@ -84,5 +110,8 @@ destra, in basso a sinistra l'esca attiva con icona e nome (Worm, Bread, Shrimp)
 | **Ombre delle palme sull'acqua, tronchi nel fiume, torrente più scuro** | Da fare |
 | **Chiome semitrasparenti sopra il pescatore** | Fatto (alberi alti) |
 | **Sorvoli di camera lenti (stile trailer)** | In parte con i primi piani del ramo r2-wip |
+| **Interfaccia che si nasconde da sola quando si esplora** | Manca |
+| **Cartellini agganciati agli oggetti vicini (azione + tasto)** | Parziale (abbiamo il pulsante d'azione ed etichette su paesani e negozi) |
+| **Pesci che volano uno alla volta nella cesta, stuoia arrotolata dal lato lontano** | Da fare con "Pack up" |
 | Impronte sulla sabbia | Richiesta di Luca, non nel video: da fare |
 | Delfini e avvistamenti con scene dedicate | Richiesta di Luca, non nel video: da fare |
