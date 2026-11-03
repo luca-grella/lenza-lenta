@@ -119,8 +119,17 @@ export function createMat(ctx, env) {
   function sync() { if (pm()) propSync(); else fbSync(); }
 
   /** Run a prop chore (or a fallback clip) and resolve when it ends or is skipped. */
+  // [r2-playtest] the catch pose turns the fisherman toward the camera, so a chore started after a catch used to end
+  // facing the land ("Pulisci il pesce" on the big button instead of "Lancia"): when the player is still at the spot he
+  // cast from, every chore ends facing the sea again, so the next cast is one tap away.
+  let castAt = null;
+  ctx.bus.on('fishing:state', e => {
+    const pl = P();
+    if (e?.state === 'wait' && pl?.position && Number.isFinite(pl.facing)) castAt = { x: pl.position.x, z: pl.position.z, f: pl.facing };
+  });
   function runChore(name, opts = {}, fallback = ['crouch_pick'], secs = 1.2) {
     const p = P();
+    if (castAt && opts.backTo === undefined && p?.position && Math.hypot(p.position.x - castAt.x, p.position.z - castAt.z) < 1.6) opts = { ...opts, backTo: castAt.f };
     if (pm()) {
       chore = name; busy = 8;   // safety: a chore never holds the mat longer than this
       return Promise.resolve(p.chore(name, opts)).catch(() => ({ ok: false })).then(r => { if (chore === name) { chore = null; busy = 0; } return r || { ok: false }; });
@@ -335,7 +344,11 @@ export function createMat(ctx, env) {
       if (!m.open || mat.busy || sys().boat?.active) return [];
       const d = Math.hypot(m.x - p.x, m.z - p.z);
       if (d > REACH) return [];
-      const at = { x: m.x, y: m.y, z: m.z };
+      // [r2-playtest] still standing where you cast from and facing the way you cast (the chores turn you back that way):
+      // casting keeps the big button, the mat goes on the side one; turn toward the mat to get it on the big button
+      const pf = P()?.facing, da = Number.isFinite(pf) && castAt ? Math.abs(Math.atan2(Math.sin(pf - castAt.f), Math.cos(pf - castAt.f))) : 9;
+      const atSpot = !!castAt && Math.hypot(p.x - castAt.x, p.z - castAt.z) < 1.2 && da < 0.15;
+      const at = { x: m.x, y: m.y, z: m.z, atSpot };
       const out = [];
       if (onMat().length && mat.catNear() && sys().cat?.canShow?.() !== false) out.push({ id: 'mat:cat', kind: 'mat', d, at, priority: 2.45, icon: 'paw', labelKey: 'sys.act.show_cat', run: () => mat.showCat() });
       if (mat.bucketable().length) out.push({ id: 'mat:bucket', kind: 'mat', d, at, priority: 2.4, icon: 'donate', labelKey: 'sys.act.bucket', run: () => mat.bucket() });

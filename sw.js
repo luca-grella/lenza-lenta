@@ -1,6 +1,6 @@
 // Lenza Lenta 2 — service worker: offline precache, cache-first, update on reload.
 // Bump CACHE on every release (and run `node tools/sw-assets.mjs` if files were added/removed).
-const CACHE = 'lenza-lenta-v2-r7';
+const CACHE = 'lenza-lenta-v2-r8';
 importScripts('./sw-assets.js'); // defines self.SW_ASSETS (generated list, the single source of truth)
 
 self.addEventListener('install', event => {

@@ -176,3 +176,20 @@
     Verified by touch (tmp/r2-animation/chores.mjs, play.mjs 390x844 + 844x390): stick ignored during a chore, stick walks again right after,
     camera back to the normal mode, knife hidden, skip via cancelChore() applies the effect at once.
 - [r2-cinematics] playShot spec also takes `holdWhile: () => bool` (stays at full weight past `duration` while true; the hard cap is then 20 s) and `takeOver: true` (if a shot is on screen it is ended with 'cancelled' and the new one glides on from the current framing, no trip back out). The catch close-up holds behind the catch card (`ui.currentSheet === 'catch'`, it covers most of a portrait screen) and the unroll/lay, clean and show-to-cat shots take over from it, so Keep → the camera stays close and follows the fish onto the mat. A tap on an open panel/dialogue (e.g. Tieni) is for the panel and does not skip. The "Promise always resolves" safety is a 2-minute no-progress watchdog (game time frozen, e.g. a hidden tab), the dt-based `maxT` is the real cap.
+- [r2-playtest] (3 Nov) Integration of the three round-2 areas. `cook:done` always fires with the cook panel (or the
+  Trattoria shop) open, so the cooking close-up was always dropped: `systems/cinematics.js` now keeps it pending and
+  plays it 0.35 s after that panel closes (only within 90 s and if the player stayed within 4 m). No new bus event.
+  `sw.js` CACHE bumped to `lenza-lenta-v2-r8` (new files: props/, systems/mat.js, systems/cinematics.js; sw-assets.js
+  regenerated). Touch scenario for the whole loop: `tmp/r2-playtest/full.mjs` (env `LANG2=it|en`, `CATCHES=n`).
+- [r2-playtest] (3 Nov) Back to fishing after the mat. The catch pose turns the fisherman toward the camera, so the
+  chores after "Tieni" ended with him facing the land and the big button said "Pulisci il pesce" instead of "Lancia"
+  (the next cast needed a turn). Now:
+  - `ctx.player.chore(name, opts)` takes `opts.backTo` (radians): the facing to turn to when the chore ends
+    (default: the facing at the start, as before).
+  - `systems/mat.js` remembers where and which way the player cast (`fishing:state` → `wait`) and passes `backTo` to
+    every chore started within 1.6 m of that spot, so he faces the sea again.
+  - `mat.candidates(p)` entries carry `at.atSpot` (true within 1.2 m of the last cast spot while facing within 0.15 rad of
+    the cast direction). `interact.choose()`: with
+    a valid cast, a mat action at the cast spot never takes the big button (it goes on the side button, as the top mat
+    action); otherwise it takes the big button when you face the mat (within 0.35 rad and 1.8 m), with the next mat action
+    on the side button.

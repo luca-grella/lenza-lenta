@@ -281,7 +281,7 @@ export function init(ctx) {
     if (chore) cancelChore();
     if (!CHORES.has(name)) return Promise.resolve({ ok: false });
     const res = { ok: false };
-    const c = { name, look: null, back: facing, fired: new Set(), res };
+    const c = { name, look: null, back: Number.isFinite(o.backTo) ? o.backTo : facing, fired: new Set(), res };   // [r2-playtest] backTo: face this way when done
     const ev = {};
     const once = (k, fn) => (ev[k] = (e) => { if (c.fired.has(k + (e?.t ?? ''))) return; c.fired.add(k + (e?.t ?? '')); fn(e); });
     let target = null, onFinish = () => {};

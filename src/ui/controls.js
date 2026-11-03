@@ -35,12 +35,8 @@ export function createControls(ui) {
   });
   function move(e) {
     if (e.pointerId !== jid) return;
-    let dx = e.clientX - ox, dy = e.clientY - oy;
-    const d = Math.hypot(dx, dy);
-    if (d > R * 1.5) { // base follows the thumb (floating stick)
-      const k = (d - R * 1.5) / d; ox += dx * k; oy += dy * k; dx = e.clientX - ox; dy = e.clientY - oy;
-      const r = zoneRect(); base.style.transform = `translate(${ox - r.left}px, ${oy - r.top}px)`;
-    }
+    // the base stays where the thumb landed until release; the knob is clamped to the ring
+    const dx = e.clientX - ox, dy = e.clientY - oy;
     const m = Math.min(1, Math.hypot(dx, dy) / R), a = Math.atan2(dy, dx);
     const kx = Math.cos(a) * m * R, ky = Math.sin(a) * m * R;
     knob.style.transform = `translate(${kx.toFixed(1)}px, ${ky.toFixed(1)}px)`;

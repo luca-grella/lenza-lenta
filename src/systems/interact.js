@@ -181,12 +181,16 @@ export function createInteract(ctx, env) {
     let best = null, bs = castOK ? CAST_SCORE : -Infinity;
     for (const e of list) {
       let off = 0;
-      if (e.at && e.d > 0.6) off = Math.abs(Math.atan2(Math.sin(Math.atan2(e.at.x - p.x, e.at.z - p.z) - face), Math.cos(Math.atan2(e.at.x - p.x, e.at.z - p.z) - face)));
+      if (e.at && (e.d > 0.6 || e.kind === 'mat')) off = Math.abs(Math.atan2(Math.sin(Math.atan2(e.at.x - p.x, e.at.z - p.z) - face), Math.cos(Math.atan2(e.at.x - p.x, e.at.z - p.z) - face)));
       let s = e.priority * 2 - e.d - off * 1.1;
       // [Fix] facing open water, casting wins over idle chores (sit, talk, pet...) unless the target is right in front and close
       // ...except a dock-edge seat: sitting there is how you fish seated (the button then casts from the seat),
       // and a villager you face within 2 m (a shopkeeper behind the counter, with the sea behind him)
-      if (castOK && SOFT.has(e.kind) && !(e.seat === 'edge' && !e.side) && !(off < 0.35 && e.d < 1.1) && !(e.kind === 'talk' && off < 0.5 && e.d < 2.0)) s = Math.min(s, CAST_SCORE - 0.01);
+      // [r2-playtest] the mat lies beside the fishing spot: facing the sea from the spot you cast from (at.atSpot, set by
+      // systems/mat.js), casting stays on the big button and the mat action goes on the side button; elsewhere the mat
+      // takes the big button when you face it
+      if (castOK && e.kind === 'mat') s = !e.at?.atSpot && off < 0.35 && e.d < 1.8 ? Math.max(s, CAST_SCORE + 0.01) : Math.min(s, CAST_SCORE - 0.01);
+      else if (castOK && SOFT.has(e.kind) && !(e.seat === 'edge' && !e.side) && !(off < 0.35 && e.d < 1.1) && !(e.kind === 'talk' && off < 0.5 && e.d < 2.0)) s = Math.min(s, CAST_SCORE - 0.01);
       // [Fix] a shop counter / fixed place you stand at and face wins over the water behind it (pescheria on its stilt deck)
       else if (castOK && PLACE.has(e.kind) && e.d < 2.6 && off < 1.0) s = Math.max(s, CAST_SCORE + 0.01);
       // [Fix] a free bench seat right in front of you wins over a villager sitting next to it (Ettore on the lighthouse

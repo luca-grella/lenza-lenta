@@ -258,7 +258,24 @@ export function init(ctx) {
   bus.on('cat:feed', e => shots.cat('feed', e));
   bus.on('cat:pet', e => shots.cat('pet', e));
   bus.on('cat:befriend', e => shots.cat('befriend', e));
-  bus.on('cook:done', e => shots.cook(e));
+  // [r2-playtest] recipes are cooked from the cook panel (or the Trattoria shop), so cook:done always fires with a sheet
+  // open and the shot was dropped: keep it and play it when the panel closes (within 90 s, the player still nearby)
+  let pendingCook = null;
+  bus.on('cook:done', e => {
+    if (!uiOpen()) { pendingCook = null; shots.cook(e); return; }
+    const p = player()?.position;
+    pendingCook = { e, t: now, x: p?.x ?? 0, z: p?.z ?? 0 };
+  });
+  bus.on('ui:sheet', e => {
+    if (e?.open || !pendingCook) return;
+    const pc = pendingCook, p = player()?.position;
+    setTimeout(() => {   // after the sheet's own close bookkeeping (ui.isOpen false)
+      if (pendingCook !== pc || uiOpen()) return;
+      pendingCook = null;
+      if (now - pc.t > 90 || (p && Math.hypot(p.x - pc.x, p.z - pc.z) > 4)) return;
+      shots.cook(pc.e);
+    }, 350);
+  });
   bus.on('zone:enter', e => shots.zone(e));
   bus.on('sit:dusk', () => shots.dusk());
   // fallback when no one emits sit:dusk: sitting down on a dock edge at dusk

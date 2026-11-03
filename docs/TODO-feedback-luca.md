@@ -71,3 +71,31 @@ Non provati qui (limiti headless): margini safe-area, audio e vibrazione, il fog
 - [ ] Più primi piani / momenti cinematografici brevi e cozy (camera che si avvicina e poi torna sempre alla vista normale): cattura del pesce, pesce raro/leggendario, prima volta che si fa qualcosa, cucina, carezza al gatto, tramonto seduti sul pontile.
 - [ ] Dopo la cattura: il pescatore appoggia il pesce sulla stuoia accanto a sé (stuoia con il pescato visibile nel mondo, come nel video di riferimento).
 - [ ] Pulire il pesce (azione + animazione dedicata), e in generale più azioni con animazioni proprie legate al pescato (sfilettare/preparare, mettere nel secchio, mostrarlo al gatto…).
+
+## Feedback 3 nov (dalla versione r7 pubblicata)
+- [ ] Bordi dell'acqua quasi geometrici: la riva/schiuma è diventata spigolosa (probabile effetto della regola "mare basso non calpestabile" del polish r7 o del disegno della schiuma) → riva morbida e naturale come prima.
+- [ ] Prima si poteva entrare un po' in acqua immergendo le gambe: ripristinare il guado nell'acqua bassa (piedi/gambe sotto la superficie, schizzi, passo più lento), fermandosi solo dove l'acqua diventa profonda.
+- [ ] Compenetrazioni: il personaggio (e gli NPC) attraversano la tenda di casa e altri oggetti; alzandosi da seduti sul pontile il personaggio sprofonda nelle assi.
+- [ ] Sensazione di camminata più veloce: la velocità non è cambiata (2.6 m/s) ma la camera è più vicina in landscape → valutare con Luca (rallentare o riallontanare).
+- [x] Joystick: la base resta ferma dove si è appoggiato il dito finché non lo si stacca (src/ui/controls.js).
+- [ ] Distanza camera regolabile in Impostazioni (Vicina / Media / Lontana), default alla distanza della prima versione: così Luca sceglie da sé (dubbio sulla sensazione di velocità).
+- [ ] Impronte sulla sabbia (e sabbia bagnata / fango) lasciate dal pescatore, dal gatto e dai paesani, che svaniscono piano piano (decal a dissolvenza, pool limitato per le prestazioni).
+- [ ] Acqua ancora più realistica se possibile senza pesare sull'iPhone: increspature fini, riflessi del cielo e del sole, rifrazione del fondale, schiuma della riva morbida e irregolare, schizzi quando si guada.
+- [ ] Trasparenza in base alla profondità: più ci si avvicina alla riva, più l'acqua è limpida e si vedono bene il fondale (sabbia, sassi, alghe, conchiglie) e i pesci e i granchi che nuotano nell'acqua bassa; al largo l'acqua torna blu profondo e il fondale sparisce.
+- [ ] Delfini più godibili: passaggi più vicini alla riva e alla barca (sempre a distanza di sicurezza), e alla PRIMA volta che si vedono una scena cinematografica dedicata (camera che si sposta verso il branco, salti un po' rallentati con spruzzi controluce, piccola musica dedicata, poi ritorno alla vista normale; saltabile con un tocco e disattivabile con "Primi piani"). Voce nel diario "Avvistamenti" (delfini e altri animali rari) con giorno e luogo; dalle volte successive solo un breve primo piano ogni tanto.
+- [ ] Estendere a TUTTI gli avvistamenti: ogni animale raro o momento speciale (delfini, cervi nel bosco all'alba, tartarughe al sole sull'isola, meduse luminose nella grotta di notte, prime lucciole, primo coniglio, gabbiano che ruba il pesce...) ha la sua breve scena dedicata la prima volta e una voce in "Avvistamenti" nel diario; gli animali comuni (granchi, farfalle, gabbiani) solo la voce nel diario, senza scena.
+
+
+## STATO AL 3 NOV (pausa per tetto utilizzo 51%, si riprende la settimana del 9 nov)
+Ramo di lavoro: `r2-wip` (NON pubblicato). Online resta `main` = r7 (giro correzioni).
+Fatto nel ramo r2-wip, NON ancora pubblicato:
+- [x] Primi piani: shot API sulla camera + regista `src/systems/cinematics.js` (catture, stuoia, pulizia, gatto, ricette, prima entrata nelle zone, tramonto seduti), saltabili, disattivabili in Impostazioni.
+- [x] Stuoia (`src/actors/props/mat.js`) + 6 animazioni (srotola/arrotola, appoggia, pulisci, secchio, mostra al gatto) + posa fiera.
+- [x] Flusso: Tieni → stuoia; Pulisci il pesce (filetto ×1.6 + nuove ricette); Secchio (Bottega, 30 monete) → dona all'acquario; Mostra a Biscotto; Salta durante le animazioni.
+- [x] Joystick con base ferma.
+- [~] Partita completa col dito: verticale IT 47/47 ok; orizzontale EN da rifare (vedi docs/RESUME-playtest.md).
+Da fare alla ripresa, in ordine:
+1. Finire la partita completa (orizzontale EN), poi collaudo indipendente e rifinitura del secondo giro (fasi QA/Polish del workflow `wf_1ecb37ad-176`, ripresa con resumeFromRunId).
+2. Problemi noti del secondo giro: pesci piccoli poco visibili sulla stuoia; primo piano della cattura coperto dalla scheda in verticale (aprire la scheda ~1.5 s dopo); rotolo di corda sul pontile di casa sovrapposto alla stuoia.
+3. Feedback 3 nov (sopra): riva morbida + guado, compenetrazioni (tenda, alzarsi dal pontile), distanza camera regolabile, impronte, acqua più realistica e limpida vicino alla riva, delfini + avvistamenti con scene dedicate.
+4. Pubblicare tutto insieme su main (bump SW, oggi r8 nel ramo) dopo la verifica.
