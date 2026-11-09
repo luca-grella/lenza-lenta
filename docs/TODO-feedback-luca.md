@@ -86,6 +86,13 @@ Non provati qui (limiti headless): margini safe-area, audio e vibrazione, il fog
 - [ ] Estendere a TUTTI gli avvistamenti: ogni animale raro o momento speciale (delfini, cervi nel bosco all'alba, tartarughe al sole sull'isola, meduse luminose nella grotta di notte, prime lucciole, primo coniglio, gabbiano che ruba il pesce...) ha la sua breve scena dedicata la prima volta e una voce in "Avvistamenti" nel diario; gli animali comuni (granchi, farfalle, gabbiani) solo la voce nel diario, senza scena.
 
 
+## Feedback 9 nov
+- [ ] Mappa: alcuni pin coprono i nomi/le icone dei luoghi → pin che non si sovrappongono (spostati o raggruppati, etichette leggibili a ogni zoom, su verticale e orizzontale).
+- [ ] Mappa: segnare TUTTI i luoghi utili al gioco e alle missioni (negozi, paesani, punti di pesca, zone, posti dove sedersi/cucinare, obiettivi delle missioni), non solo alcuni.
+- [ ] Mappa: le missioni con più obiettivi devono avere un pin su OGNI obiettivo ancora da fare (non uno solo), che sparisce quando quell'obiettivo è completato.
+- [ ] Nome del personaggio scelto all'inizio: i paesani e i testi del gioco lo chiamano per nome (IT/EN), modificabile dalle Impostazioni; salvataggi vecchi chiedono il nome al primo avvio senza perdere i progressi.
+- [ ] Scelta maschio/femmina all'inizio: modello femminile del pescatore (corpo, capelli, vestiti; stesso scheletro e stesse animazioni), testi declinati al genere giusto in italiano (pescatore/pescatrice, benvenuto/benvenuta…), modificabile dopo; salvataggi vecchi restano maschio.
+
 ## STATO AL 3 NOV (pausa per tetto utilizzo 51%, si riprende la settimana del 9 nov)
 Ramo di lavoro: `r2-wip` (NON pubblicato). Online resta `main` = r7 (giro correzioni).
 Fatto nel ramo r2-wip, NON ancora pubblicato:
@@ -98,6 +105,7 @@ Da fare alla ripresa, in ordine:
 1. Finire la partita completa (orizzontale EN), poi collaudo indipendente e rifinitura del secondo giro (fasi QA/Polish del workflow `wf_1ecb37ad-176`, ripresa con resumeFromRunId).
 2. Problemi noti del secondo giro: pesci piccoli poco visibili sulla stuoia; primo piano della cattura coperto dalla scheda in verticale (aprire la scheda ~1.5 s dopo); rotolo di corda sul pontile di casa sovrapposto alla stuoia.
 3. Feedback 3 nov (sopra): riva morbida + guado, compenetrazioni (tenda, alzarsi dal pontile), distanza camera regolabile, impronte, acqua più realistica e limpida vicino alla riva, delfini + avvistamenti con scene dedicate.
+3b. Feedback 9 nov (mappa, nome, maschio/femmina).
 4. Pubblicare tutto insieme su main (bump SW, oggi r8 nel ramo) dopo la verifica.
 - [ ] Dal video di riferimento (vedi docs/REFERENCE.md): anello di progresso sopra il cappello durante carica/recupero, scintille del sole sul mare aperto, linee di schiuma delle onde sulla battigia, fascia di sabbia bagnata più scura, passerelle di corda mezze rotte sul fiume.
 - [ ] Dal ricontrollo del video: "Raccogli" (Pack up) con cesta-zaino visibile sulla schiena e stuoia arrotolata portata addosso; prendere/riporre la canna come azione con suggerimenti contestuali; etichetta dell'ora che cambia (Mezzogiorno → Pomeriggio); scaletta in acqua sulla testata del pontile; ombre delle palme sull'acqua bassa; tronchi nel fiume; torrente del bosco più scuro con rapide.
