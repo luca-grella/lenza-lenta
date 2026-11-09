@@ -221,6 +221,11 @@ export const it = {
   'ui.map.poi.lighthouse': 'Faro',
   'ui.map.poi.cave': 'Grotta',
   'ui.map.poi.treasure': 'Tesoro?',
+  'ui.map.poi.campfire': 'Falò',
+  'ui.map.poi.mailbox': 'Cassetta della posta',
+  'ui.map.poi.pond': 'Laghetto della cascata',
+  'ui.map.poi.river': 'Fiume',
+  'ui.map.side_goal': 'Extra',
 
   // ── shops ──
   'ui.shop.buy': 'Compra',
@@ -574,6 +579,11 @@ export const en = {
   'ui.map.poi.lighthouse': 'Lighthouse',
   'ui.map.poi.cave': 'Cave',
   'ui.map.poi.treasure': 'Treasure?',
+  'ui.map.poi.campfire': 'Campfire',
+  'ui.map.poi.mailbox': 'Mailbox',
+  'ui.map.poi.pond': 'Waterfall pond',
+  'ui.map.poi.river': 'River',
+  'ui.map.side_goal': 'Extra',
 
   'ui.shop.buy': 'Buy',
   'ui.shop.owned': 'Owned',

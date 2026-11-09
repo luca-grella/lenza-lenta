@@ -318,7 +318,10 @@
 .mk-poi .mk-ic .ic { width: 22px; height: 22px; }
 .mk-goal .mk-ic { left: -18px; top: -42px; width: 36px; height: 42px; animation: ui-bob 1.4s ease-in-out infinite; }
 .mk-goal .mk-ic .ic { width: 36px; height: 36px; filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .3)); }
-.mk-goal-txt { left: 0; top: 2px; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: 900; color: #fff; background: var(--coral); border-radius: 8px; padding: 1px 7px 2px; }
+/* [9 nov] the label sits above the pin head, so it never covers the place the pin points at */
+.mk-goal.side .mk-ic .ic { filter: hue-rotate(180deg) saturate(.8) drop-shadow(0 3px 2px rgba(0, 0, 0, .3)); }
+.mk-goal.side .mk-goal-txt { background: var(--teal, #3a9a9a); }
+.mk-goal-txt { left: 0; top: -62px; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: 900; color: #fff; background: var(--coral); border-radius: 8px; padding: 1px 7px 2px; }
 .mk-player .mk-arrow { left: -18px; top: -18px; width: 36px; height: 36px; }
 .mk-arrow svg { width: 100%; height: 100%; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .35)); }
 .mk-you { left: 0; top: 18px; transform: translateX(-50%); white-space: nowrap; font-size: 11px; font-weight: 900; background: #fff6e4; border-radius: 8px; padding: 0 7px 1px; border: 1.5px solid var(--coral); }

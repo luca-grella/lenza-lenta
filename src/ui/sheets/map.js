@@ -14,7 +14,44 @@ const POIS = [
   ['dock_village', 'dock', 'ui.map.poi.dock'],
   ['lighthouse_top', 'lighthouse', 'ui.map.poi.lighthouse'],
   ['cave_entrance', 'cave', 'ui.map.poi.cave'],
+  // [9 nov] every place the game sends you to, not only the shops
+  ['home_campfire', 'cook', 'ui.map.poi.campfire'],
+  ['home_mailbox', 'read', 'ui.map.poi.mailbox'],
+  ['waterfall_pond', 'fishing', 'ui.map.poi.pond'],
+  ['river_bridge', 'fishing', 'ui.map.poi.river'],
+  ['palm_islet_dock', 'dock', 'ui.map.poi.dock'],
 ];
+
+/**
+ * [9 nov] Where the active objectives are: the villagers still to talk to, the forage spots still to pick for that item,
+ * otherwise the step's marker POI. Returns [{x, z, quest, story}].
+ */
+function goalTargets(poiPos) {
+  const c = goalTargets.ctx; if (!c) return [];
+  const Q = c.systems?.quests; const D = c.data || {};
+  const defs = [...(D.quests || []), ...(D.sideQuests || [])];
+  const out = [];
+  let list = [];
+  try { list = Q?.active?.() || []; } catch { list = []; }
+  for (const q of list) {
+    if (!q || q.done || (q.kind !== 'story' && q.kind !== 'side')) continue;
+    const def = defs.find(s => s.id === q.id); const g = def?.goal || {};
+    const seen = Q.progress?.[q.id]?.seen || [];
+    const story = q.kind === 'story';
+    const pts = [];
+    // a step not yet offered: its villager first
+    if (story && q.offered === false && q.npc && q.npc !== 'letter') { const n = c.npcs?.get?.(q.npc)?.object?.position; if (n) pts.push({ x: n.x, z: n.z }); }
+    else if (g.event === 'npc:talk' && g.filter?.npcId) {
+      for (const id of [].concat(g.filter.npcId)) { if (seen.includes(id)) continue; const n = c.npcs?.get?.(id)?.object?.position; if (n) pts.push({ x: n.x, z: n.z }); }
+    } else if (g.event === 'forage:pick' && g.filter?.itemId) {
+      const ids = [].concat(g.filter.itemId);
+      for (const s of c.systems?.foraging?.spots || []) if (!s.picked && ids.includes(s.itemId)) pts.push({ x: s.x, z: s.z });
+    }
+    if (!pts.length && q.marker) { const p = poiPos(q.marker); if (p) pts.push({ x: p.x, z: p.z }); }
+    for (const p of pts) out.push({ ...p, quest: q.id, story });
+  }
+  return out;
+}
 
 let cached = null; // {canvas, bounds, zones:[{id,x,z}], key}
 
@@ -134,6 +171,7 @@ function resolveSource(ctx) {
 export default function map(ui, data) {
   const { ctx, A } = ui;
   const t = (k, v) => ctx.i18n.t(k, v);
+  goalTargets.ctx = ctx;
   let view, layer, overlay, player, src;
   const st = { scale: 1, tx: 0, ty: 0, base: 300 };
   const markers = []; // {node, x, z, kind: 'zone'|'poi'|'goal', span?}
@@ -149,8 +187,9 @@ export default function map(ui, data) {
     for (const m of markers) {
       const [mx, my] = toMap(m.x, m.z);
       m.sx = st.tx + mx * st.scale; m.sy = st.ty + my * st.scale;
-      m.node.style.transform = `translate(${m.sx.toFixed(1)}px, ${m.sy.toFixed(1)}px)`;
     }
+    declutter();
+    for (const m of markers) m.node.style.transform = `translate(${m.sx.toFixed(1)}px, ${m.sy.toFixed(1)}px)`;
     tickPlayer();
     layoutLabels();
   }
@@ -159,13 +198,53 @@ export default function map(ui, data) {
    * "Slow Harbor". Each name tries a few spots around its centre (centre, below, above, right, left, farther) and takes
    * the one that overlaps the least with icons, the goal pin, the You arrow and the names already placed.
    */
+  /**
+   * [9 nov] Icons never cover each other: close POI icons (the village shops when zoomed out) are pushed apart a little,
+   * and a goal pin that points at an icon stands on top of it instead of hiding it (its tip on the icon's upper edge).
+   */
+  function declutter() {
+    const ps = markers.filter(m => m.kind === 'poi');
+    const MIN = 34;
+    for (let it = 0; it < 6; it++) {
+      let moved = false;
+      for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+        const a = ps[i], b = ps[j];
+        let dx = b.sx - a.sx, dy = b.sy - a.sy, d = Math.hypot(dx, dy);
+        if (d >= MIN) continue;
+        if (d < 0.01) { dx = 1; dy = 0; d = 1; }
+        const push = (MIN - d) / 2;
+        a.sx -= dx / d * push; a.sy -= dy / d * push; b.sx += dx / d * push; b.sy += dy / d * push;
+        moved = true;
+      }
+      if (!moved) break;
+    }
+    const goals = markers.filter(m => m.kind === 'goal');
+    for (const g of goals) {
+      const under = ps.find(p => Math.hypot(p.sx - g.sx, p.sy - g.sy) < 24);
+      if (under) { g.sx = under.sx; g.sy = under.sy - 14; }
+    }
+    // one label per quest, on its topmost pin (a label under other pins of the same quest got covered)
+    const top = new Map();
+    for (const g of goals) if (g.q && (!top.has(g.q) || g.sy < top.get(g.q).sy)) top.set(g.q, g);
+    for (const g of goals) { const on = top.get(g.q) === g; g.label = on; if (g.txt) g.txt.style.display = on ? '' : 'none'; }
+    // two goal pins on (almost) the same spot: fan them out
+    for (let i = 0; i < goals.length; i++) for (let j = i + 1; j < goals.length; j++) {
+      if (Math.hypot(goals[i].sx - goals[j].sx, goals[i].sy - goals[j].sy) < 20) { goals[i].sx -= 13; goals[j].sx += 13; }
+    }
+    // labels of two close pins: the second one goes under its pin
+    const lab = goals.filter(g => g.label);
+    for (const g of lab) if (g.txt) g.txt.style.top = '';
+    for (let i = 0; i < lab.length; i++) for (let j = i + 1; j < lab.length; j++) {
+      if (Math.abs(lab[i].sx - lab[j].sx) < 80 && Math.abs(lab[i].sy - lab[j].sy) < 24 && lab[j].txt) lab[j].txt.style.top = '4px';
+    }
+  }
   function layoutLabels() {
     if (!view) return;
     const obst = [];
     const box = (x, y, w, hh) => ({ x0: x - w / 2, y0: y - hh / 2, x1: x + w / 2, y1: y + hh / 2 });
     for (const m of markers) {
       if (m.kind === 'poi') obst.push(box(m.sx + 2, m.sy + 2, 40, 40));   // 30 px icon + 2 px border + shadow
-      else if (m.kind === 'goal') { obst.push(box(m.sx, m.sy - 21, 38, 44)); obst.push(box(m.sx, m.sy + 11, 52, 20)); }
+      else if (m.kind === 'goal') { obst.push(box(m.sx, m.sy - 21, 38, 44)); if (m.label) obst.push(box(m.sx, m.sy - 52, 64, 20)); }
     }
     if (player && !player.classList.contains('hidden') && lastPl) {
       obst.push(box(lastPl.x, lastPl.y, 40, 40));
@@ -257,12 +336,23 @@ export default function map(ui, data) {
         seen.add(id);
         addMarker(p.x, p.z, h('div.mk.mk-poi', { title: t(key) }, h('span.mk-ic', { html: icon(ic) })));
       }
-      for (const p of src.pois || []) if (p && typeof p.x === 'number' && !seen.has(p.id)) addMarker(p.x, p.z, h('div.mk.mk-poi', h('span.mk-ic', { html: icon(p.icon || 'pin') })));
+      // [9 nov] the minimap's own list repeats places under other ids (home/home_bed, lighthouse_door/_top): skip the ones
+      // already shown or with no icon of their own (a bare pin there read as a quest pin)
+      const shown = markers.filter(m => m.kind === 'poi');
+      for (const p of src.pois || []) {
+        if (!p || typeof p.x !== 'number' || seen.has(p.id) || !p.icon) continue;
+        if (shown.some(m => Math.hypot(m.x - p.x, m.z - p.z) < 8)) continue;
+        addMarker(p.x, p.z, h('div.mk.mk-poi', h('span.mk-ic', { html: icon(p.icon) })));
+      }
       if ((A.flags().boat_repaired || ctx.save.state.boat?.repaired)) { const p = poiPos('boat_mooring_home'); if (p) addMarker(p.x, p.z, h('div.mk.mk-poi', h('span.mk-ic', { html: icon('boat') }))); }
-      // quest pin
-      const goalPoi = data.focus || A.currentGoal()?.marker;
-      const gp = goalPoi ? poiPos(goalPoi) : null;
-      if (gp) addMarker(gp.x, gp.z, h('div.mk.mk-goal', h('span.mk-ic', { html: icon('pin') }), h('span.mk-goal-txt', t('ui.map.goal'))), 'goal');
+      // quest pins: one on every objective still to do, for the story step and every active side quest
+      const targets = data.focus ? [{ ...(poiPos(data.focus) || {}), story: true }].filter(p => typeof p.x === 'number') : goalTargets(poiPos);
+      const gp = targets.find(g => g.story) || targets[0] || null;   // centring (focus or the story objective)
+      for (const g of targets) {
+        const txt = h('span.mk-goal-txt', g.story ? t('ui.map.goal') : t('ui.map.side_goal'));
+        addMarker(g.x, g.z, h('div.mk.mk-goal' + (g.story ? '' : '.side'), h('span.mk-ic', { html: icon('pin') }), txt), 'goal',
+          { txt, q: g.story ? 'story' : 'side:' + g.quest, label: true });
+      }
       player = h('div.mk.mk-player', h('div.mk-arrow', { html: `<svg viewBox="0 0 32 32"><path d="M16 3l9 22-9-5-9 5z" fill="#e8604a" stroke="#fff6e4" stroke-width="2.6" stroke-linejoin="round"/></svg>` }), h('span.mk-you', t('ui.map.you')));
       overlay.append(player);
 
