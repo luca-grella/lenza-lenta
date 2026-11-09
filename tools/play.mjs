@@ -667,11 +667,16 @@ export async function createPlay(o = {}) {
       return taps;
     },
     /** Tap through: language → title Start → every dialog line (grandpa's letter). Real taps only. */
-    async onboard({ lang = play.lang, maxTaps = 60 } = {}) {
+    async onboard({ lang = play.lang, maxTaps = 60, name = 'Nico' } = {}) {
       await play.step(30);
       let st = await play.state();
       if (st.intro && await play.findSel('.lang-btn')) { await play.tapText(lang === 'en' ? 'English' : 'Italiano'); await play.step(40); }
       if ((await play.state()).intro) { await play.tapSel('.title-start'); await play.step(30); }
+      // [9 nov] the "what's your name?" card (new game): type a name like a player, then Confirm
+      if (await play.findSel('.name-input')) {
+        await play.tapSel('.name-input'); await play.page.keyboard.type(name, { delay: 30 }); await play.step(10);
+        await play.tapSel('.name-ok'); await play.step(30);
+      }
       // the letter (and any queued dialogue) shows up a moment after the title closes
       const taps = await play.tapThroughDialogs({ maxTaps, firstWait: 4 });
       st = await play.state();

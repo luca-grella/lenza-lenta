@@ -79,9 +79,56 @@ export function createIntro(ui) {
     ctx.audio?.unlock?.();
     ui.sfx('ui_open');
     ui.haptic(10);
+    // [9 nov] no name yet (new game, or a save from before names): ask once, then play
+    if (!playerName()) { askName().then(finish); return; }
+    finish();
+  }
+  function finish() {
     hide();
     ctx.bus.emit('ui:start', {});
     const r = resolveDone; resolveDone = null; r?.();
+  }
+
+  const playerName = () => String(ctx.save.state.player?.name || '').trim();
+  /** Sanitised name: letters, digits, space, apostrophe, dash and dot, at most 20 characters. */
+  const clean = s => String(s || '').replace(/[^\p{L}\p{N} '’.\-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 20);
+
+  /**
+   * [9 nov] "What's your name?" card (first start, and Settings › Name). Resolves with the saved name.
+   * opts.overlay: shown over the game (Settings) instead of replacing the title screen.
+   */
+  function askName(opts = {}) {
+    return new Promise(res => {
+      const input = h('input.name-input', { type: 'text', maxlength: '20', autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false',
+        enterkeyhint: 'done', placeholder: t('ui.name.placeholder'), 'aria-label': t('ui.name.title') });
+      input.value = playerName();
+      const ok = h('button.btn.gold.big.name-ok', { type: 'button' }, h('span', { html: icon('check') }), t('ui.name.ok'));
+      const sync = () => { ok.disabled = !clean(input.value); };
+      input.addEventListener('input', sync); sync();
+      const done = () => {
+        const v = clean(input.value);
+        if (!v) { input.focus(); return; }
+        input.blur();
+        ctx.save.state.player ||= {};
+        ctx.save.state.player.name = v;
+        ctx.save.commit();
+        ctx.bus.emit('player:name', { name: v });
+        ui.sfx('ui_tap'); ui.haptic(10);
+        if (opts.overlay) { card.remove(); ui.setBusy('name', false); }
+        res(v);
+      };
+      onTap(ok, done);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); done(); } });
+      const card = h('div.intro.name' + (opts.overlay ? '.over' : ''), h('div.intro-sky'),
+        h('div.lang-card.name-card.paper.stitched',
+          h('div.lang-ic', { html: icon('hand') }),
+          h('h2.lang-title', t('ui.name.title')),
+          h('div.lang-sub.muted', t('ui.name.sub')),
+          input, ok));
+      if (opts.overlay) { el.append(card); ui.setBusy('name', true); requestAnimationFrame(() => card.classList.add('in')); }
+      else mount(card);
+      setTimeout(() => { try { input.focus(); } catch { /* ignore */ } }, 350);
+    });
   }
 
   function hide() {
@@ -92,5 +139,5 @@ export function createIntro(ui) {
     ui.setBusy('intro', false);
   }
 
-  return { el, show, hide, get open() { return !!node; } };
+  return { el, show, hide, askName, get open() { return !!node; } };
 }

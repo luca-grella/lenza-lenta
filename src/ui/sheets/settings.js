@@ -135,6 +135,14 @@ export default function settings(ui) {
     render(body) {
       const st = ctx.save.state.settings || {};
       const parts = [];
+      // [9 nov] the player's name
+      parts.push(h('div.set-row', h('span.set-ic', { html: icon('hand') }), h('span.set-k', h('span', t('ui.set.name')), h('small.muted', ctx.save.state.player?.name || '')),
+        (() => {
+          const b = h('button.btn.small.set-name', { type: 'button' }, t('ui.set.name_change'));
+          onTap(b, () => { ui.sfx('ui_tap'); ui.intro?.askName?.({ overlay: true }).then(() => spec.refresh()); });
+          return b;
+        })()));
+
       parts.push(section(t('ui.set.language'), 'language'));
       parts.push(h('div.set-row', h('span.set-ic', { html: icon('globe') }),
         seg([['it', t('ui.lang.it')], ['en', t('ui.lang.en')]], ctx.i18n.lang, v => ctx.i18n.setLang(v))));

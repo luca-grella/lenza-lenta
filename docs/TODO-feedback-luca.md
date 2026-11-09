@@ -90,7 +90,7 @@ Non provati qui (limiti headless): margini safe-area, audio e vibrazione, il fog
 - [x] (10 nov, r9) Mappa: alcuni pin coprono i nomi/le icone dei luoghi → pin che non si sovrappongono (spostati o raggruppati, etichette leggibili a ogni zoom, su verticale e orizzontale).
 - [x] (10 nov, r9) Mappa: segnare TUTTI i luoghi utili al gioco e alle missioni (negozi, paesani, punti di pesca, zone, posti dove sedersi/cucinare, obiettivi delle missioni), non solo alcuni.
 - [x] (10 nov, r9) Mappa: le missioni con più obiettivi devono avere un pin su OGNI obiettivo ancora da fare (non uno solo), che sparisce quando quell'obiettivo è completato.
-- [ ] Nome del personaggio scelto all'inizio: i paesani e i testi del gioco lo chiamano per nome (IT/EN), modificabile dalle Impostazioni; salvataggi vecchi chiedono il nome al primo avvio senza perdere i progressi.
+- [x] (10 nov, r10) Nome del personaggio scelto all'inizio: i paesani e i testi del gioco lo chiamano per nome (IT/EN), modificabile dalle Impostazioni; salvataggi vecchi chiedono il nome al primo avvio senza perdere i progressi.
 - [ ] Scelta maschio/femmina all'inizio: modello femminile del pescatore (corpo, capelli, vestiti; stesso scheletro e stesse animazioni), testi declinati al genere giusto in italiano (pescatore/pescatrice, benvenuto/benvenuta…), modificabile dopo; salvataggi vecchi restano maschio.
 
 - [ ] Tasti delle risposte nei dialoghi con i paesani da rivedere tutti (dialog.js + testi in i18n), Luca segnala tutti e quattro i problemi:

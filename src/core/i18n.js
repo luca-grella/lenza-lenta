@@ -26,6 +26,8 @@ export function createI18n({ save, bus }) {
     });
   }
 
+  const playerName = () => String(save?.state?.player?.name || '').trim() || tables[lang]['ui.name.fallback'] || 'friend';
+
   const i18n = {
     get lang() { return lang; },
     /** True once the player explicitly picked a language (saved). */
@@ -43,6 +45,8 @@ export function createI18n({ save, bus }) {
         if (!warned.has(key)) { warned.add(key); console.warn(`[i18n] missing "${key}" for ${lang}${s === undefined ? '' : ' (using ' + other + ')'}`); }
         if (s === undefined) return key;
       }
+      // [9 nov] {player} = the name chosen at the start, in every string
+      if (typeof s === 'string' && s.includes('{player}') && !(vars && 'player' in vars)) vars = { ...(vars || {}), player: playerName() };
       if (typeof s === 'function') return s(vars || {}, lang);
       return interpolate(s, vars);
     },

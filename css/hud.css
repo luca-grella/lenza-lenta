@@ -403,3 +403,13 @@ button.pill:active { transform: translateY(2px); }
 #ui.compact .lang-title { font-size: 20px; margin-bottom: 10px; }
 #ui.compact .lang-btn { padding: 10px; }
 #ui.short .logo-hat { width: 200px; }
+
+/* [9 nov] name card (first start + Settings) */
+.intro.name.over { z-index: 40; }
+.name-card { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.name-card .lang-title { margin: 0; }
+#ui .name-input { width: min(320px, 100%); padding: 12px 14px; border-radius: 14px; border: 2px solid var(--paper-edge); background: #fffdf7;
+  font-family: inherit; font-size: 20px; font-weight: 800; line-height: 1.2; color: var(--ink); text-align: center; /* >= 16px: iOS zooms on smaller inputs */
+  -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; touch-action: auto; pointer-events: auto; }
+#ui .name-input:focus { outline: 3px solid var(--sea-l); outline-offset: 1px; }
+.name-ok[disabled] { opacity: .5; filter: grayscale(.4); }
