@@ -6,8 +6,9 @@
 import * as THREE from 'three';
 import { makeBucket, Droplets } from './tools.js';
 
-export const MAT = { L: 1.25, W: 0.66, LIFT: 0.018, SIDE: 0.7, AHEAD: 0.3, SLOTS: 6, MAXLEN: 0.56 };
-const SLOT_Z = i => -MAT.L / 2 + 0.17 + i * ((MAT.L - 0.3) / (MAT.SLOTS - 1));
+export const MAT = { L: 1.25, W: 0.66, LIFT: 0.018, SIDE: 0.7, AHEAD: 0.3, SLOTS: 6, MAXLEN: 0.56, MINLEN: 0.3 };
+// slot 0 at the far end: the game camera sits behind the fisherman, so the near end is under his hat
+const SLOT_Z = i => MAT.L / 2 - 0.17 - i * ((MAT.L - 0.3) / (MAT.SLOTS - 1));
 const BUCKET_LOCAL = new THREE.Vector3(-0.08, 0, -MAT.L / 2 - 0.24);
 const R_MAX = Math.sqrt(MAT.L * 0.007 / Math.PI) + 0.012;   // radius of the full roll (mat ~7 mm thick)
 
@@ -134,7 +135,8 @@ export function createMat(ctx) {
     if (!active) { place(opts.pos || null, opts.facing); setUnrolled(1); }
     const i = freeSlot();
     // keep a big catch inside the mat
-    const len = Math.min(MAT.MAXLEN, inst.length);
+    // and a small one big enough to be seen from the game camera (a 12 cm sardine is a few pixels otherwise)
+    const len = Math.min(MAT.MAXLEN, Math.max(MAT.MINLEN, inst.length));
     inst.object.scale.setScalar(len);
     const g = inst.mesh.geometry; if (!g.boundingBox) g.computeBoundingBox();
     const bb = g.boundingBox;

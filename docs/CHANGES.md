@@ -193,3 +193,7 @@
     a valid cast, a mat action at the cast spot never takes the big button (it goes on the side button, as the top mat
     action); otherwise it takes the big button when you face the mat (within 0.35 rad and 1.8 m), with the next mat action
     on the side button.
+- [r2-final] Catch card waits 2.3 s (instead of 1 s) when close-ups are on, so the catch close-up is seen before the card covers it (systems/fishing.js).
+- [r2-final] Mat: fish shorter than 30 cm are shown at 30 cm, and slot 0 is the far end of the mat (the near end sat under the fisherman's hat from the game camera) (actors/props/mat.js).
+- [r2-final] Home dock rope coil moved by the crate and barrel, away from where the mat is unrolled (world/props/places.js).
+- [r2-final] Touch playtest tmp/r2/full.mjs: portrait IT 15/15, landscape EN 21/21 (3 catches, mat, clean from the side button), 0 page errors.

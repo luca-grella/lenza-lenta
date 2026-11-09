@@ -108,8 +108,8 @@ Fatto nel ramo r2-wip, NON ancora pubblicato:
 - [x] Joystick con base ferma.
 - [~] Partita completa col dito: verticale IT 47/47 ok; orizzontale EN da rifare (vedi docs/RESUME-playtest.md).
 Da fare alla ripresa, in ordine:
-1. Finire la partita completa (orizzontale EN), poi collaudo indipendente e rifinitura del secondo giro (fasi QA/Polish del workflow `wf_1ecb37ad-176`, ripresa con resumeFromRunId).
-2. Problemi noti del secondo giro: pesci piccoli poco visibili sulla stuoia; primo piano della cattura coperto dalla scheda in verticale (aprire la scheda ~1.5 s dopo); rotolo di corda sul pontile di casa sovrapposto alla stuoia.
+1. [x] Partita completa col dito: verticale IT 15/15, orizzontale EN 21/21 (10 nov, scenario tmp/r2/full.mjs). QA/Polish del workflow sostituiti da questo collaudo per il tetto di utilizzo.
+2. [x] (10 nov) Problemi noti del secondo giro: pesci piccoli poco visibili sulla stuoia; primo piano della cattura coperto dalla scheda in verticale (aprire la scheda ~1.5 s dopo); rotolo di corda sul pontile di casa sovrapposto alla stuoia.
 3. Feedback 3 nov (sopra): riva morbida + guado, compenetrazioni (tenda, alzarsi dal pontile), distanza camera regolabile, impronte, acqua più realistica e limpida vicino alla riva, delfini + avvistamenti con scene dedicate.
 3b. Feedback 9 nov (mappa, nome, maschio/femmina, tasti dei dialoghi).
 4. Pubblicare tutto insieme su main (bump SW, oggi r8 nel ramo) dopo la verifica.

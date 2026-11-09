@@ -238,7 +238,7 @@ export function buildPlaces(ctx, env) {
     bollard(B, D.x + 2.8, ey, D.z1);
     crate(B, D.x - 0.7, ey, D.z0 + 4, 0.85, 0.3);
     barrel(B, D.x - 0.65, ey, D.z0 + 5.0, 0.85);
-    ropeCoil(B, D.x + 0.6, ey, D.z1 - 2.0);
+    ropeCoil(B, D.x - 0.7, ey, D.z0 + 6.0); // by the crate and barrel, away from the end where the mat is unrolled
     B.free();
     dockSideStairs(D, 'stairs_home_dock');
     poi('dock_home', D.x + 0.9, ey, D.z1 + 2.2, 0);

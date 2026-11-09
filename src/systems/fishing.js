@@ -698,7 +698,9 @@ export function createFishing(ctx, env, fx) {
             fishMesh.animate?.(dt, 1.5, 0.45);
           }
           if (!o) session.held = true; // no fish model available: still show the card
-          if (session.held && !session.cardShown && stateT > 1.0) { session.cardShown = true; openCard(); if (!session) break; }
+          // with close-ups on, the card waits so the catch close-up is seen first (it covers most of a portrait screen)
+          const cardDelay = (!session.junk && ctx.systems?.cinematics?.enabled) ? 2.3 : 1.0;
+          if (session.held && !session.cardShown && stateT > cardDelay) { session.cardShown = true; openCard(); if (!session) break; }
           // release: the fish flies back into the water
           if (session.tossFrom && fishMesh) {
             session.resolveT += dt;
