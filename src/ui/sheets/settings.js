@@ -165,6 +165,11 @@ export default function settings(ui) {
           return sw;
         })()));
 
+      // [9 nov] camera distance (Vicina / Media / Lontana), Media = the framing of r7
+      parts.push(h('div.set-row', h('span.set-ic', { html: icon('camera') }), h('span.set-k', h('span', t('ui.set.cam')), h('small.muted', t('ui.set.cam_desc'))),
+        seg([['near', t('ui.set.cam_near')], ['mid', t('ui.set.cam_mid')], ['far', t('ui.set.cam_far')]], st.camDist || 'mid',
+          v => { ctx.save.state.settings.camDist = v; ctx.save.commit(); ctx.bus.emit('settings:change', { key: 'camDist', value: v }); spec.refresh(); })));
+
       // [r2-gameplay] close-ups (systems/cinematics.js reads settings.cinematics; default on)
       parts.push(h('div.set-row', h('span.set-ic', { html: icon('camera') }), h('span.set-k', h('span', t('ui.set.cinematics')), h('small.muted', t('ui.set.cinematics_desc'))),
         (() => {

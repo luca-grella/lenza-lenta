@@ -15,6 +15,9 @@ export const CAMERA_MODES = {
 /**
  * @param {{camera:THREE.PerspectiveCamera, ctx:any, dom?:HTMLElement}} opts
  */
+/** [9 nov] Settings › Camera distance multipliers ('mid' = the default framing). */
+export const CAM_DIST = { near: 0.8, mid: 1, far: 1.25 };
+
 export function createCameraRig({ camera, ctx, dom }) {
   const _v = new THREE.Vector3(), _goal = new THREE.Vector3(), _prev = new THREE.Vector3(), _prev2 = new THREE.Vector3();
   const vel = new THREE.Vector3();
@@ -122,7 +125,9 @@ export function createCameraRig({ camera, ctx, dom }) {
       const zoom = clamp(rig.zoom, rig.zoomMin, rig.zoomMax);
       // [Fix] short landscape phones (~390 px tall): come a bit closer so the fisherman is not a 20 px speck
       const shortH = typeof innerHeight === 'number' && aspect > 1.2 && rig.mode !== 'dialog' && rig.mode !== 'cinematic' ? clamp((560 - innerHeight) / 200, 0, 1) : 0;
-      const goalDist = m.dist * zoom * lerp(1, 1.04, portrait) * lerp(1, 0.8, shortH);
+      // [9 nov] Settings › Camera: near / mid (default, the distance of r7) / far, for the play modes only
+      const pref = rig.mode === 'explore' || rig.mode === 'fishing' || rig.mode === 'boat' ? (CAM_DIST[ctx?.save?.state?.settings?.camDist] || 1) : 1;
+      const goalDist = m.dist * zoom * pref * lerp(1, 1.04, portrait) * lerp(1, 0.8, shortH);
       const goalPitch = m.pitch + portrait * 4;
       const hfovMin = 27 * DEG; // keep at least this horizontal view in portrait
       const fovForWidth = 2 * Math.atan(Math.tan(hfovMin / 2) / aspect) / DEG;

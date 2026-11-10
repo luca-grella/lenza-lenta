@@ -76,9 +76,9 @@ Non provati qui (limiti headless): margini safe-area, audio e vibrazione, il fog
 - [ ] Bordi dell'acqua quasi geometrici: la riva/schiuma è diventata spigolosa (probabile effetto della regola "mare basso non calpestabile" del polish r7 o del disegno della schiuma) → riva morbida e naturale come prima.
 - [ ] Prima si poteva entrare un po' in acqua immergendo le gambe: ripristinare il guado nell'acqua bassa (piedi/gambe sotto la superficie, schizzi, passo più lento), fermandosi solo dove l'acqua diventa profonda.
 - [ ] Compenetrazioni: il personaggio (e gli NPC) attraversano la tenda di casa e altri oggetti; alzandosi da seduti sul pontile il personaggio sprofonda nelle assi.
-- [ ] Sensazione di camminata più veloce: la velocità non è cambiata (2.6 m/s) ma la camera è più vicina in landscape → valutare con Luca (rallentare o riallontanare).
+- [x] (10 nov: risolto con la distanza camera regolabile) Sensazione di camminata più veloce: la velocità non è cambiata (2.6 m/s) ma la camera è più vicina in landscape → valutare con Luca (rallentare o riallontanare).
 - [x] Joystick: la base resta ferma dove si è appoggiato il dito finché non lo si stacca (src/ui/controls.js).
-- [ ] Distanza camera regolabile in Impostazioni (Vicina / Media / Lontana), default alla distanza della prima versione: così Luca sceglie da sé (dubbio sulla sensazione di velocità).
+- [x] (10 nov, r12; default = distanza attuale, scelta di Luca) Distanza camera regolabile in Impostazioni (Vicina / Media / Lontana), default alla distanza della prima versione: così Luca sceglie da sé (dubbio sulla sensazione di velocità).
 - [ ] Impronte sulla sabbia (e sabbia bagnata / fango) lasciate dal pescatore, dal gatto e dai paesani, che svaniscono piano piano (decal a dissolvenza, pool limitato per le prestazioni).
 - [ ] Acqua ancora più realistica se possibile senza pesare sull'iPhone: increspature fini, riflessi del cielo e del sole, rifrazione del fondale, schiuma della riva morbida e irregolare, schizzi quando si guada.
 - [ ] Trasparenza in base alla profondità: più ci si avvicina alla riva, più l'acqua è limpida e si vedono bene il fondale (sabbia, sassi, alghe, conchiglie) e i pesci e i granchi che nuotano nell'acqua bassa; al largo l'acqua torna blu profondo e il fondale sparisce.
