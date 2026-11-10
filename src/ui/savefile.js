@@ -4,7 +4,8 @@
 //   code format: "LENZA2:" + base64(UTF-8 JSON of the save). Files hold {app, format, exported, save}.
 //   decode() also accepts a raw save JSON, the file wrapper JSON, or a bare base64 code.
 
-const APP = 'lenza-lenta-v2', PREFIX = 'LENZA2:';
+// the save format keeps its old internal app id; codes now start with LENZA: (old LENZA2: codes still import)
+const APP = 'lenza-lenta-v2', PREFIX = 'LENZA:', OLD_PREFIX = 'LENZA2:';
 const isObj = o => o && typeof o === 'object' && !Array.isArray(o);
 
 function b64encode(str) {
@@ -48,7 +49,8 @@ export function decode(text, maxVersion = 1) {
   try {
     if (s.startsWith('{')) obj = JSON.parse(s);
     else {
-      if (s.toUpperCase().startsWith(PREFIX)) s = s.slice(PREFIX.length);
+      if (s.toUpperCase().startsWith(OLD_PREFIX)) s = s.slice(OLD_PREFIX.length);
+      else if (s.toUpperCase().startsWith(PREFIX)) s = s.slice(PREFIX.length);
       obj = JSON.parse(b64decode(s));
     }
   } catch { return { ok: false, reason: 'format' }; }

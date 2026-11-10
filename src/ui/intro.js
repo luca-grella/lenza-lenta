@@ -65,7 +65,7 @@ export function createIntro(ui) {
       const n = h('div.intro.title',
         h('div.intro-sky'),
         h('div.title-box',
-          h('div.logo', { html: HAT }, h('h1.logo-text', h('span.l1', 'Lenza'), h('span.l2', 'Lenta')), h('div.logo-2', '2')),
+          h('div.logo', { html: HAT }, h('h1.logo-text', h('span.l1', 'Lenza'), h('span.l2', 'Lenta'))),
           h('div.title-sub.plank', t('ui.title.sub')),
           start,
           cont ? h('div.title-save.muted', t('ui.title.day', { n: ctx.time?.day || 1, coins: fmt(A.coins()) })) : null,
