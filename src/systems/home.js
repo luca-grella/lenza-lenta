@@ -84,11 +84,12 @@ export function createHome(ctx, env) {
       env.busy.sleep = true;
       sys().fishing?.cancel?.();
       env.setControl(false);
-      const bed = env.poi('home_bed');
-      try { if (bed) env.player().sitAt?.(bed); } catch { /* optional */ }
+      const bed = env.poi('home_bed'), door = env.poi('home_door');
+      // [9 nov] fade out first, then lie down: walking/gliding to the bed went through the tent canvas in plain view
+      await fadeTo(1, fast ? 1 : 1400, env.t(kind === 'sleep' ? 'sys.home.zzz' : 'sys.home.nap'));
+      try { if (bed) { env.player().teleport?.(bed.x, bed.z, bed.facing); env.player().sitAt?.(bed); } } catch { /* optional */ }
       env.setPlayerState('sleep');
       env.play('sleep', { loop: true });
-      await fadeTo(1, fast ? 1 : 1400, env.t(kind === 'sleep' ? 'sys.home.zzz' : 'sys.home.nap'));
       const day0 = ctx.time.day;
       ctx.time.skipTo(to);
       ctx.audioAuto?.update?.();
@@ -97,6 +98,9 @@ export function createHome(ctx, env) {
       ctx.bus.emit('home:sleep', { from, to, day: ctx.time.day, kind });
       await wait(fast ? 1 : 900);
       try { env.player().standUp?.(); } catch { /* optional */ }
+      // [9 nov] wake up outside, in front of the door: standing up inside the tent left the player inside its walls,
+      // and the first step out went through the canvas
+      try { if (door) env.player().teleport?.(door.x, door.z, door.facing); } catch { /* optional */ }
       env.play('wake', { loop: false });
       await fadeTo(0, fast ? 1 : 1600, '');
       env.setPlayerState('idle');
