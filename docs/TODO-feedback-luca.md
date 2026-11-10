@@ -116,3 +116,29 @@ Da fare alla ripresa, in ordine:
 - [ ] Dal video di riferimento (vedi docs/REFERENCE.md): anello di progresso sopra il cappello durante carica/recupero, scintille del sole sul mare aperto, linee di schiuma delle onde sulla battigia, fascia di sabbia bagnata più scura, passerelle di corda mezze rotte sul fiume.
 - [ ] Dal ricontrollo del video: "Raccogli" (Pack up) con cesta-zaino visibile sulla schiena e stuoia arrotolata portata addosso; prendere/riporre la canna come azione con suggerimenti contestuali; etichetta dell'ora che cambia (Mezzogiorno → Pomeriggio); scaletta in acqua sulla testata del pontile; ombre delle palme sull'acqua bassa; tronchi nel fiume; torrente del bosco più scuro con rapide.
 - [ ] Dal controllo a 30 fps: interfaccia che si nasconde da sola mentre si esplora e ricompare quando serve; cartellini agganciati agli oggetti vicini; nel "Raccogli" i pesci volano uno alla volta nella cesta e la stuoia si arrotola dal lato lontano verso il pescatore; movimenti di camera continui (gru dal primo piano alla vista larga, discesa lungo la cascata, giro intorno al capanno).
+
+## Feedback 10 nov (message written 9 nov evening, checked against r14)
+Already done, removed from the list: standing up from the dock edge (r14, filmed from the side; still to try on the
+iPhone) and fishing from the boat (already there: on the boat the big button says "Cast", probe tmp/probe/boatfish.mjs).
+
+- [ ] Repo: one repo `lenza-lenta` like Valmora: v2 at the root, renamed without the "2"; v1 in `archivio/v1/` with its
+  history. Unlike Valmora the game stays online (repo public, Pages on).
+- [ ] Boat: goes through the docks and the other boats (it only checks water depth, `env.boatWaterOK`).
+- [ ] Boat: the button to get on is hard to get (next to the boat on the dock the big button says "Cast", not "Get on").
+  Bring Biscotto on the boat; nothing (cat, mat, bucket) sinking into the hull.
+- [ ] Map: the pin often does not point to the right place; teal "Extra" pins where there is nothing (r9 side goals).
+- [ ] Map: every place tappable, with its name (and what you do there).
+- [ ] Map: the "you are here" arrow goes wild on the boat.
+- [ ] Buttons: big button only for fishing (the nearest action takes it only where you cannot fish); smaller buttons
+  around it for talk, pick up, pet, show fish, clean fish, without swapping places. New: pack up the mat and the bucket.
+- [ ] Cooking: show the cooking action (animation at the fire/stove).
+- [ ] Camera: shot changes feel random; use them always and only for given actions.
+- [ ] Dolphins: show them with a change of shot (see Feedback 3 nov, sightings).
+- [ ] Fishing line goes through objects (e.g. on the cliff).
+- [ ] Objective done: do not swing the camera to the next objective right away; if it means talking to someone,
+  finish the conversation calmly, then say the objective is complete.
+- [ ] Objective card at the top: small icon while walking and playing, expands on tap (now it covers part of the screen).
+- [ ] Villagers: check they do not glitch visually, sink or walk through things, and move around with a purpose.
+  Shopkeepers: the shop action gets its own button; talking to them is only talking (r11 put the shop in the dialogue).
+- [ ] Aquarium: you walk through it and the button is hard to get; make it nicer, growing as you bring fish.
+- [ ] Choice of pet.
