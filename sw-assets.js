@@ -101,6 +101,7 @@ self.SW_ASSETS = [
  "src/ui/hud.js",
  "src/ui/icons.js",
  "src/ui/index.js",
+ "src/ui/install-gate.js",
  "src/ui/intro.js",
  "src/ui/labels.js",
  "src/ui/meter.js",

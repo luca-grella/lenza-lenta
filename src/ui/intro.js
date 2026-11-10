@@ -3,7 +3,7 @@
 import { h, onTap, fmt } from './dom.js';
 import { icon } from './icons.js';
 
-const HAT = `<svg class="logo-hat" viewBox="0 0 220 120" aria-hidden="true">
+export const HAT = `<svg class="logo-hat" viewBox="0 0 220 120" aria-hidden="true">
   <defs><linearGradient id="hat-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8dc8c"/><stop offset="1" stop-color="#e0b55a"/></linearGradient></defs>
   <path d="M150 62 C 175 40, 200 60, 206 92" fill="none" stroke="#fff6e4" stroke-width="2" stroke-dasharray="4 4" opacity=".9"/>
   <ellipse cx="110" cy="84" rx="100" ry="24" fill="url(#hat-g)" stroke="#4b3221" stroke-width="4"/>

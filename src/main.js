@@ -85,6 +85,9 @@ function glue(ctx) {
 }
 
 async function boot() {
+  // [10 nov] phone browsers get the install page instead of the game (src/ui/install-gate.js)
+  try { const g = await import('./ui/install-gate.js'); if (g.shouldGate()) { g.showInstallPage(); return; } }
+  catch (e) { console.warn('[boot] install gate', e); }
   const ctx = await createCore({ canvasParent: document.getElementById('game') || document.body });
   setBootMessage(ctx.i18n.t('core.loading'));
 

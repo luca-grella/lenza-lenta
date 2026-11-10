@@ -1,6 +1,6 @@
 // Lenza Lenta — service worker: offline precache, cache-first, update on reload.
 // Bump CACHE on every release (and run `node tools/sw-assets.mjs` if files were added/removed).
-const CACHE = 'lenza-lenta-v2-r20';
+const CACHE = 'lenza-lenta-v2-r21';
 // The same game is served from /lenza-lenta/ and from the /lenza-lenta-v2/ mirror, on the same origin: each copy keeps
 // its own cache (name + folder), so a release of one never deletes the cache the other is still using.
 const HERE = new URL('./', location).pathname;
