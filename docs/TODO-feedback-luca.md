@@ -118,13 +118,20 @@ Da fare alla ripresa, in ordine:
 - [ ] Dal controllo a 30 fps: interfaccia che si nasconde da sola mentre si esplora e ricompare quando serve; cartellini agganciati agli oggetti vicini; nel "Raccogli" i pesci volano uno alla volta nella cesta e la stuoia si arrotola dal lato lontano verso il pescatore; movimenti di camera continui (gru dal primo piano alla vista larga, discesa lungo la cascata, giro intorno al capanno).
 
 ## Feedback 10 nov (message written 9 nov evening, checked against r14)
-Already done, removed from the list: standing up from the dock edge (r14, filmed from the side; still to try on the
-iPhone) and fishing from the boat (already there: on the boat the big button says "Cast", probe tmp/probe/boatfish.mjs).
+Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
+- [ ] Fishing from the boat: it works by touch (get on, row, cast, bite, catch: tools/scenarios/boat-fish.mjs), BUT after
+  letting go of the stick the boat glides for ~4 s (speed decays at 0.8/s) and the big button stays EMPTY until speed
+  < 0.6 (fishing.js `onBoat() && speed > 0.6 → null`). That is why Luca could not fish. Fix: brake faster when the stick
+  is released and/or show "Cast" earlier; keep the scenario's glide check (it logs an issue if casting needs > 1 s).
+- [ ] Standing up from the dock edge (r14): re-check by touch (stand up with the stick, as a player does) on several
+  docks: `EDGE=<id> STICK=1 node tools/play.mjs tools/scenarios/stand-up-side.mjs --port 8843`. The STICK=1 run did not
+  finish in 400 s (probably joyDown blocked while seated in the close-up): look into it first.
 
 - [ ] Repo: one repo `lenza-lenta` like Valmora: v2 at the root, renamed without the "2"; v1 in `archivio/v1/` with its
   history. Unlike Valmora the game stays online (repo public, Pages on).
 - [ ] Boat: goes through the docks and the other boats (it only checks water depth, `env.boatWaterOK`).
-- [ ] Boat: the button to get on is hard to get (next to the boat on the dock the big button says "Cast", not "Get on").
+- [ ] Boat: the button to get on is hard to get (next to the boat on the dock the big button says "Cast" and "Get on"
+  is on the small side button; scenario boat-fish.mjs fails this check).
   Bring Biscotto on the boat; nothing (cat, mat, bucket) sinking into the hull.
 - [ ] Map: the pin often does not point to the right place; teal "Extra" pins where there is nothing (r9 side goals).
 - [ ] Map: every place tappable, with its name (and what you do there).
