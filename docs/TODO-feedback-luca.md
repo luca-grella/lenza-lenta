@@ -135,11 +135,12 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
 - [~] (10 nov, r18: "Get on" has its own fixed small button, scenario boat-fish.mjs) Boat: the button to get on is hard to get (next to the boat on the dock the big button says "Cast" and "Get on"
   is on the small side button; scenario boat-fish.mjs fails this check).
   Bring Biscotto on the boat; nothing (cat, mat, bucket) sinking into the hull.
-- [ ] Map: the pin often does not point to the right place; teal "Extra" pins where there is nothing (r9 side goals).
+- [x] (10 nov, r20: unexplained quests point to the villager who tells you, side pins show the quest name, driftwood
+  only where you can walk; tools/scenarios/map-goals.mjs) Map: the pin often does not point to the right place; teal "Extra" pins where there is nothing (r9 side goals).
 - [ ] Map: every place tappable, with its name (and what you do there).
 - [x] (10 nov, r16: on the boat the map uses the boat's position) Map: the "you are here" arrow goes wild on the boat.
 - [~] (10 nov, r18: big = fishing, 4 fixed small buttons talk/hands/fish/place, scenarios talk-choices, round2-mat,
-  boat-fish; still to do: pack up mat and bucket) Buttons: big button only for fishing (the nearest action takes it only where you cannot fish); smaller buttons
+  boat-fish; pack up mat and bucket on the hands button, r22, mat-pack.mjs) Buttons: big button only for fishing (the nearest action takes it only where you cannot fish); smaller buttons
   around it for talk, pick up, pet, show fish, clean fish, without swapping places. New: pack up the mat and the bucket.
 - [ ] Cooking: show the cooking action (animation at the fire/stove).
 - [ ] Camera: shot changes feel random; use them always and only for given actions.
@@ -150,8 +151,13 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
 - [x] (10 nov, r17) Objective card at the top: small icon while walking and playing, expands on tap (now it covers part of the screen).
 - [ ] Villagers: check they do not glitch visually, sink or walk through things, and move around with a purpose.
   [x] (10 nov, r18) Shopkeepers: the shop action gets its own button; talking to them is only talking.
-- [ ] Aquarium: you walk through it and the button is hard to get; make it nicer, growing as you bring fish.
+- [~] (10 nov: walking into it by stick from the door and the four sides is blocked, tools/scenarios/aquarium-walk.mjs;
+  could not reproduce, ask Luca where; button: the place slot always says "Acquario" at the door, r18; still to do: make
+  it grow as you bring fish) Aquarium: you walk through it and the button is hard to get; make it nicer, growing as you bring fish.
 - [ ] Choice of pet.
+- [x] (11 nov, r21) Phone browsers: an install page in the game's look (iPhone/Android steps); on phones the game runs only
+  as the installed app, desktop browsers play (src/ui/install-gate.js, tools/check-gate.mjs; ?debug or ?play skip it).
+- [x] (10 nov, r19) No more "2" anywhere: title logo, save codes LENZA: (old LENZA2: still import).
 - [ ] Vibration on the iPhone: check it is really felt (never tried on a real iPhone). In code it fires on bite, strike,
   reel ticks and landing (fishing.js, ui/index.js), but iOS Safari has no navigator.vibrate: the `<input switch>` trick
   in ui/pwa.js only works inside a touch, so the bite (no finger on screen) is probably silent. Ask Luca what he feels
