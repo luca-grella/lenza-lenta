@@ -269,7 +269,8 @@ export async function createPlay(o = {}) {
   fs.mkdirSync(out, { recursive: true });
   let speed = o.speed === undefined ? 1 : +o.speed;   // 1 = real time pacing; 0/Infinity = as fast as possible
 
-  const browser = await puppeteer.launch({
+  const browser = await puppeteer.launch({ timeout: 120000,   // a busy Mac can take >30 s to start Chrome
+   
     executablePath: CHROME, headless: o.headful ? false : 'new',
     protocolTimeout: 900000,   // the machine may be shared by several headless Chromes: a SwiftShader screenshot can take a minute
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--no-first-run', '--no-default-browser-check',
