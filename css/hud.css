@@ -28,6 +28,14 @@
 .goal-count { font-size: 12px; font-weight: 900; color: var(--leaf-d); font-variant-numeric: tabular-nums; }
 .goal.free .goal-title { font-weight: 800; color: var(--ink-2); font-size: 14.5px; }
 .goal.bump { animation: ui-pulse .55s ease; }
+/* folded goal: a round flag button (with n/count when the goal has steps) */
+.goal-mini { display: none; position: relative; }
+#ui .goal.mini { width: 46px; height: 46px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+#ui .goal.mini::after { inset: 3px; border-radius: 50%; }
+#ui .goal.mini > :not(.goal-mini) { display: none; }
+#ui .goal.mini .goal-mini { display: flex; }
+.goal-mini .ic { width: 22px; height: 22px; color: var(--coral-d); }
+.goal-mini b { position: absolute; top: -14px; left: 14px; font-size: 10.5px; font-weight: 900; line-height: 1; color: #fff; background: var(--leaf-d); border-radius: 8px; padding: 2px 5px; white-space: nowrap; }
 
 .buffs { display: flex; flex-wrap: wrap; gap: 5px; }
 .buff { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px 3px 4px; border-radius: 999px; font-size: 12px; font-weight: 800;

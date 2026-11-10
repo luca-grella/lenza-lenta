@@ -14,8 +14,18 @@ export function createHud(ui) {
   const goalText = h('div.goal-text');
   const goalBar = h('div.goal-bar', h('i'));
   const goalCount = h('span.goal-count');
-  goal.append(goalTag, goalTitle, goalText, h('div.goal-prog', goalBar, goalCount));
-  onTap(goal, () => { ui.sfx('ui_tap'); ui.sheet('quests'); });
+  // [10 nov] while you play the goal is a small flag button; it opens for a few seconds when the goal changes or
+  // when you tap it, and a tap on the open card shows the quest list
+  const goalMini = h('span.goal-mini');
+  goal.append(goalMini, goalTag, goalTitle, goalText, h('div.goal-prog', goalBar, goalCount));
+  let goalOpenT = 0, goalPending = 0;
+  const setGoalOpen = (on, ms = 6000) => {
+    clearTimeout(goalOpenT);
+    goal.classList.toggle('mini', !on);
+    if (on) goalOpenT = setTimeout(() => goal.classList.add('mini'), ms);
+  };
+  goal.classList.add('mini');
+  onTap(goal, () => { ui.sfx('ui_tap'); if (goal.classList.contains('mini')) setGoalOpen(true); else ui.sheet('quests'); });
 
   const clock = h('div.pill.clock', { role: 'img' });
   const clockIc = h('span.pill-ic');
@@ -58,8 +68,11 @@ export function createHud(ui) {
     const sig = g ? `${g.id}|${g.title}|${g.goal}|${g.n}|${g.count}|${ctx.i18n.lang}` : 'none|' + ctx.i18n.lang;
     if (sig === lastGoalSig) return;
     const prevId = lastGoalSig.split('|')[0], changed = lastGoalSig && prevId === String(g?.id);
+    const langOnly = lastGoalSig === '' && goal.dataset.seen;
     lastGoalSig = sig;
-    if (!g) { goalTitle.textContent = t('ui.hud.goal_free'); goalText.textContent = ''; goal.classList.add('no-prog'); goal.classList.add('free'); return; }
+    goal.dataset.seen = '1';
+    if (!langOnly) goalPending = 2.4;   // a new goal or some progress: shown (then folded) once no dialogue is on screen
+    if (!g) { goalMini.innerHTML = icon('flag'); goalTitle.textContent = t('ui.hud.goal_free'); goalText.textContent = ''; goal.classList.add('no-prog'); goal.classList.add('free'); return; }
     goal.classList.remove('free');
     goalTitle.textContent = g.title || g.goal;
     goalText.textContent = g.title ? g.goal : '';
@@ -67,6 +80,7 @@ export function createHud(ui) {
     goal.classList.toggle('no-prog', !showProg);
     goalBar.firstChild.style.width = Math.round(100 * Math.min(1, g.n / g.count)) + '%';
     goalCount.textContent = t('ui.quests.progress', { n: Math.min(g.n, g.count), count: g.count });
+    goalMini.innerHTML = icon('flag') + (showProg ? `<b>${Math.min(g.n, g.count)}/${g.count}</b>` : '');
     if (changed) { goal.classList.remove('bump'); void goal.offsetWidth; goal.classList.add('bump'); }
   }
 
@@ -102,6 +116,11 @@ export function createHud(ui) {
 
   // smooth coin counter
   function tick(dt) {
+    // the new goal waits for the end of the conversation (and the "objective complete" banner) before it opens
+    if (goalPending > 0) {
+      if (ui.dialogs?.open || ui.sheets?.isOpen?.() || ui.intro?.open) goalPending = 2.4;
+      else if ((goalPending -= dt) <= 0) { goalPending = 0; setGoalOpen(true, 5000); }
+    }
     if (shownCoins === null || shownCoins === targetCoins) return;
     const d = targetCoins - shownCoins;
     const step = Math.sign(d) * Math.max(1, Math.abs(d) * Math.min(1, dt * 7));

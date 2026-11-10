@@ -90,14 +90,15 @@ export function createQuests(ctx, env) {
   function say(npc, lines, opts = {}) {
     return new Promise(resolve => { queue.push({ npc, lines: lines.filter(Boolean), resolve, ...opts }); });
   }
-  let dialogOpen = false;
+  let dialogOpen = false, holdT = 0;
   ctx.bus.on('ui:dialog', e => { dialogOpen = !!e?.open; });
   async function runQueue() {
-    if (running || !queue.length) return;
+    if (running || !queue.length || holdT > 0) return;
     if (env.uiOpen() || sys().fishing?.busy || env.busy.sleep) return;
     running = true;
     const d = queue.shift();
     try { d.before?.(); } catch (e) { console.warn('[quests] before', e); }
+    if (d.hold) holdT = d.hold;   // game seconds before the next queued dialogue/toast
     if (!d.lines.length) { d.resolve?.(); running = false; return; }
     try {
       const n = d.npc && d.npc !== 'letter' && d.npc !== 'cat' ? env.npc(d.npc) : null;
@@ -139,8 +140,11 @@ export function createQuests(ctx, env) {
     if (kind === 'story') Q().story = Math.max(Q().story, story().indexOf(step) + 1);
     if (kind === 'side') Q().side[step.id] = 'done';
     ctx.save.commit();
-    // The state changes now; the celebration waits until no sheet (e.g. the catch card) is open.
-    say(step.npc, [...(step.dialogKeys?.done || [])], {
+    // The state changes now. [10 nov] The conversation with the villager plays out first; only when it is over the
+    // "objective complete" banner comes, and the next objective waits a moment (hold) so the two never mix.
+    say(step.npc, [...(step.dialogKeys?.done || [])]);
+    say(null, [], {
+      hold: 2.6,
       before() {
         env.sfx('quest_done');
         if (!env.realUI()) env.banner('sys.quest.done', step.titleKey);
@@ -295,6 +299,7 @@ export function createQuests(ctx, env) {
       return true;
     },
     update(dt) {
+      if (holdT > 0) holdT -= dt;
       quests._tickStart?.(dt);
       runQueue();
       // safety net: never leave the camera stuck in a close-up once no dialogue is on screen
