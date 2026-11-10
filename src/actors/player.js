@@ -222,7 +222,10 @@ export function init(ctx) {
     if (!seated || seated === 'boat') { if (state === 'sleep') { state = 'idle'; } return Promise.resolve(true); }
     ch.animator.stopUpper(0.2);
     const back = seatBack;
-    if (back) settle = { from: obj.position.clone(), to: new THREE.Vector3(back.x, groundY(back.x, back.z), back.z), t: -0.25, dur: 0.75 };
+    // [10 nov] from a dock edge the legs come back up over the edge: without a lift they swept through the planks
+    // ("sprofonda" when standing up). The body rises in a short arc while it slides back onto the deck.
+    const edge = seated === 'edge';
+    if (back) settle = { from: obj.position.clone(), to: new THREE.Vector3(back.x, groundY(back.x, back.z), back.z), t: edge ? 0 : -0.25, dur: 0.75, arc: edge ? 0.3 : 0 };
     const p = play('stand_up', { fade: 0.2, _auto: true });
     return p.then(() => {
       seated = null; state = 'idle'; seatBack = null;
@@ -484,6 +487,7 @@ export function init(ctx) {
       settle.t += dt;
       const k = Math.max(0, Math.min(1, settle.t / settle.dur)), e = k * k * (3 - 2 * k);
       obj.position.lerpVectors(settle.from, settle.to, e);
+      if (settle.arc) obj.position.y += settle.arc * Math.sin(Math.PI * k);
       if (k >= 1) settle = null;
     }
     // safety net: seated on a bench/edge with nobody (Systems) owning the stand-up, the stick stands up
