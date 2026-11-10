@@ -119,34 +119,37 @@ Da fare alla ripresa, in ordine:
 
 ## Feedback 10 nov (message written 9 nov evening, checked against r14)
 Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
-- [ ] Fishing from the boat: it works by touch (get on, row, cast, bite, catch: tools/scenarios/boat-fish.mjs), BUT after
+- [x] (10 nov, r16) Fishing from the boat: it works by touch (get on, row, cast, bite, catch: tools/scenarios/boat-fish.mjs), BUT after
   letting go of the stick the boat glides for ~4 s (speed decays at 0.8/s) and the big button stays EMPTY until speed
   < 0.6 (fishing.js `onBoat() && speed > 0.6 → null`). That is why Luca could not fish. Fix: brake faster when the stick
   is released and/or show "Cast" earlier; keep the scenario's glide check (it logs an issue if casting needs > 1 s).
-- [ ] Standing up from the dock edge (r14): re-check by touch (stand up with the stick, as a player does) on several
+- [x] (10 nov) Standing up from the dock edge (r14): re-checked: the same 0.3 m arc with the stick and on the village dock
+  (height trace); side view only on the home dock. Old note: re-check by touch (stand up with the stick, as a player does) on several
   docks: `EDGE=<id> STICK=1 node tools/play.mjs tools/scenarios/stand-up-side.mjs --port 8843`. The STICK=1 run did not
   finish in 400 s (probably joyDown blocked while seated in the close-up): look into it first.
 
 - [ ] Repo: one repo `lenza-lenta` like Valmora: v2 at the root, renamed without the "2"; v1 in `archivio/v1/` with its
   history. Unlike Valmora the game stays online (repo public, Pages on).
-- [ ] Boat: goes through the docks and the other boats (it only checks water depth, `env.boatWaterOK`).
-- [ ] Boat: the button to get on is hard to get (next to the boat on the dock the big button says "Cast" and "Get on"
+- [x] (10 nov, r16: hull ends + centre checked against the 'boat' colliders, also when turning; pushes off instead of
+  swinging into the dock; tools/scenarios/boat-bump.mjs) Boat: goes through the docks and the other boats (it only checks water depth, `env.boatWaterOK`).
+- [~] (10 nov, r18: "Get on" has its own fixed small button, scenario boat-fish.mjs) Boat: the button to get on is hard to get (next to the boat on the dock the big button says "Cast" and "Get on"
   is on the small side button; scenario boat-fish.mjs fails this check).
   Bring Biscotto on the boat; nothing (cat, mat, bucket) sinking into the hull.
 - [ ] Map: the pin often does not point to the right place; teal "Extra" pins where there is nothing (r9 side goals).
 - [ ] Map: every place tappable, with its name (and what you do there).
-- [ ] Map: the "you are here" arrow goes wild on the boat.
-- [ ] Buttons: big button only for fishing (the nearest action takes it only where you cannot fish); smaller buttons
+- [x] (10 nov, r16: on the boat the map uses the boat's position) Map: the "you are here" arrow goes wild on the boat.
+- [~] (10 nov, r18: big = fishing, 4 fixed small buttons talk/hands/fish/place, scenarios talk-choices, round2-mat,
+  boat-fish; still to do: pack up mat and bucket) Buttons: big button only for fishing (the nearest action takes it only where you cannot fish); smaller buttons
   around it for talk, pick up, pet, show fish, clean fish, without swapping places. New: pack up the mat and the bucket.
 - [ ] Cooking: show the cooking action (animation at the fire/stove).
 - [ ] Camera: shot changes feel random; use them always and only for given actions.
 - [ ] Dolphins: show them with a change of shot (see Feedback 3 nov, sightings).
 - [ ] Fishing line goes through objects (e.g. on the cliff).
-- [ ] Objective done: do not swing the camera to the next objective right away; if it means talking to someone,
+- [x] (10 nov, r17: dialogue, then banner, then the new goal; scenario goal-hud.mjs) Objective done: do not swing the camera to the next objective right away; if it means talking to someone,
   finish the conversation calmly, then say the objective is complete.
-- [ ] Objective card at the top: small icon while walking and playing, expands on tap (now it covers part of the screen).
+- [x] (10 nov, r17) Objective card at the top: small icon while walking and playing, expands on tap (now it covers part of the screen).
 - [ ] Villagers: check they do not glitch visually, sink or walk through things, and move around with a purpose.
-  Shopkeepers: the shop action gets its own button; talking to them is only talking (r11 put the shop in the dialogue).
+  [x] (10 nov, r18) Shopkeepers: the shop action gets its own button; talking to them is only talking.
 - [ ] Aquarium: you walk through it and the button is hard to get; make it nicer, growing as you bring fish.
 - [ ] Choice of pet.
 - [ ] Vibration on the iPhone: check it is really felt (never tried on a real iPhone). In code it fires on bite, strike,
