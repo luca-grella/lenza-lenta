@@ -149,3 +149,7 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
   Shopkeepers: the shop action gets its own button; talking to them is only talking (r11 put the shop in the dialogue).
 - [ ] Aquarium: you walk through it and the button is hard to get; make it nicer, growing as you bring fish.
 - [ ] Choice of pet.
+- [ ] Vibration on the iPhone: check it is really felt (never tried on a real iPhone). In code it fires on bite, strike,
+  reel ticks and landing (fishing.js, ui/index.js), but iOS Safari has no navigator.vibrate: the `<input switch>` trick
+  in ui/pwa.js only works inside a touch, so the bite (no finger on screen) is probably silent. Ask Luca what he feels
+  at each moment; if the bite is silent, real haptics need the Capacitor app (optional point, ~3-4%).
