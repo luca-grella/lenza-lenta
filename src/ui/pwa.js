@@ -32,7 +32,7 @@ export function installGestureGuards() {
 }
 
 /**
- * Register sw.js (relative URL so it works under /lenza-lenta-v2/). Skipped in ?debug and on localhost unless ?sw.
+ * Register sw.js (relative URL so it works under /lenza-lenta/ and the /lenza-lenta-v2/ mirror). Skipped in ?debug and on localhost unless ?sw.
  * onUpdate() is called when a new version took control (the old page keeps running until reloaded).
  */
 export function registerServiceWorker({ params, onUpdate } = {}) {

@@ -1,11 +1,15 @@
-// Lenza Lenta 2 — service worker: offline precache, cache-first, update on reload.
+// Lenza Lenta — service worker: offline precache, cache-first, update on reload.
 // Bump CACHE on every release (and run `node tools/sw-assets.mjs` if files were added/removed).
-const CACHE = 'lenza-lenta-v2-r14';
+const CACHE = 'lenza-lenta-v2-r15';
+// The same game is served from /lenza-lenta/ and from the /lenza-lenta-v2/ mirror, on the same origin: each copy keeps
+// its own cache (name + folder), so a release of one never deletes the cache the other is still using.
+const HERE = new URL('./', location).pathname;
+const NAME = CACHE + HERE;
 importScripts('./sw-assets.js'); // defines self.SW_ASSETS (generated list, the single source of truth)
 
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
-    const cache = await caches.open(CACHE);
+    const cache = await caches.open(NAME);
     // fetch with cache:'reload' so a new release never precaches stale HTTP-cached files
     await Promise.all((self.SW_ASSETS || []).map(async url => {
       try {
@@ -19,7 +23,10 @@ self.addEventListener('install', event => {
 
 self.addEventListener('activate', event => {
   event.waitUntil((async () => {
-    for (const key of await caches.keys()) if (key.startsWith('lenza-lenta-v2') && key !== CACHE) await caches.delete(key);
+    for (const key of await caches.keys()) {
+      const mine = key.startsWith('lenza-lenta-v2') && (key.endsWith(HERE) || !key.includes('/')) && key !== NAME;
+      if (mine || key.startsWith('lenza-lenta-v1')) await caches.delete(key);   // v1 is archived and switched off
+    }
     await self.clients.claim();
   })());
 });
@@ -29,8 +36,9 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
+  if (url.pathname.startsWith(HERE + 'archivio/')) return;   // archived versions are not part of this app
   event.respondWith((async () => {
-    const cache = await caches.open(CACHE);
+    const cache = await caches.open(NAME);
     // navigations: serve the cached shell (offline) — the query string (?debug, ?quality=) is ignored
     const hit = await cache.match(req, { ignoreSearch: req.mode === 'navigate' }) ||
       (req.mode === 'navigate' ? await cache.match('./') : undefined);

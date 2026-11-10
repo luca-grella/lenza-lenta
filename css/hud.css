@@ -1,4 +1,4 @@
-/* Lenza Lenta 2 — HUD, touch controls, meters, world labels, notifications, dialogue, title screen. */
+/* Lenza Lenta — HUD, touch controls, meters, world labels, notifications, dialogue, title screen. */
 
 /* ───────────── layers & busy states ───────────── */
 #ui .l-hud, #ui .l-controls, #ui .l-world, #ui .l-meters { transition: opacity .35s ease; }

@@ -1,4 +1,4 @@
-# Lenza Lenta 2 — Game Design Document
+# Lenza Lenta — Game Design Document
 
 Cozy 3D fishing game in the browser, installable as an iPhone PWA. Successor of v1
 (https://luca-grella.github.io/lenza-lenta/, single file, kept untouched). Reference mood: the

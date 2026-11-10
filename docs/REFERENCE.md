@@ -2,7 +2,7 @@
 
 Video di 28 s (post di lemmedecode, "One person built a cozy fishing game with Claude Opus 5.5, Blender and Unity 6"),
 gioco Unity con grafica stilizzata e camera dall'alto. Il video non è nel repo (non è nostro): questa è la sua
-descrizione completa, scena per scena, con cosa Lenza Lenta 2 ha già e cosa manca.
+descrizione completa, scena per scena, con cosa Lenza Lenta ha già e cosa manca.
 
 ## Scene, in ordine
 
@@ -85,9 +85,9 @@ Dettagli che solo l'analisi completa ha mostrato:
 Interfaccia: minima. Obiettivo in alto a sinistra (icona tonda + testo + contatore), piccoli indicatori in alto a
 destra, in basso a sinistra l'esca attiva con icona e nome (Worm, Bread, Shrimp).
 
-## Confronto con Lenza Lenta 2
+## Confronto con Lenza Lenta
 
-| Elemento del video | Stato in Lenza Lenta 2 |
+| Elemento del video | Stato in Lenza Lenta |
 |---|---|
 | Cascata, laghetto, rocce, nebbia | Fatto |
 | Pini, palme, prati fioriti, massi | Fatto (densità e morbidezza delle chiome da migliorare) |

@@ -58,7 +58,7 @@ export function decode(text, maxVersion = 1) {
   return { ok: true, state: obj };
 }
 
-/** Enough of the schema to be sure this is a Lenza Lenta 2 save and not some other JSON. */
+/** Enough of the schema to be sure this is a Lenza Lenta save and not some other JSON. */
 export function looksLikeSave(o) {
   if (!isObj(o)) return false;
   const num = v => v === undefined || Number.isFinite(+v);

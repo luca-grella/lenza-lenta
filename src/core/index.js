@@ -1,4 +1,4 @@
-// Lenza Lenta 2 — Core. createCore() builds the engine every other module runs on and returns `ctx`.
+// Lenza Lenta — Core. createCore() builds the engine every other module runs on and returns `ctx`.
 //
 // Quick reference (details in the JSDoc typedefs below and in docs/ARCHITECTURE.md "Core API"):
 //   ctx.THREE, ctx.renderer, ctx.scene, ctx.camera, ctx.cameraRig, ctx.loop, ctx.bus, ctx.input,

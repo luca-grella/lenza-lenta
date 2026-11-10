@@ -1,4 +1,4 @@
-# Lenza Lenta 2 — Architecture & module contracts
+# Lenza Lenta — Architecture & module contracts
 
 Read docs/GDD.md first. This file is the contract between modules built in parallel by
 different people/agents. If you must deviate, keep the public names below working and write

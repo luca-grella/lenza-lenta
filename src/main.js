@@ -1,4 +1,4 @@
-// Lenza Lenta 2 — boot. Each later module is loaded with a dynamic import inside try/catch, so the
+// Lenza Lenta — boot. Each later module is loaded with a dynamic import inside try/catch, so the
 // game boots at any stage of development (missing or broken modules log a warning and are skipped).
 import { createCore } from './core/index.js';
 import { createCarriedLantern } from './integration/lantern.js';

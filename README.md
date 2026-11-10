@@ -1,6 +1,10 @@
-# Lenza Lenta 2
+# Lenza Lenta
 
 Un gioco di pesca 3D rilassante per il browser, installabile su iPhone come app (PWA).
+
+Si gioca su https://luca-grella.github.io/lenza-lenta/ . Lo stesso gioco resta anche su
+https://luca-grella.github.io/lenza-lenta-v2/ (copia sempre aggiornata, per chi l'ha installato da lì e non vuole
+perdere i salvataggi). La prima versione è in `archivio/v1/`, spenta.
 Sei appena arrivato a Porto Lento con la vecchia canna di bambù del nonno e una sua lettera:
 pesca, conosci gli abitanti del villaggio, fai amicizia con il gatto, ripara la barca, rema fino
 agli isolotti, esplora la grotta marina con la lanterna e riaccendi il faro. Alla fine ti aspettano

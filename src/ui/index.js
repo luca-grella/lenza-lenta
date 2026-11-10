@@ -1,4 +1,4 @@
-// Lenza Lenta 2 — App & UI. init(ctx) builds the whole interface on top of the 3D canvas and returns ctx.ui:
+// Lenza Lenta — App & UI. init(ctx) builds the whole interface on top of the 3D canvas and returns ctx.ui:
 //   toast(textOrKey, vars?, opts?)            banner(titleKey, subKeyOrText, opts?) → Promise
 //   dialog(npcId, lines[], choices?, opts?) → Promise<choice|null>
 //   sheet(name, data?) → Promise<result>      closeSheet(result?)   isOpen()   currentSheet
@@ -220,7 +220,7 @@ export async function init(ctx) {
   on('resize', layout);
   on('lang:change', () => {
     ui.hud.applyLang(); ui.meters.applyLang(); ui.labels.applyLang(); ui.controls.refresh(true); ui.sheets.applyLang(); ui.dialogs?.applyLang?.();
-    document.title = ctx.i18n.t('ui.title.name') + ' 2';
+    document.title = ctx.i18n.t('ui.title.name');
     requestAnimationFrame(layout);
   });
   on('quality:change', () => { /* nothing: core handles rendering */ });
@@ -337,7 +337,7 @@ export async function init(ctx) {
   // ── start-up flow ──
   ui.hud.applyLang();
   ui.controls.refresh(true);
-  document.title = ctx.i18n.t('ui.title.name') + ' 2';
+  document.title = ctx.i18n.t('ui.title.name');
   const skipIntro = ctx.isDebug && !ctx.params?.has('title') && !ctx.params?.has('intro');
   const showTips = !ctx.isDebug || ctx.params?.has('tips');
   function startTips() {

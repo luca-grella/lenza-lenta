@@ -1,4 +1,4 @@
-/* Lenza Lenta 2 — sheets (journal, map, shops, settings…) and their content. Sheets always fit the viewport:
+/* Lenza Lenta — sheets (journal, map, shops, settings…) and their content. Sheets always fit the viewport:
    the frame is capped to the safe area and only the body scrolls. */
 
 .sheet-host { position: absolute; inset: 0; pointer-events: none; }

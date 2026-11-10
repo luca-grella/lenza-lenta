@@ -1,4 +1,4 @@
-# Lenza Lenta 2 — Balance notes (Content)
+# Lenza Lenta — Balance notes (Content)
 
 Numbers live in `src/data/*.js`; this note explains the intent so other areas (Gameplay, UI) tune in
 the same direction. Re-check with `node --experimental-detect-module tmp/content/validate.mjs` (data
