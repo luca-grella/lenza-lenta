@@ -229,7 +229,8 @@ export function createQuests(ctx, env) {
     // [9 nov] the buttons say what they do (sell, buy, cook…) and each villager has their own goodbyes
     const byeKey = () => { const ks = [1, 2, 3].map(i => `sys.npc.bye.${npcId}.${i}`).filter(k => ctx.i18n?.has?.(k)); return pick(ks) || 'sys.npc.bye'; };
     const shopKey = () => (ctx.i18n?.has?.(`sys.npc.shop.${shopId}`) ? `sys.npc.shop.${shopId}` : 'sys.npc.see_shop');
-    const shopChoices = () => (shopId && sys().shops?.isOpen?.(shopId) ? [{ id: 'shop', labelKey: shopKey() }, { id: 'bye', labelKey: byeKey() }] : null);
+    // [10 nov] talking is only talking: the counter has its own button next to the talk button (Luca's choice)
+    const shopChoices = () => null; void shopKey; void byeKey;
     const toShop = choice => { if (choice === 'shop') sys().interact?.openShop?.(shopId); };
     if (step && step.npc === npcId && !Q().offered[step.id]) { toShop(await offer(step, shopChoices())); return; }
     for (const sq of D().sideQuests || []) {

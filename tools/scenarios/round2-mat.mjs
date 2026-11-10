@@ -63,11 +63,11 @@ export default async function (play) {
 
   // clean one from the side button (at the cast spot the big button keeps casting)
   await faceSea();
-  const alt = await play.waitFor(L => !document.querySelector('.alt-btn')?.classList.contains('hidden') && document.querySelector('.alt-btn')?.textContent, { timeout: 4 });
+  const alt = await play.waitFor(L => !document.querySelector('.slot-2')?.classList.contains('empty') && document.querySelector('.slot-2')?.textContent, { timeout: 4 });
   await play.log('side button:', alt);
   if (!alt) { await play.issue('no side button at the cast spot with fish on the mat'); return; }
   const before = await play.eval(() => window.__lenza.ctx.player.mat.fish.filter(f => f.clean).length);
-  await play.tapSel('.alt-btn');
+  await play.tapSel('.slot-2');
   // with different species on the mat a "which fish?" dialogue asks first: pick the first fish
   const asked = await play.waitFor(L => L.ctx.ui.isOpen?.() || document.querySelector('#ui')?.classList.contains('has-dialog'), { timeout: 2 });
   if (asked) await play.tapThroughDialogs({ firstWait: 1 });

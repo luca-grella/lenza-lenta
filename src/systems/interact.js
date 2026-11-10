@@ -17,7 +17,13 @@ export function createInteract(ctx, env) {
   const sys = () => ctx.systems || {};
   const custom = new Map();
   let current = null;
-  let secondary = null;  // a second, smaller choice next to the action button (sit on the dock edge while Cast is the main action)
+  let secondary = null;
+  // [10 nov] small buttons around the big one, each kind of action always in the same place (they never swap):
+  // 0 talk · 1 hands (pick, pet, greet/feed the cat, open, look) · 2 the fish on the mat · 3 the place (sit, stand,
+  // shop counter, cook, sleep, get on / off the boat)
+  let slots = [null, null, null, null];
+  const SLOT_OF = { talk: 0, pick: 1, pet: 1, feed_cat: 1, chest: 1, inspect: 1, use: 1, mat: 2,
+    sit: 3, stand: 3, shop: 3, sell: 3, donate: 3, cook: 3, sleep: 3, board: 3, leave_boat: 3 };  // a second, smaller choice next to the action button (sit on the dock edge while Cast is the main action)
   let sitting = null;   // {q, kind:'bench'|'edge', seated}
   let cooldown = 0;
   let poiCache = null, poiT = 0;
@@ -97,7 +103,6 @@ export function createInteract(ctx, env) {
             labelKey: n ? 'sys.act.donate' : 'sys.act.aquarium', labelVars: { n }, run: () => (n ? donate() : openShop('aquarium')) });
           continue;
         }
-        if (npcNear(q.shopId)) continue; // talking to the shopkeeper covers the counter
         if (q.shopId === 'pescheria') {
           const n = S().basket?.length || 0;
           out.push({ id: 'shop:pescheria', kind: 'sell', shopId: 'pescheria', d, at: q, priority: 2, icon: 'sell', labelKey: n ? 'sys.act.sell' : 'sys.act.shop_name', labelVars: { n, name: env.t('shop.pescheria.name') }, run: () => openShop('pescheria') });
@@ -275,6 +280,9 @@ export function createInteract(ctx, env) {
     /** Second, smaller choice for the UI (e.g. sit on the dock edge while the main button casts), or null. */
     get secondary() { return secondary; },
     runSecondary() { if (secondary?.run && cooldown <= 0) { cooldown = 0.35; const r = secondary.run; secondary = null; r(); return true; } return false; },
+    /** The four small buttons: [talk, hands, fish, place], each an action or null. */
+    get slots() { return slots; },
+    runSlot(i) { const s = slots[i]; if (s?.run && !s.disabled && cooldown <= 0) { cooldown = 0.35; slots = [null, null, null, null]; s.run(); return true; } return false; },
     /** 'bench' | 'edge' while seated (or walking to the seat), else null. */
     get sittingKind() { return sitting?.kind || null; },
     openShop, openCook, standUp,
@@ -285,7 +293,7 @@ export function createInteract(ctx, env) {
     update(dt) {
       poiT -= dt; cooldown -= dt;
       const fishing = sys().fishing;
-      secondary = null;
+      secondary = null; slots = [null, null, null, null];
       if (env.busy.sleep || env.uiOpen()) { current = null; return; }
       // [r2-gameplay] a mat chore is playing (lay, clean, bucket, show): the button skips it (the stick does too)
       if (sys().mat?.busy) {
@@ -312,7 +320,7 @@ export function createInteract(ctx, env) {
             ? label({ id: 'cast', kind: 'cast', icon: 'cast', hold: true, labelKey: 'sys.act.cast', run: () => {} })
             : label({ id: 'stand', kind: 'stand', icon: 'stand', labelKey: 'sys.act.stand', run: standUp });
           // casting from the seat: "Alzati" moves to the small side button (the stick stands up too)
-          if (castHere) secondary = label({ id: 'stand', kind: 'stand', icon: 'stand', labelKey: 'sys.act.stand', run: standUp });
+          if (castHere) secondary = slots[3] = label({ id: 'stand', kind: 'stand', icon: 'stand', labelKey: 'sys.act.stand', run: standUp });
           if ((input.move?.mag || 0) > 0.3 && cooldown <= 0) standUp();
           else if (!castHere && (input.action.down || input.pressed('interact')) && cooldown <= 0) { cooldown = 0.35; standUp(); }
           return;
@@ -321,28 +329,16 @@ export function createInteract(ctx, env) {
       const p = env.playerPos();
       const castOK = !!fishing?.aim && !fishing.aim.reason;
       const list = candidates(p);
-      const pick = choose(list, p, castOK);
+      // the big button is for fishing; only where you cannot fish it takes the best action around
+      const pick = castOK ? null : choose(list, p, false);
       if (pick) current = label(pick);
       else if (fishing?.aim) current = label({ id: 'cast', kind: 'cast', icon: 'cast', hold: true, labelKey: fishing.aim.reason === 'dark' ? 'sys.act.too_dark' : 'sys.act.cast', disabled: fishing.aim.reason === 'dark', run: () => {} });
       else current = null;
-      // casting is the main action but a seat (or a villager, a counter, the cat…) is right here: offer it on the
-      // small side button, so facing the sea never hides who/what you walked up to
-      let side = null;
-      if (current?.kind === 'cast') {
-        // the mat you just laid a fish on comes first (clean it / show it), then a seat
-        side = list.filter(e => e.kind === 'mat').sort((a, b) => b.priority - a.priority)[0]
-          || list.filter(e => e.kind === 'sit').sort((a, b) => a.d - b.d)[0]
-          || list.filter(e => e !== pick).sort((a, b) => (b.priority * 2 - b.d) - (a.priority * 2 - a.d))[0] || null;
-      } else if (current?.kind === 'mat') {
-        side = list.filter(e => e.kind === 'mat' && e.id !== current.id).sort((a, b) => b.priority - a.priority)[0] || null;
-      } else if (current && SIDE_FOR.has(current.kind)) {
-        // two villagers side by side (Rosa strolling with Marta at dusk), the cat next to Nonna Pina, a free seat next
-        // to Ettore: the runner-up goes on the side button (another villager first, then the cat, then a bench seat)
-        const others = list.filter(e => e.id !== current.id && !e.side && (e.kind === 'talk' || e.kind === 'pet' || e.kind === 'feed_cat' || (e.kind === 'sit' && e.seat === 'bench')));
-        const near = k => others.filter(k).sort((a, b) => a.d - b.d)[0];
-        side = near(e => e.kind === 'talk') || near(e => e.kind === 'pet' || e.kind === 'feed_cat') || near(e => e.kind === 'sit') || null;
-      }
-      secondary = side ? label({ ...side }) : null;
+      // everything else goes on its small button (best of each kind: the mat chore by priority, otherwise the nearest)
+      const rest = list.filter(e => e !== pick && SLOT_OF[e.kind] !== undefined)
+        .sort((x, y) => (y.priority * 2 - y.d) - (x.priority * 2 - x.d));
+      for (const e of rest) { const i = SLOT_OF[e.kind]; if (!slots[i]) slots[i] = label({ ...e }); }
+      secondary = slots.find(Boolean) || null;
       // run non-fishing actions on Space / action button tap, or E
       if (current && current.kind !== 'cast' && cooldown <= 0 && (input.action.down || input.pressed('interact'))) {
         cooldown = 0.35;

@@ -82,11 +82,16 @@ export function createControls(ui) {
   act.addEventListener('lostpointercapture', actUp);
 
   // ── side choice (a second, smaller action: e.g. "sit on the edge" while the big button casts) ──
-  const alt = h('button.alt-btn.round.paper-btn.hidden', { type: 'button' });
-  const altIc = h('span.alt-ic');
-  const altLabel = h('span.alt-label');
-  alt.append(altIc, h('span.alt-tag', altLabel));
-  onTap(alt, () => { if (ctx.systems?.interact?.runSecondary?.()) { ui.sfx('ui_tap'); ui.haptic(8); refresh(true); } });
+  // [10 nov] four small buttons above the bait, one per kind of action, always in the same place:
+  // talk · hands (pick, pet…) · the fish on the mat · the place (sit, shop counter, boat…). Empty ones keep their spot.
+  const slotBtns = [0, 1, 2, 3].map(i => {
+    const b = h(`button.alt-btn.slot-${i}.round.paper-btn.empty`, { type: 'button' });
+    b._ic = h('span.alt-ic'); b._label = h('span.alt-label');
+    b.append(b._ic, h('span.alt-tag', b._label));
+    onTap(b, () => { if (ctx.systems?.interact?.runSlot?.(i)) { ui.sfx('ui_tap'); ui.haptic(8); refresh(true); } });
+    return b;
+  });
+  const alt = slotBtns[0];
 
   // ── bait selector ──
   const bait = h('button.bait-btn.round.paper-btn', { type: 'button' });
@@ -126,7 +131,7 @@ export function createControls(ui) {
     selectBait(list[(i + 1) % list.length].id);
   }
 
-  el.append(zone, h('div.act-wrap', pop, h('div.act-side', alt, bait), act));
+  el.append(zone, h('div.act-wrap', pop, h('div.act-side', ...slotBtns, bait), act));
 
   // ── state refresh ──
   let lastSig = '', lastBait = '', lastAlt = '';
@@ -151,13 +156,17 @@ export function createControls(ui) {
       act.classList.toggle('hold', !!cur?.hold);
     }
     // side choice
-    const sec = ctx.systems?.interact?.secondary || null;
-    const secLabel = sec ? (sec.label || (sec.labelKey ? t(sec.labelKey, sec.labelVars) : '')) : '';
-    const asig = `${sec?.id || ''}|${secLabel}`;
+    const sl = ctx.systems?.interact?.slots || [];
+    const lab = s => (s ? (s.label || (s.labelKey ? t(s.labelKey, s.labelVars) : '')) : '');
+    const asig = slotBtns.map((b, i) => `${sl[i]?.id || ''}|${lab(sl[i])}`).join('/');
     if (asig !== lastAlt || force) {
       lastAlt = asig;
-      alt.classList.toggle('hidden', !sec);
-      if (sec) { altIc.innerHTML = icon(hasIcon(sec.icon) ? sec.icon : 'hand'); altLabel.textContent = secLabel; alt.setAttribute('aria-label', secLabel); }
+      slotBtns.forEach((b, i) => {
+        const s = sl[i];
+        b.classList.toggle('empty', !s);
+        if (s) { b._ic.innerHTML = icon(hasIcon(s.icon) ? s.icon : 'hand'); b._label.textContent = lab(s); b.setAttribute('aria-label', lab(s)); }
+        else b._label.textContent = '';
+      });
     }
     // bait
     const b = A.equipped('bait') || 'bait_worm';

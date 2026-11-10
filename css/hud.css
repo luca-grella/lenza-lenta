@@ -154,7 +154,9 @@ button.pill:active { transform: translateY(2px); }
 #ui.compact .alt-btn { width: 48px; height: 48px; }
 #ui.compact .alt-ic .ic { width: 28px; height: 28px; }
 #ui.compact .act-side { gap: 8px; margin-bottom: 18px; }
-#ui.reeling .alt-btn, #ui.busy .alt-btn { display: none; }
+#ui.reeling .alt-btn, #ui.busy .alt-btn { visibility: hidden; }
+/* an empty slot keeps its place, so a button never jumps to another spot */
+.alt-btn.empty { visibility: hidden; pointer-events: none !important; animation: none; }
 .bait-btn { position: relative; width: 60px; height: 60px; margin-bottom: 4px; }
 .bait-ic .ic { width: 38px; height: 38px; }
 .bait-n { position: absolute; right: -7px; bottom: -6px; min-width: 25px; height: 23px; padding: 0 6px; border-radius: 12px; display: flex; align-items: center; justify-content: center;

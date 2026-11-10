@@ -14,18 +14,19 @@ export default async function (play) {
   await play.step(30);
   await play.tapThroughDialogs?.({ firstWait: 0.3 });
   const btns = async () => play.eval(() => ({
-    big: document.querySelector('.act')?.textContent?.trim(), side: [...document.querySelectorAll('.alt-btn:not(.hidden)')].map(b => b.textContent.trim()),
-    cur: window.__lenza.ctx.systems.interact.current?.kind, sec: window.__lenza.ctx.systems.interact.secondary?.kind }));
+    big: document.querySelector('.act')?.textContent?.trim(), side: [...document.querySelectorAll('.alt-btn:not(.empty)')].map(b => b.textContent.trim()),
+    cur: window.__lenza.ctx.systems.interact.current?.kind, sec: window.__lenza.ctx.systems.interact.slots?.[3]?.kind }));
   let b = await btns();
   await play.log('next to the boat on the dock:', JSON.stringify(b), JSON.stringify(b0));
   await play.shot('dock-next-to-boat');
   const boardBig = b.cur === 'board', boardSide = b.sec === 'board';
-  await play.expect(boardBig, 'next to the boat the BIG button says get on', b);
+  // [10 nov] the big button is for fishing: 'Get on' has its own fixed small button (place slot)
+  await play.expect(boardBig || boardSide, 'next to the boat a button says get on (place slot)', b);
   if (boardBig) await play.tapSel('.act', { hold: 0.06, after: 0.1 });
-  else if (boardSide) await play.tapSel('.alt-btn');
+  else if (boardSide) await play.tapSel('.slot-3');
   else { // walk right up to the boat and look again
     await play.joy(-0.6, 0, 0.5); b = await btns(); await play.log('closer:', JSON.stringify(b));
-    if (b.cur === 'board') await play.tapSel('.act', { hold: 0.06, after: 0.1 }); else if (b.sec === 'board') await play.tapSel('.alt-btn');
+    if (b.cur === 'board') await play.tapSel('.act', { hold: 0.06, after: 0.1 }); else if (b.sec === 'board') await play.tapSel('.slot-3');
   }
   const on = await play.waitFor(L => L.ctx.systems.boat.active, { timeout: 4 });
   await play.expect(!!on, 'on the boat after tapping the button');
