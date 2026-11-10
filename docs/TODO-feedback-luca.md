@@ -93,7 +93,7 @@ Non provati qui (limiti headless): margini safe-area, audio e vibrazione, il fog
 - [x] (10 nov, r10) Nome del personaggio scelto all'inizio: i paesani e i testi del gioco lo chiamano per nome (IT/EN), modificabile dalle Impostazioni; salvataggi vecchi chiedono il nome al primo avvio senza perdere i progressi.
 - [ ] Scelta maschio/femmina all'inizio: modello femminile del pescatore (corpo, capelli, vestiti; stesso scheletro e stesse animazioni), testi declinati al genere giusto in italiano (pescatore/pescatrice, benvenuto/benvenuta…), modificabile dopo; salvataggi vecchi restano maschio.
 
-- [ ] Tasti delle risposte nei dialoghi con i paesani da rivedere tutti (dialog.js + testi in i18n), Luca segnala tutti e quattro i problemi:
+- [x] (10 nov, r11) Tasti delle risposte nei dialoghi con i paesani da rivedere tutti (dialog.js + testi in i18n), Luca segnala tutti e quattro i problemi:
   - non si capisce cosa fa il tasto: ogni scelta deve dire chiaramente cosa succede ("Compra l'esca (20 monete)", "Accetta la missione", "Non ora");
   - testi tagliati o sovrapposti: i tasti vanno a capo bene, non escono dal riquadro e non si coprono, su 390x844 e 844x390, in IT e in EN;
   - lingua mista o codici: niente inglese nella versione italiana (e viceversa), niente segnaposto tipo {n} o chiavi tecniche; controllo automatico su tutte le chiavi usate nei dialoghi;

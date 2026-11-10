@@ -14,7 +14,15 @@ export function createDialog(ui) {
   let chain = Promise.resolve();
   let cur = null; // {resolve, lines, i, text, shown, typing, choices, node...}
 
-  const lineText = l => {
+  // [9 nov] never show a code to the player: an unfilled {placeholder} or a raw i18n key is logged (tests fail on it)
+  // and the placeholder is dropped as a last resort
+  const tidy = s => {
+    s = String(s ?? '');
+    if (/\{\w+\}/.test(s) || /^[a-z]+(\.[a-z0-9_]+){2,}$/.test(s)) console.warn('[dialog] untranslated text:', s);
+    return s.replace(/\s*\{\w+\}/g, '');
+  };
+  const lineText = l => tidy(lineRaw(l));
+  const lineRaw = l => {
     if (l === null || l === undefined) return '';
     if (typeof l === 'string') return ctx.i18n.has(l) ? t(l) : l;
     if (l.text) return l.text;
@@ -22,7 +30,8 @@ export function createDialog(ui) {
     return String(l);
   };
   // choices: 'key' | {label | text | key + vars | labelKey + labelVars (Systems' shape) | id}
-  const choiceText = c => (typeof c === 'string' ? (ctx.i18n.has(c) ? t(c) : c)
+  const choiceText = c => tidy(choiceRaw(c));
+  const choiceRaw = c => (typeof c === 'string' ? (ctx.i18n.has(c) ? t(c) : c)
     : c.label || c.text || (c.key || c.labelKey ? t(c.key || c.labelKey, c.vars || c.labelVars) : String(c.id ?? '')));
 
   function dialog(npcId, lines = [], choices = null, opts = {}) {

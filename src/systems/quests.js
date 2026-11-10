@@ -222,7 +222,10 @@ export function createQuests(ctx, env) {
     // [Fix] a shopkeeper who gives you a task still offers the counter at the end ("Al mercato!": Gino's first
     // talk used to end without "Vediamo cosa c'è", so you had to talk to him twice to sell)
     const shopId = npcData.shop;
-    const shopChoices = () => (shopId && sys().shops?.isOpen?.(shopId) ? [{ id: 'shop', labelKey: 'sys.npc.see_shop' }, { id: 'bye', labelKey: 'sys.npc.bye' }] : null);
+    // [9 nov] the buttons say what they do (sell, buy, cook…) and each villager has their own goodbyes
+    const byeKey = () => { const ks = [1, 2, 3].map(i => `sys.npc.bye.${npcId}.${i}`).filter(k => ctx.i18n?.has?.(k)); return pick(ks) || 'sys.npc.bye'; };
+    const shopKey = () => (ctx.i18n?.has?.(`sys.npc.shop.${shopId}`) ? `sys.npc.shop.${shopId}` : 'sys.npc.see_shop');
+    const shopChoices = () => (shopId && sys().shops?.isOpen?.(shopId) ? [{ id: 'shop', labelKey: shopKey() }, { id: 'bye', labelKey: byeKey() }] : null);
     const toShop = choice => { if (choice === 'shop') sys().interact?.openShop?.(shopId); };
     if (step && step.npc === npcId && !Q().offered[step.id]) { toShop(await offer(step, shopChoices())); return; }
     for (const sq of D().sideQuests || []) {
