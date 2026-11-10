@@ -92,8 +92,8 @@ export function createAdapter(ctx) {
       return S().aquarium || {};
     },
     catFriend() { return !!(api.flags().cat_friend || (S().cat?.friend || 0) >= 1 || ctx.creatures?.cat?.friendly); },
-    playerPos() { return ctx.player?.position || ctx.player?.object?.position || ctx.cameraRig?.followed?.position || null; },
-    playerFacing() { return ctx.player?.facing ?? ctx.player?.object?.rotation?.y ?? 0; },
+    playerPos() { const b = ctx.systems?.boat; if (b?.active) return b.position; return ctx.player?.position || ctx.player?.object?.position || ctx.cameraRig?.followed?.position || null; },
+    playerFacing() { const b = ctx.systems?.boat; if (b?.active) return b.heading; return ctx.player?.facing ?? ctx.player?.object?.rotation?.y ?? 0; },
 
     /** Active buffs [{stat, mult, hoursLeft}] (Systems or save). */
     buffs() {

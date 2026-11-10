@@ -264,6 +264,7 @@ export function createBoat(ctx, env, fx) {
       t0 = t;
       if (!root.visible && !active) return;
       const input = ctx.input;
+      const prevHeading = heading;
       if (active && !fishingMode && !sys().fishing?.busy && !env.uiOpen()) {
         const m = input.move;
         const mag = m.mag || 0;
@@ -279,7 +280,8 @@ export function createBoat(ctx, env, fx) {
         heading += turnRate * dt;
         const vmax = 3.4 * levelSpeed();
         const target = thrust * vmax;
-        speed += (target - speed) * Math.min(1, dt * (target > speed ? 0.9 : 0.45));
+        // stick released: the oars brake (was 0.45/s: ~4 s of gliding with no cast button)
+        speed += (target - speed) * Math.min(1, dt * (target > speed ? 0.9 : mag > 0.08 ? 0.45 : 1.6));
         // strokes
         if (mag > 0.08) {
           const prev = strokePh;
@@ -295,6 +297,20 @@ export function createBoat(ctx, env, fx) {
         turnRate += (0 - turnRate) * Math.min(1, dt * 2);
         heading += turnRate * dt;
       }
+      // turning in place must not swing the bow or the stern into a dock, a moored boat or the shallows
+      if (heading !== prevHeading) {
+        const endsOK = hh => [1, -1].every(s => env.boatWaterOK(pos.x + Math.sin(hh) * LEN * s, pos.z + Math.cos(hh) * LEN * s));
+        if (!endsOK(heading) && endsOK(prevHeading)) {
+          // push off: slide the hull a few cm to wherever both ends are clear (like a hand on the dock), else don't turn
+          let off = null;
+          for (let k = 0; k < 8 && !off; k++) {
+            const a = k / 8 * Math.PI * 2, dx = Math.sin(a) * 0.12, dz = Math.cos(a) * 0.12;
+            const ok = [1, -1].every(s => env.boatWaterOK(pos.x + dx + Math.sin(heading) * LEN * s, pos.z + dz + Math.cos(heading) * LEN * s));
+            if (ok && env.boatWaterOK(pos.x + dx, pos.z + dz)) off = [dx, dz];
+          }
+          if (off) { pos.x += off[0]; pos.z += off[1]; } else { heading = prevHeading; turnRate = 0; }
+        }
+      }
       // move (only on water deep enough)
       if (Math.abs(speed) > 0.001) {
         fwd.set(Math.sin(heading), 0, Math.cos(heading));
@@ -303,7 +319,10 @@ export function createBoat(ctx, env, fx) {
         const dep = (x, z) => env.waterDepth?.(x, z) ?? 0;
         // a boat that drifted into the shallows (waves, landing) may always row toward deeper water
         const escape = !env.boatWaterOK(pos.x, pos.z) && dep(bowX, bowZ) >= dep(pos.x, pos.z) - 0.02 && dep(nx, nz) > 0.05;
-        if ((env.boatWaterOK(nx, nz) && env.boatWaterOK(bowX, bowZ)) || escape) { pos.x = nx; pos.z = nz; }
+        const sternX = nx - fwd.x * LEN * Math.sign(speed || 1), sternZ = nz - fwd.z * LEN * Math.sign(speed || 1);
+        // a boat already touching something (old save, mooring) may always move out of it
+        const stuck = !env.boatWaterOK(pos.x, pos.z) && dep(nx, nz) > 0.05;
+        if ((env.boatWaterOK(nx, nz) && env.boatWaterOK(bowX, bowZ) && env.boatWaterOK(sternX, sternZ)) || escape || stuck) { pos.x = nx; pos.z = nz; }
         else {
           if (bumpT <= 0) { ctx.cameraRig?.shake?.(0.08); env.sfx('footstep_wood', { pos, vol: 0.5, pitch: 0.6 }); bumpT = 0.8; fx.ripple({ x: bowX, y: pos.y, z: bowZ }, 0.7); }
           speed *= -0.25;

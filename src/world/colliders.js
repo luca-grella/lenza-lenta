@@ -134,7 +134,7 @@ export function createColliders(q) {
       if (Math.abs(x) > q.bound + 20 || Math.abs(z) > q.bound + 20) return false;
       const h = q.heightAt(x, z);
       if (-h < 0.4) return false; // a rowboat floats in shallow water (0.65 kept boats ~10 m off the islets)
-      return true;
+      return !api.blockedAt(x, z, 0.45, 'boat'); // docks, moored boats, rocks
     },
 
     /**
