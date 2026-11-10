@@ -39,16 +39,25 @@ function goalTargets(poiPos) {
     const seen = Q.progress?.[q.id]?.seen || [];
     const story = q.kind === 'story';
     const pts = [];
-    // a step not yet offered: its villager first
-    if (story && q.offered === false && q.npc && q.npc !== 'letter') { const n = c.npcs?.get?.(q.npc)?.object?.position; if (n) pts.push({ x: n.x, z: n.z }); }
+    // [10 nov] a quest nobody has explained yet (story step not offered, side quest started by itself, e.g. the key
+    // that opens the treasure): the pin goes on the villager who tells you about it, not on a spot with no reason
+    const offered = story ? q.offered !== false : !!Q.isOffered?.(q.id);
+    if (!offered && q.npc && q.npc !== 'letter') { const n = c.npcs?.get?.(q.npc)?.object?.position; if (n) pts.push({ x: n.x, z: n.z }); }
     else if (g.event === 'npc:talk' && g.filter?.npcId) {
       for (const id of [].concat(g.filter.npcId)) { if (seen.includes(id)) continue; const n = c.npcs?.get?.(id)?.object?.position; if (n) pts.push({ x: n.x, z: n.z }); }
     } else if (g.event === 'forage:pick' && g.filter?.itemId) {
+      // only as many as still needed, the nearest ones you can walk to (islands need the boat)
       const ids = [].concat(g.filter.itemId);
-      for (const s of c.systems?.foraging?.spots || []) if (!s.picked && ids.includes(s.itemId)) pts.push({ x: s.x, z: s.z });
+      const boat = !!(c.save?.state?.flags?.boat_repaired || c.save?.state?.boat?.repaired);
+      const pp = c.player?.position || { x: 0, z: 0 };
+      const isle = s => /islet|isle|turtle/.test(s.zone || c.world?.zoneAt?.(s.x, s.z) || '');
+      const need = Math.max(1, (q.count || 1) - (q.n || 0));
+      const spots = (c.systems?.foraging?.spots || []).filter(s => !s.picked && ids.includes(s.itemId) && (boat || !isle(s)))
+        .sort((a, b) => Math.hypot(a.x - pp.x, a.z - pp.z) - Math.hypot(b.x - pp.x, b.z - pp.z));
+      for (const s of spots.slice(0, need)) pts.push({ x: s.x, z: s.z });
     }
     if (!pts.length && q.marker) { const p = poiPos(q.marker); if (p) pts.push({ x: p.x, z: p.z }); }
-    for (const p of pts) out.push({ ...p, quest: q.id, story });
+    for (const p of pts) out.push({ ...p, quest: q.id, story, titleKey: q.titleKey });
   }
   return out;
 }
@@ -349,7 +358,7 @@ export default function map(ui, data) {
       const targets = data.focus ? [{ ...(poiPos(data.focus) || {}), story: true }].filter(p => typeof p.x === 'number') : goalTargets(poiPos);
       const gp = targets.find(g => g.story) || targets[0] || null;   // centring (focus or the story objective)
       for (const g of targets) {
-        const txt = h('span.mk-goal-txt', g.story ? t('ui.map.goal') : t('ui.map.side_goal'));
+        const txt = h('span.mk-goal-txt', g.story ? t('ui.map.goal') : (g.titleKey ? t(g.titleKey) : t('ui.map.side_goal')));
         addMarker(g.x, g.z, h('div.mk.mk-goal' + (g.story ? '' : '.side'), h('span.mk-ic', { html: icon('pin') }), txt), 'goal',
           { txt, q: g.story ? 'story' : 'side:' + g.quest, label: true });
       }
@@ -409,3 +418,4 @@ export default function map(ui, data) {
 
 /** Drop the cached map (e.g. when World finishes building). */
 export function resetMapCache() { cached = null; }
+export { goalTargets as _goalTargets };   // tests (tools/scenarios/map-goals.mjs)

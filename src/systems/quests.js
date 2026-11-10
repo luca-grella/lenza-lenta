@@ -270,6 +270,7 @@ export function createQuests(ctx, env) {
     get story() { return Q().story; },
     get current() { return current(); },
     isDone: id => !!Q().done[id],
+    isOffered: id => !!Q().offered[id],
     flag: f => !!flags()[f],
     /** Active goals for the HUD/quest sheet: story step, side quests, then dailies. */
     active() {
