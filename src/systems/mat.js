@@ -301,6 +301,13 @@ export function createMat(ctx, env) {
       try { if (st.cleaned === 1) env.ui()?.onboarding?.show?.('fillet', 'ui.tip.fillet', { ms: 9000 }); } catch { /* UI optional */ }
       return x.e;
     },
+    /** [10 nov] Pack up by hand: roll the mat (the fish go into the basket) and take the bucket along. */
+    async pack() {
+      if (!M().open || mat.busy) return false;
+      await runChore('roll_mat', {}, ['crouch_pick'], 1.4);
+      mat.rollUp('pack');
+      return true;
+    },
     /** Put a new species in the bucket: Marta gets it alive (an aquarium donation from here). */
     async bucket(entry = null) {
       if (mat.busy) return null;
@@ -352,6 +359,9 @@ export function createMat(ctx, env) {
       const out = [];
       if (onMat().length && mat.catNear() && sys().cat?.canShow?.() !== false) out.push({ id: 'mat:cat', kind: 'mat', d, at, priority: 2.45, icon: 'paw', labelKey: 'sys.act.show_cat', run: () => mat.showCat() });
       if (mat.bucketable().length) out.push({ id: 'mat:bucket', kind: 'mat', d, at, priority: 2.4, icon: 'donate', labelKey: 'sys.act.bucket', run: () => mat.bucket() });
+      // packing up is a "hands" action (small button 1), always there while the mat is out
+      const bucket = !!sys().inventory?.owns?.('bucket');
+      out.push({ id: 'mat:pack', kind: 'pack', d, at, priority: 2.0, icon: 'pick', labelKey: bucket ? 'sys.act.pack_up_bucket' : 'sys.act.pack_up', run: () => mat.pack() });
       if (mat.cleanable().length) out.push({ id: 'mat:clean', kind: 'mat', d, at, priority: 2.35, icon: 'pick', labelKey: 'sys.act.clean_fish', run: () => mat.clean() });
       return out;
     },

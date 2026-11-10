@@ -22,7 +22,7 @@ export function createInteract(ctx, env) {
   // 0 talk · 1 hands (pick, pet, greet/feed the cat, open, look) · 2 the fish on the mat · 3 the place (sit, stand,
   // shop counter, cook, sleep, get on / off the boat)
   let slots = [null, null, null, null];
-  const SLOT_OF = { talk: 0, pick: 1, pet: 1, feed_cat: 1, chest: 1, inspect: 1, use: 1, mat: 2,
+  const SLOT_OF = { talk: 0, pick: 1, pack: 1, pet: 1, feed_cat: 1, chest: 1, inspect: 1, use: 1, mat: 2,
     sit: 3, stand: 3, shop: 3, sell: 3, donate: 3, cook: 3, sleep: 3, board: 3, leave_boat: 3 };  // a second, smaller choice next to the action button (sit on the dock edge while Cast is the main action)
   let sitting = null;   // {q, kind:'bench'|'edge', seated}
   let cooldown = 0;
