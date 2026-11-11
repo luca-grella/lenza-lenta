@@ -142,7 +142,7 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
 - [~] (10 nov, r18: big = fishing, 4 fixed small buttons talk/hands/fish/place, scenarios talk-choices, round2-mat,
   boat-fish; pack up mat and bucket on the hands button, r22, mat-pack.mjs) Buttons: big button only for fishing (the nearest action takes it only where you cannot fish); smaller buttons
   around it for talk, pick up, pet, show fish, clean fish, without swapping places. New: pack up the mat and the bucket.
-- [ ] Cooking: show the cooking action (animation at the fire/stove).
+- [x] (11 nov, r25: sheet closes, face the fire, cook_stir clip in a close-up, dish at the end; cook-anim.mjs) Cooking: show the cooking action (animation at the fire/stove).
 - [ ] Camera: shot changes feel random; use them always and only for given actions.
 - [ ] Dolphins: show them with a change of shot (see Feedback 3 nov, sightings).
 - [x] (11 nov, r24: line points kept above the ground and above boulders, sphere model of each 'rock' collider;
