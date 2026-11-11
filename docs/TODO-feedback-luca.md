@@ -151,8 +151,8 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
 - [x] (10 nov, r17) Objective card at the top: small icon while walking and playing, expands on tap (now it covers part of the screen).
 - [ ] Villagers: check they do not glitch visually, sink or walk through things, and move around with a purpose.
   [x] (10 nov, r18) Shopkeepers: the shop action gets its own button; talking to them is only talking.
-- [~] (10 nov: walking into it by stick from the door and the four sides is blocked, tools/scenarios/aquarium-walk.mjs;
-  could not reproduce, ask Luca where; button: the place slot always says "Acquario" at the door, r18; still to do: make
+- [~] (aquarium; 10 nov: walking into it by stick from the door and the four sides is blocked, tools/scenarios/aquarium-walk.mjs;
+  11 nov r23: Luca meant the legs overlapping the edges: the whole stone plinth now blocks the player; button: the place slot always says "Acquario" at the door, r18; still to do: make
   it grow as you bring fish) Aquarium: you walk through it and the button is hard to get; make it nicer, growing as you bring fish.
 - [ ] Choice of pet.
 - [x] (11 nov, r21) Phone browsers: an install page in the game's look (iPhone/Android steps); on phones the game runs only
