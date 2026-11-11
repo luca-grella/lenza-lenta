@@ -163,3 +163,8 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
   reel ticks and landing (fishing.js, ui/index.js), but iOS Safari has no navigator.vibrate: the `<input switch>` trick
   in ui/pwa.js only works inside a touch, so the bite (no finger on screen) is probably silent. Ask Luca what he feels
   at each moment; if the bite is silent, real haptics need the Capacitor app (optional point, ~3-4%).
+- [x] (11 nov, r27) "In some shots the player seems to miss an arm": while fishing the rod was held out to the right
+  and the short left arm, reaching the crank or rod butt, stayed inside the belly (only a fist showed). Now the right
+  hand goes in front of the belly and both elbows point outward. Contact sheet of every clip: tools/scenarios/limb-sheet.mjs.
+- Order asked by Luca on 11 nov: FEMALE CHARACTER first (Feedback 9 nov), then camera cuts only for given actions, then
+  cat on the boat.
