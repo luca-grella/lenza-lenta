@@ -1,7 +1,8 @@
 # Tools
 
 Node helpers for local testing. One-time setup: `cd tools && npm install` (installs `puppeteer-core`;
-the tools drive the installed Google Chrome headless with SwiftShader WebGL — set `CHROME_PATH` to override).
+the tools drive the installed Google Chrome Beta headless with SwiftShader WebGL — set `CHROME_PATH` to override;
+never point it at regular Google Chrome, which is the owner's everyday browser).
 
 ## play.mjs — real-touch playtest harness
 Plays the game like a person on an iPhone (real touch events on the joystick, action button, buttons and dialogs,

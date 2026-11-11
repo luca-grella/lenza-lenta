@@ -2,7 +2,7 @@
 //   node tools/check-gate.mjs [port]      (node tools/serve.mjs <port> first)
 import puppeteer from 'puppeteer-core';
 const port = process.argv[2] || 8843, base = `http://localhost:${port}/index.html`;
-const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+import { CHROME } from './lib.mjs';
 const IOS = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1';
 const AND = 'Mozilla/5.0 (Linux; Android 15; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const b = await puppeteer.launch({ executablePath: CHROME, headless: 'new', timeout: 120000, protocolTimeout: 120000 });

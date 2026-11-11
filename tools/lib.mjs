@@ -2,7 +2,8 @@
 import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 
-export const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// Chrome Beta, not regular Chrome: regular Chrome is the owner's everyday browser and must never be launched by tools
+export const CHROME = process.env.CHROME_PATH || '/Applications/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta';
 
 /** Parse "--key value" / "--flag" options. */
 export function parseArgs(argv) {

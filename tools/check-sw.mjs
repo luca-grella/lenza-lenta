@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import puppeteer from 'puppeteer-core';
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
-const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+import { CHROME } from './lib.mjs';
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml', '.wav': 'audio/wav', '.mp3': 'audio/mpeg' };
 const server = http.createServer((req, res) => {
   const m = decodeURIComponent(req.url.split('?')[0]).match(/^\/lenza-lenta(?:-v2)?(\/.*)$/);
