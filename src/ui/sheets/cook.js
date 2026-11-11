@@ -35,7 +35,8 @@ export default function cook(ui, data = {}) {
           : h('span.chip', !c.stationOk ? t('ui.cook.station') : t('ui.cook.missing'));
         if (c.ok) onTap(btn, () => {
           const res = A.cook(r.id, station);
-          if (res.ok) { ui.sfx('eat', { vol: 0.6 }); spec.refresh?.(); }
+          // [11 nov] the sheet closes so you watch the cooking (camera close-up on cook:done)
+          if (res.ok) { ui.closeSheet?.(); }
           else ui.toast('ui.toast.unavailable', { icon: 'info' });
         });
         return h('div.recipe.paper.flat' + (c.ok ? '.ready' : ''),

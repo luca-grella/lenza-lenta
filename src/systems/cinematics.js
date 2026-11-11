@@ -261,7 +261,7 @@ export function init(ctx) {
   // [r2-playtest] recipes are cooked from the cook panel (or the Trattoria shop), so cook:done always fires with a sheet
   // open and the shot was dropped: keep it and play it when the panel closes (within 90 s, the player still nearby)
   let pendingCook = null;
-  bus.on('cook:done', e => {
+  bus.on('cook:start', e => {   // [11 nov] the close-up frames the stirring, not the moment after
     if (!uiOpen()) { pendingCook = null; shots.cook(e); return; }
     const p = player()?.position;
     pendingCook = { e, t: now, x: p?.x ?? 0, z: p?.z ?? 0 };

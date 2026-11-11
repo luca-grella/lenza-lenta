@@ -91,12 +91,25 @@ export function createCooking(ctx, env) {
       inv.add(r.dish, withFillet ? 2 : 1);
       C().cooked = (C().cooked | 0) + 1;
       ctx.save.commit();
-      env.play('crouch_pick', { loop: false });
-      env.sfx('splash_small', { vol: 0.25, pitch: 2.2 });
-      env.sfx('pickup', { delay: 0.4 });
-      env.toastFB('sys.cook.done', { name: env.t(r.nameKey) });
-      if (withFillet) env.toast('sys.cook.fillet_bonus', { name: env.t(r.nameKey) });
-      ctx.bus.emit('cook:done', { recipeId: r.id, dishId: r.dish, station, portions: withFillet ? 2 : 1, fillet: taken.some(e => e?.fillet) });
+      // [11 nov] you see the cooking: kneel by the fire, stir the pan (sizzle), taste; the dish comes at the end
+      try {   // face the fire / the stove first
+        const pp = env.playerPos(), W = ctx.world;
+        const fires = station === 'campfire' ? (W?.poiList?.('') || []).filter(q => /campfire/.test(q.id)) : [W?.poi?.('village_trattoria')].filter(Boolean);
+        const f = fires.sort((a, b) => Math.hypot(a.x - pp.x, a.z - pp.z) - Math.hypot(b.x - pp.x, b.z - pp.z))[0];
+        const P = env.player();
+        if (f && P && Math.hypot(f.x - pp.x, f.z - pp.z) < 6) P.facing = Math.atan2(f.x - pp.x, f.z - pp.z);
+      } catch { /* optional */ }
+      env.play('cook_stir', { loop: false });
+      for (const d of [0.6, 1.2, 1.8, 2.4]) env.sfx('splash_small', { vol: 0.22, pitch: 2.4, delay: d });
+      env.sfx('pickup', { delay: 3.2 });
+      const done = { recipeId: r.id, dishId: r.dish, station, portions: withFillet ? 2 : 1, fillet: taken.some(e => e?.fillet) };
+      ctx.bus.emit('cook:start', done);   // the close-up (systems/cinematics.js) frames the stirring
+      const after = (secs, fn) => { let t = 0; const off = ctx.loop?.add?.(dt => { t += dt; if (t >= secs) { off?.(); fn(); } }, ctx.ORDER?.systems ?? 10); if (!off) setTimeout(fn, secs * 1000); };
+      after(3.3, () => {   // the dish (toast, quest progress) once the stirring is over (game time)
+        env.toastFB('sys.cook.done', { name: env.t(r.nameKey) });
+        if (withFillet) env.toast('sys.cook.fillet_bonus', { name: env.t(r.nameKey) });
+        ctx.bus.emit('cook:done', done);
+      });
       return { ok: true, dishId: r.dish, portions: withFillet ? 2 : 1 };
     },
     /** Eat a dish from the inventory → buffs (and cat friendship for the kitty treat). */

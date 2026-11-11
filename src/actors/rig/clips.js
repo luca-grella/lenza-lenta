@@ -516,6 +516,27 @@ add('clean_fish', {
     { t: 2.6, name: 'flip' }, { t: 3.2, name: 'stroke' }, { t: 3.6, name: 'knife_off' }, { t: 4.05, name: 'rinse' }],
 });
 
+// [11 nov] cooking at the campfire / stove: kneel, the left hand holds the pan handle, the right one stirs in circles,
+// a little taste at the end
+add('cook_stir', {
+  duration: 3.6, meta: { look: 0.4, breathe: 0.6, footIK: 0.7 },
+  keys: [
+    [0, { rod: 1 }],
+    [0.25, { rod: 0, pos: [0, -0.04, 0], spine: [8, 0, 0], head: [12, 0, 0] }],
+    [0.6, { ...KNEEL, uaL: [-52, 0, -10], faL: [-38, 0, 0], hL: [0, 0, 0], uaR: [-46, 0, 14], faR: [-60, 0, 0], hR: [20, 0, 0], head: [16, 0, 0] }, 'inOut'],
+    [0.85, { uaR: [-46, 10, 16], faR: [-56, 0, 0], chest: [10, 4, 0] }],
+    [1.15, { uaR: [-54, -10, 8], faR: [-66, 0, 0], chest: [10, -4, 0] }],
+    [1.45, { uaR: [-46, 10, 16], faR: [-56, 0, 0], chest: [10, 4, 0] }],
+    [1.75, { uaR: [-54, -10, 8], faR: [-66, 0, 0], chest: [10, -4, 0] }],
+    [2.05, { uaR: [-46, 10, 16], faR: [-56, 0, 0], chest: [10, 4, 0] }],
+    [2.35, { uaR: [-54, -10, 8], faR: [-66, 0, 0], chest: [10, -4, 0] }],
+    [2.75, { uaR: [-80, 0, 6], faR: [-110, 0, 0], hR: [-10, 0, 0], head: [4, 0, 0], mouth: 0.4, brow: 0.4 }, 'inOut'],
+    [3.05, { mouth: 0.1, eyes: 0.4, head: [10, 0, 6] }],
+    [3.6, { ...STAND, mouth: 0.25 }],
+  ],
+  events: [{ t: 0.6, name: 'pan_on' }, { t: 1.0, name: 'stir' }, { t: 1.6, name: 'stir' }, { t: 2.2, name: 'stir' }, { t: 2.8, name: 'taste' }],
+});
+
 add('put_in_bucket', {
   duration: 2.3, meta: { look: 0.35, breathe: 0.6 },
   keys: [
