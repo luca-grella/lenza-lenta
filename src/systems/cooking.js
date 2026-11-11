@@ -99,7 +99,7 @@ export function createCooking(ctx, env) {
         const P = env.player();
         if (f && P && Math.hypot(f.x - pp.x, f.z - pp.z) < 6) P.facing = Math.atan2(f.x - pp.x, f.z - pp.z);
       } catch { /* optional */ }
-      env.play('cook_stir', { loop: false });
+      env.play(station === 'campfire' ? 'cook_stir' : 'cook_counter', { loop: false });   // kneel at the fire, stand at the counter
       for (const d of [0.6, 1.2, 1.8, 2.4]) env.sfx('splash_small', { vol: 0.22, pitch: 2.4, delay: d });
       env.sfx('pickup', { delay: 3.2 });
       const done = { recipeId: r.id, dishId: r.dish, station, portions: withFillet ? 2 : 1, fillet: taken.some(e => e?.fillet) };
