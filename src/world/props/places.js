@@ -343,6 +343,9 @@ export function buildPlaces(ctx, env) {
     B.push(s.x, f.top, s.z, s.rot);
     plinth(B, 10, 7, f.top - f.low);
     const r = aquarium(B);
+    // [11 nov] the stone plinth (10 × 7) is wider than the hall's own collider: walking along it the legs sank into the
+    // plinth sides. Block the whole plinth; the landing in front of the door (z ≈ 3.75) stays free.
+    B.rect(0, 0, 5.1, 3.5, 0, 'aquarium');
     aquariumTanks = r.tanks.map(t => { const w = B.world(t.x, t.y, t.z); return { x: w.x, y: w.y, z: w.z, w: t.w, h: t.h, d: t.d, rot: s.rot }; });
     // [Fix] the hall sits on a plinth up to ~1 m above the square: a stone landing + steps down to the ground
     B.box(2.6, 0.22, 0.9, 0, 0.11, 3.75, P.stone, { round: 0.04 });

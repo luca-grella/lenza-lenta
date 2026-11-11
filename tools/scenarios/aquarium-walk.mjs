@@ -13,7 +13,8 @@ export default async function (play) {
   const inside = () => play.eval((cx, cz, rot) => {
     const p = window.__lenza.ctx.player.position;
     const lx = (p.x - cx) * Math.cos(rot) - (p.z - cz) * Math.sin(rot), lz = (p.x - cx) * Math.sin(rot) + (p.z - cz) * Math.cos(rot);
-    return { lx: +lx.toFixed(2), lz: +lz.toFixed(2), in: Math.abs(lx) < 4.5 && Math.abs(lz) < 3.0 };
+    // [11 nov] the body (radius ~0.3) must stay off the 10 × 7 stone plinth, not only out of the hall
+    return { lx: +lx.toFixed(2), lz: +lz.toFixed(2), in: Math.abs(lx) < 5.25 && Math.abs(lz) < 3.65 };
   }, cx, cz, rot);
   const pushTo = async (x, z, secs) => {
     const p = await play.eval(() => window.__lenza.ctx.player.position.toArray());
