@@ -29,7 +29,7 @@ export function setWorldQuat(bone, qWorld) {
  * Moves `end` toward `target` (world) by weight; keeps the end bone's world rotation (or `endQ` if given).
  * `fallbackAxis` (world) is the bend axis when the limb is straight.
  */
-export function twoBoneIK(upper, mid, end, target, weight, fallbackAxis, endQ = null) {
+export function twoBoneIK(upper, mid, end, target, weight, fallbackAxis, endQ = null, pole = null) {
   if (weight <= 1e-4) return;
   end.getWorldQuaternion(_qe);
   if (endQ) _qe.copy(endQ);
@@ -51,6 +51,19 @@ export function twoBoneIK(upper, mid, end, target, weight, fallbackAxis, endQ = 
   _u.subVectors(_c, _a).normalize(); _v.subVectors(_t, _a).normalize();
   _q.setFromUnitVectors(_u, _v);
   rotateWorld(upper, _q);
+  // 2b) [11 nov] swing the elbow around the shoulder→target line toward the pole (it used to keep the animated bend
+  // plane, so on the reel crank the elbow sank into the belly and only the fist showed: "a missing arm")
+  if (pole) {
+    mid.getWorldPosition(_b);
+    _u.subVectors(_t, _a).normalize();
+    _v.subVectors(_b, _a); _v.addScaledVector(_u, -_v.dot(_u));
+    _n.copy(pole); _n.addScaledVector(_u, -_n.dot(_u));
+    if (_v.lengthSq() > 1e-8 && _n.lengthSq() > 1e-8) {
+      _v.normalize(); _n.normalize();
+      const ang = Math.atan2(_c.crossVectors(_v, _n).dot(_u), _v.dot(_n));
+      _q.setFromAxisAngle(_u, ang); rotateWorld(upper, _q);
+    }
+  }
   // 3) restore the end orientation
   setWorldQuat(end, keepQ);
 }

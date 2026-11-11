@@ -17,6 +17,7 @@ export function clipLibrary() { if (!LIB) LIB = bakeLibrary(CLIP_DEFS); return L
 export const CLIP_NAMES = () => Object.keys(clipLibrary());
 
 const _p = new THREE.Vector3(), _p2 = new THREE.Vector3(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+const _pole = new THREE.Vector3(), _q3 = new THREE.Quaternion();
 const _n = new THREE.Vector3(), _ax = new THREE.Vector3(), _m = new THREE.Matrix4();
 const UP = new THREE.Vector3(0, 1, 0);
 const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -255,7 +256,20 @@ export function createCharacter(ctx, rawLook, opts = {}) {
     }
   }
 
+  // [11 nov] right hand (rod grip) pulled in front of the belly while reeling: with the rod held out to the right the
+  // short left arm could not reach the crank and stayed inside the belly ("a missing arm" in close shots)
+  const GRIP_R = { crank: new THREE.Vector3(0.04, 0.86, 0.42), butt: new THREE.Vector3(-0.06, 0.88, 0.46) };
+  function gripR(kind) {
+    const g = GRIP_R[kind]; if (!g) return;
+    object.updateWorldMatrix(true, false);
+    const t = _p2.copy(g).multiplyScalar(look.height || 1).applyMatrix4(object.matrixWorld);
+    const pole = _pole.set(-0.85, -0.5, -0.2).applyQuaternion(object.getWorldQuaternion(_q3));
+    B.upperarm_R.getWorldQuaternion(_q2);
+    twoBoneIK(B.upperarm_R, B.lowerarm_R, B.hand_R, t, st.armIKw, _ax.set(0, 1, 0).applyQuaternion(_q2), null, pole);
+  }
+
   function armIK(kind) {
+    gripR(kind);
     const target = kind === 'crank' ? B.reel.localToWorld(_p.copy(knobLocal)) : B.rod_0.localToWorld(_p.copy(buttLocal));
     // wrist target = grip point minus the palm offset along the forearm
     const wr = B.hand_L.getWorldPosition(new THREE.Vector3()), el = B.lowerarm_L.getWorldPosition(new THREE.Vector3());
@@ -263,7 +277,9 @@ export function createCharacter(ctx, rawLook, opts = {}) {
     target.addScaledVector(fore, -0.075 * look.height);
     B.upperarm_L.getWorldQuaternion(_q2);
     const fallback = _ax.set(0, 1, 0).applyQuaternion(_q2);
-    twoBoneIK(B.upperarm_L, B.lowerarm_L, B.hand_L, target, st.armIKw, fallback);
+    // elbow out to the character's left, down and a bit back, clear of the belly
+    const pole = _pole.set(0.85, -0.5, -0.2).applyQuaternion(object.getWorldQuaternion(_q3));
+    twoBoneIK(B.upperarm_L, B.lowerarm_L, B.hand_L, target, st.armIKw, fallback, null, pole);
   }
 
   function updateSocket() {
