@@ -22,6 +22,8 @@ export function createInteract(ctx, env) {
   // 0 talk · 1 hands (pick, pet, greet/feed the cat, open, look) · 2 the fish on the mat · 3 the place (sit, stand,
   // shop counter, cook, sleep, get on / off the boat)
   let slots = [null, null, null, null];
+  // at most this many small buttons next to the big one (?slots=N to try another number)
+  const MAX_SMALL = Math.max(1, Math.min(4, Number(new URLSearchParams(location.search).get('slots')) || 3));
   const SLOT_OF = { talk: 0, pick: 1, pack: 1, pet: 1, feed_cat: 1, chest: 1, inspect: 1, use: 1, mat: 2,
     sit: 3, stand: 3, shop: 3, sell: 3, donate: 3, cook: 3, sleep: 3, board: 3, leave_boat: 3 };  // a second, smaller choice next to the action button (sit on the dock edge while Cast is the main action)
   let sitting = null;   // {q, kind:'bench'|'edge', seated}
@@ -282,6 +284,7 @@ export function createInteract(ctx, env) {
     runSecondary() { if (secondary?.run && cooldown <= 0) { cooldown = 0.35; const r = secondary.run; secondary = null; r(); return true; } return false; },
     /** The four small buttons: [talk, hands, fish, place], each an action or null. */
     get slots() { return slots; },
+    get maxSmall() { return MAX_SMALL; },
     runSlot(i) { const s = slots[i]; if (s?.run && !s.disabled && cooldown <= 0) { cooldown = 0.35; slots = [null, null, null, null]; s.run(); return true; } return false; },
     /** 'bench' | 'edge' while seated (or walking to the seat), else null. */
     get sittingKind() { return sitting?.kind || null; },
@@ -338,6 +341,18 @@ export function createInteract(ctx, env) {
       const rest = list.filter(e => e !== pick && SLOT_OF[e.kind] !== undefined)
         .sort((x, y) => (y.priority * 2 - y.d) - (x.priority * 2 - x.d));
       for (const e of rest) { const i = SLOT_OF[e.kind]; if (!slots[i]) slots[i] = label({ ...e }); }
+      // [11 nov] Luca: a small button never exists without the big one: with no big action the best small one becomes big
+      if (!current && rest.length) {
+        const top = rest[0], i = SLOT_OF[top.kind];
+        current = label({ ...top });
+        if (slots[i]?.id === top.id) slots[i] = null;
+      }
+      // [11 nov] Luca: a cap on the small buttons; past it the best ones stay (same score as above), in their slot order
+      const filled = slots.map((e, i) => [e, i]).filter(([e]) => e);
+      if (filled.length > MAX_SMALL) {
+        const keep = new Set(filled.sort(([x], [y]) => ((y.priority || 0) * 2 - (y.d || 0)) - ((x.priority || 0) * 2 - (x.d || 0))).slice(0, MAX_SMALL).map(([, i]) => i));
+        slots = slots.map((e, i) => (keep.has(i) ? e : null));
+      }
       secondary = slots.find(Boolean) || null;
       // run non-fishing actions on Space / action button tap, or E
       if (current && current.kind !== 'cast' && cooldown <= 0 && (input.action.down || input.pressed('interact'))) {

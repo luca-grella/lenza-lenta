@@ -21,7 +21,9 @@ export default async function (play) {
     await play.expect(!!shopOn, `${id}: a separate shop button`, b);
     if (b.b0 && b.b3) {
       const A = b.b0.r, B = b.b3.r;
-      await play.expect(A.right <= B.left || B.right <= A.left || A.bottom <= B.top || B.bottom <= A.top, `${id}: the small buttons do not overlap`);
+      // round buttons [11 nov, circle layout]: centres at least one diameter apart
+      const d = Math.hypot((A.left + A.right - B.left - B.right) / 2, (A.top + A.bottom - B.top - B.bottom) / 2);
+      await play.expect(d >= (A.width + B.width) / 2 - 1, `${id}: the small buttons do not overlap`, +d.toFixed(1));
     }
     if (talkOn) {
       await play.tapSel(talkOn, talkOn === '.act' ? { hold: 0.06, after: 0.1 } : {});

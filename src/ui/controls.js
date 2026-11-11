@@ -82,8 +82,9 @@ export function createControls(ui) {
   act.addEventListener('lostpointercapture', actUp);
 
   // ── side choice (a second, smaller action: e.g. "sit on the edge" while the big button casts) ──
-  // [10 nov] four small buttons above the bait, one per kind of action, always in the same place:
-  // talk · hands (pick, pet…) · the fish on the mat · the place (sit, shop counter, boat…). Empty ones keep their spot.
+  // [10 nov] four small buttons, one per kind of action, always in the same order:
+  // talk · hands (pick, pet…) · the fish on the mat · the place (sit, shop counter, boat…).
+  // [11 nov] Luca: around the big button like a circle, not stacked: the visible ones take the arc positions in order.
   const slotBtns = [0, 1, 2, 3].map(i => {
     const b = h(`button.alt-btn.slot-${i}.round.paper-btn.empty`, { type: 'button' });
     b._ic = h('span.alt-ic'); b._label = h('span.alt-label');
@@ -92,6 +93,14 @@ export function createControls(ui) {
     return b;
   });
   const alt = slotBtns[0];
+  // [11 nov] one radius for every small button, 26° apart from the bait (194°) up to just left of straight up (88°):
+  // labels go left, the top one above, and none of them can touch another button or label (checked at 390 px wide)
+  // the circle depends on the cap of small buttons (systems/interact MAX_SMALL): fewer buttons, smaller circle
+  // closest radius where the small buttons clear the big one and each other (labels included, checked at 390 px)
+  const BAIT_DEG = 180;
+  const LAYOUT = { 1: { R: 88, Rc: 76, at: [[130, 'left']] }, 2: { R: 88, Rc: 76, at: [[139, 'left'], [98, 'top']] },
+    3: { R: 108, Rc: 104, at: [[145, 'left'], [110, 'left'], [75, 'top']] }, 4: { R: 150, at: [[168, 'left'], [142, 'left'], [116, 'left'], [88, 'top']] } };
+  const layout = () => LAYOUT[ctx.systems?.interact?.maxSmall] || LAYOUT[3];
 
   // ── bait selector ──
   const bait = h('button.bait-btn.round.paper-btn', { type: 'button' });
@@ -131,7 +140,10 @@ export function createControls(ui) {
     selectBait(list[(i + 1) % list.length].id);
   }
 
-  el.append(zone, h('div.act-wrap', pop, h('div.act-side', ...slotBtns, bait), act));
+  // the bait is one of the small buttons too: same circle, lowest place (left of the big button)
+  bait.style.setProperty('--cx', Math.cos(BAIT_DEG * Math.PI / 180).toFixed(3)); bait.style.setProperty('--cy', (-Math.sin(BAIT_DEG * Math.PI / 180)).toFixed(3));
+  const orbit = h('div.act-orbit', bait, ...slotBtns);
+  el.append(zone, h('div.act-wrap', pop, act, orbit));
 
   // ── state refresh ──
   let lastSig = '', lastBait = '', lastAlt = '';
@@ -167,6 +179,15 @@ export function createControls(ui) {
         if (s) { b._ic.innerHTML = icon(hasIcon(s.icon) ? s.icon : 'hand'); b._label.textContent = lab(s); b.setAttribute('aria-label', lab(s)); }
         else b._label.textContent = '';
       });
+      // arc around the big button (degrees from the right, counter-clockwise; label side so labels never cross a button)
+      let k = 0;
+      for (const b of slotBtns) {
+        if (b.classList.contains('empty')) continue;
+        const L = layout(), [deg, side] = L.at[Math.min(k++, L.at.length - 1)], a = deg * Math.PI / 180;
+        orbit.style.setProperty('--R', (document.getElementById('ui')?.classList.contains('compact') ? (L.Rc || 0.85 * L.R) : L.R) + 'px');
+        b.style.setProperty('--cx', Math.cos(a).toFixed(3)); b.style.setProperty('--cy', (-Math.sin(a)).toFixed(3));
+        b.dataset.tag = side;
+      }
     }
     // bait
     const b = A.equipped('bait') || 'bait_worm';

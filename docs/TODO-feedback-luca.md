@@ -181,3 +181,10 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
   Scenario tools/scenarios/player-gender.mjs.
 - [x] (11 nov, r29) Small buttons floating mid-screen (Luca's screenshot at Rosa's counter): empty slots were only
   invisible and still took their room, so "Talk" sat high up. Empty slots now take no room; the order stays fixed.
+- [x] (11 nov, r30) Small buttons around the big one (Luca): at most 3 small buttons (MAX_SMALL in systems/interact.js,
+  ?slots=N to try), on one circle as close to the big button as they fit, the bait on the same circle; labels left, the
+  top one above; a small button never stays alone: with no big action the best small one becomes big. Checked with no
+  overlap of buttons or labels in portrait and landscape.
+- [ ] Landscape EN run of every scenario (11 nov night, r29 + layout changes mid-run): failures still to look at in
+  approach-village (3/7), cook-anim (5/6, probably the Italian "Pronto" check), fish-home-dock (looks for "Tieni"),
+  round2-mat (13/15), talk-choices (12/14, the rect overlap check, now fixed).

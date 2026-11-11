@@ -145,6 +145,15 @@ button.pill:active { transform: translateY(2px); }
 .act-side { display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none;
   margin-bottom: 22px; } /* above the action button's wooden tag: a long label ("Parla con Nonna Pina") ran over the bait count */
 .act-side > * { pointer-events: auto; }
+/* [11 nov] the small buttons orbit the big one: the orbit's origin is the big button's centre */
+.act-orbit { position: absolute; right: 49px; bottom: 49px; width: 0; height: 0; pointer-events: none; --R: 150px; }
+.act-orbit > .alt-btn, .act-orbit > .bait-btn { position: absolute; left: -28px; top: -28px; margin: 0; pointer-events: auto;
+  translate: calc(var(--cx, -1) * var(--R)) calc(var(--cy, 0) * var(--R)); }
+.act-orbit > .bait-btn { left: -30px; top: -30px; }
+#ui.compact .act-orbit { right: 41px; bottom: 41px; }
+#ui.compact .act-orbit > .alt-btn { left: -24px; top: -24px; }
+.act-orbit .alt-tag { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.alt-btn[data-tag="top"] .alt-tag { right: 0; top: auto; bottom: calc(100% + 6px); transform: none; }
 .alt-btn { position: relative; width: 56px; height: 56px; animation: ui-pop .3s cubic-bezier(.2,1.5,.4,1) both; }
 .alt-ic { display: flex; }
 .alt-ic .ic { width: 34px; height: 34px; }
