@@ -508,8 +508,11 @@ export function createCat(ctx, env, root, fx, def = {}) {
     /** Debug: force a clip/state for screenshots. hold=true freezes the cat's own decisions (contact sheets). */
     debugState(s, dur = 999, hold = false) { setState(s, dur); debugHold = hold; speed = 0; },
     play,
+    /** [11 nov] On the boat with the player (sits at the bow facing the rower). */
+    get aboard() { return !!aboard; },
     update(dt, t, info) {
       const p = info.player;
+      if (aboard) { rideBoat(dt); return; }
       const dx = p.x - pos.x, dz = p.z - pos.z, dist = Math.hypot(dx, dz);
       const night = info.night || 0;
       visibleNear = dist < (info.cull || 70);
@@ -682,5 +685,47 @@ export function createCat(ctx, env, root, fx, def = {}) {
     debugInfo() { const w = {}; for (const k in weights) w[k] = +weights[k].toFixed(3); return { state, anim: animName, petW: +petW.toFixed(3), lookYaw: +lookYaw.toFixed(3), lookPitch: +lookPitch.toFixed(3), meowT: +meowT.toFixed(2), headClamp: +headClamp.toFixed(3), weights: w }; },
     dispose() { mixer.stopAllAction(); group.removeFromParent(); },
   };
+  // ---- [11 nov] Biscotto comes on the boat (Luca's 10 nov feedback): a friend that follows the player hops in when
+  // the player boards nearby, sits on the bow floor boards facing the rower (above the deck, never inside the hull),
+  // and hops off beside the player when they get off.
+  let aboard = null;
+  const BOW = V(0, -0.1, 1.1);
+  function rideBoat(dt) {
+    const b = ctx.systems?.boat;
+    const root = b?.group;
+    if (!b?.active || !root) { aboard = null; return; }
+    root.updateWorldMatrix(true, false);
+    pos.copy(BOW).applyMatrix4(root.matrixWorld);
+    facing = (b.heading || 0) + Math.PI;
+    group.rotation.y = facing;
+    group.visible = visibleNear = true;
+    speed = 0;
+    play(aboard.t < 0.5 ? 'idle' : 'loaf', 0.6);
+    aboard.t += dt;
+    for (const n in layerClean) { const bn = rig.bones[n], c = layerClean[n]; bn.quaternion.copy(c.q); bn.scale.copy(c.s); }
+    blend(dt);
+    mixer.update(dt);
+    for (const n in layerClean) { const bn = rig.bones[n], c = layerClean[n]; c.q.copy(bn.quaternion); c.s.copy(bn.scale); }
+    headPrevOK = false;
+  }
+  ctx.bus?.on?.('boat:board', () => {
+    const pl = ctx.systems?.boat?.position;   // the player is already parented to the boat seat (local position)
+    if (!following() || !pl || Math.hypot(pl.x - pos.x, pl.z - pos.z) > 14) return;
+    aboard = { t: 0 };
+    sitTarget = null; target = null; petSpot = null; setState('sit', 9999);
+    fx.sparkle?.(_t.copy(pos).add(V(0, 0.3, 0)), 0xffffff);
+    if (R() < 0.8) cat.meow();
+  });
+  ctx.bus?.on?.('boat:leave', (e = {}) => {
+    if (!aboard) return;
+    aboard = null;
+    const x = Number.isFinite(e.x) ? e.x : ctx.player?.position?.x, z = Number.isFinite(e.z) ? e.z : ctx.player?.position?.z;
+    if (!Number.isFinite(x)) return;
+    // the landing spot is usually a dock (walkable planks over water): any walkable spot beside the player
+    const spot = env.findSpot(x, z, 0.7, 2.5, (sx, sz) => env.walkable(sx, sz)) || { x: x + 0.6, z };
+    placeAt(spot.x, spot.z);
+    setState('idle', 1.5);
+  });
+
   return cat;
 }

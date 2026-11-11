@@ -140,7 +140,7 @@ export function createInteract(ctx, env) {
     }
     // cat
     const cp = sys().cat?.position?.();
-    if (cp && !sys().cat?.approaching) {
+    if (cp && !sys().cat?.approaching && !sys().boat?.active) {   // [11 nov] not from the boat (Biscotto may ride at the bow)
       const d = Math.hypot(cp.x - p.x, cp.z - p.z);
       if (d < 2.4) {   // the player walks up to the cat before feeding/petting (systems/cat.js)
         const cat = sys().cat;

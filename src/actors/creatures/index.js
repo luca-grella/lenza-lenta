@@ -127,7 +127,7 @@ export async function init(ctx) {
     try {
       catReg = ctx.world.interactables.register({
         id: 'cat', pos: cat.position, radius: 1.4, kind: 'pet', labelKey: 'creatures.cat.pet', icon: 'paw',
-        enabled: () => cat.object.visible && cat.state !== 'eat',
+        enabled: () => cat.object.visible && cat.state !== 'eat' && !cat.aboard,
         onInteract: () => { ctx.player?.play?.('pet', { fade: 0.25 }); cat.pet(); },
       });
     } catch (e) { console.warn('[creatures] could not register the cat interactable', e); }

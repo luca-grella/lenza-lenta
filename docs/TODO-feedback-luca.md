@@ -135,6 +135,9 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
 - [~] (10 nov, r18: "Get on" has its own fixed small button, scenario boat-fish.mjs) Boat: the button to get on is hard to get (next to the boat on the dock the big button says "Cast" and "Get on"
   is on the small side button; scenario boat-fish.mjs fails this check).
   Bring Biscotto on the boat; nothing (cat, mat, bucket) sinking into the hull.
+  [x] (11 nov, r29) Biscotto, once a friend that follows you, hops on when you get on within 14 m, rides on the bow
+  boards facing you (above the floor; mat and bucket were already rolled up on boarding), hops off beside you on the
+  dock. No pet button from the boat. Scenario tools/scenarios/boat-cat.mjs.
 - [x] (10 nov, r20: unexplained quests point to the villager who tells you, side pins show the quest name, driftwood
   only where you can walk; tools/scenarios/map-goals.mjs) Map: the pin often does not point to the right place; teal "Extra" pins where there is nothing (r9 side goals).
 - [ ] Map: every place tappable, with its name (and what you do there).
