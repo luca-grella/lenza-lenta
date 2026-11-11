@@ -214,6 +214,7 @@ export async function init(ctx) {
 
     heightAt: H,
     groundY,
+    rockTopAt: (x, z) => colliders.rockTopAt(x, z),
     slopeAt: terrain.slopeAt,
     normalAt: terrain.normalAt,
     waterSurfaceAt,

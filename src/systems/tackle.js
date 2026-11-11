@@ -131,6 +131,13 @@ export function createTackle(ctx) {
         const p = pts[i].lerpVectors(a, b, u);
         p.y -= sag * 4 * u * (1 - u);
         if (wiggle) { const w = Math.sin(u * Math.PI) * wiggle * Math.sin(t * 30 + u * 9); p.x += w; p.z += w * 0.6; }
+        // [11 nov] never through the ground: from a cliff or a high bank the line drapes over the edge (terrain, decks)
+        if (i > 0 && i < SEG) {
+          let g = null, r = null;
+          try { g = ctx.world?.groundY?.(p.x, p.z); r = ctx.world?.rockTopAt?.(p.x, p.z); } catch { /* optional */ }
+          if (Number.isFinite(r) && (!Number.isFinite(g) || r > g)) g = r;
+          if (Number.isFinite(g) && p.y < g + 0.05) p.y = g + 0.05;
+        }
       }
       // keep the line above the water except at the very end
       const cam = ctx.camera.position;

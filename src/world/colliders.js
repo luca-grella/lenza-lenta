@@ -93,6 +93,21 @@ export function createColliders(q) {
       const s = api.surfaceAt(x, z), h = q.heightAt(x, z);
       return s != null ? Math.max(s, h) : h;
     },
+    /** [11 nov] Top of the rocks at x,z (dome over each 'rock' circle collider: the rock meshes stand ~0.9 r above the
+     *  ground), or null: the fishing line drapes over boulders instead of cutting through them. */
+    rockTopAt(x, z) {
+      let best = null;
+      for (const c of near(grid, x, z)) {
+        if (c.off || c.type !== 'circle' || c.tag !== 'rock') continue;
+        // foliage rocks: a ~1.05-radius mesh scaled by sc, sunk 0.25 sc, collider r ≈ 0.78 sc → a sphere of radius
+        // 1.1 sc (a little margin) centred 0.25 sc under the ground at the rock's centre
+        const sc = c.r / 0.78, R = 1.1 * sc, d2 = (x - c.x) ** 2 + (z - c.z) ** 2;
+        if (d2 >= R * R) continue;
+        const y = q.heightAt(c.x, c.z) - 0.25 * sc + Math.sqrt(R * R - d2);
+        if (best == null || y > best) best = y;
+      }
+      return best;
+    },
     /** Point inside a solid collider of the given layer? */
     blockedAt(x, z, radius = 0, layer = 'walk') {
       for (const c of near(grid, x, z)) {
