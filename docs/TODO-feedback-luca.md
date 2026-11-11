@@ -143,7 +143,10 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
   boat-fish; pack up mat and bucket on the hands button, r22, mat-pack.mjs) Buttons: big button only for fishing (the nearest action takes it only where you cannot fish); smaller buttons
   around it for talk, pick up, pet, show fish, clean fish, without swapping places. New: pack up the mat and the bucket.
 - [x] (11 nov, r25: sheet closes, face the fire, cook_stir clip in a close-up, dish at the end; cook-anim.mjs; 11 nov r26: at the trattoria standing at the counter (cook_counter), facing checked 0° at both, cook-face.mjs) Cooking: show the cooking action (animation at the fire/stove).
-- [ ] Camera: shot changes feel random; use them always and only for given actions.
+- [x] (11 nov, r29) Camera: shot changes feel random; use them always and only for given actions. Done: no more
+  cooldowns (an action got its close-up only if the last one was 2-4 min ago), and the non-action shots (waiting for a
+  bite, first entry in a zone, sitting at dusk) no longer start on their own. Shots now: catch, mat, clean, show/feed/pet
+  the cat, cook. Scenario tools/scenarios/cine-always.mjs.
 - [ ] Dolphins: show them with a change of shot (see Feedback 3 nov, sightings).
 - [x] (11 nov, r24: line points kept above the ground and above boulders, sphere model of each 'rock' collider;
   tools/scenarios/line-cliff.mjs; to try on the iPhone) Fishing line goes through objects (e.g. on the cliff).

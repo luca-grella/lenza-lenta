@@ -19,7 +19,10 @@ const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 /** Minimum gap (s of game loop time) between two shots of the same "common" kind. */
-export const CINE_GAPS = { catch: 150, wait: 240, clean: 150, mat: 120, cat: 150, cook: 200, any: 25 };
+// [11 nov] Luca: "shot changes feel random; use them always and only for given actions". So no more cooldowns (the
+// same action used to get a close-up only if the last one was 2-4 minutes ago) and no shots that are not an action
+// (waiting for a bite, entering a zone, sitting at dusk: still playable by hand via trigger()). Shots queue instead.
+export const CINE_GAPS = { any: 0 };
 
 export function init(ctx) {
   const THREE = ctx.THREE;
@@ -29,7 +32,7 @@ export function init(ctx) {
   const last = {};          // kind → loop time of the last shot
   let now = 0;              // loop time (s)
   let lastAny = -1e9;
-  let waitT = 0, waitArmed = false, duskDay = -1;
+  let duskDay = -1;
   const log = [];           // [{t, kind, id, result}] last 20 (tests)
 
   const player = () => ctx.player?.object || rig()?.followed || null;
@@ -84,7 +87,7 @@ export function init(ctx) {
       const g = opts.gap ?? CINE_GAPS[kind] ?? 0;
       if (g && now - (last[kind] ?? -1e9) < g) return null;
     }
-    if (r.shotActive && !opts.queue && !spec.takeOver) return null;
+    if (r.shotActive && opts.queue === false && !spec.takeOver) return null;
     last[kind] = now; lastAny = now;
     const c = S(); c.count = (c.count | 0) + 1;
     const showHint = c.count <= 3;
@@ -116,7 +119,7 @@ export function init(ctx) {
         duration: 2.8, blendIn: 1.1, blendOut: 0.9, ease: 'out', holdWhile: cardOpen,
       });
     },
-    /** Waiting for a bite: a slow side shot of fisherman + float (rare, ended by the bite). */
+    /** Waiting for a bite: a slow side shot of fisherman + float (by hand only since 11 nov). */
     wait() {
       const focus = rig()?.focus;
       const p = player();
@@ -188,7 +191,7 @@ export function init(ctx) {
         duration: 2.8, blendIn: 1.0, blendOut: 0.9, ease: 'out',
       }, { force: first });
     },
-    /** First visit of a zone: a slow wide establishing pan (keeps following the walking player). */
+    /** First visit of a zone: a slow wide establishing pan (by hand only since 11 nov). */
     zone(e) {
       const z = e?.zone;
       if (!z || !e?.prev) return null; // the first zone of a session is where you load in, not a discovery
@@ -202,7 +205,7 @@ export function init(ctx) {
       if (r) c.zones[z] = true;
       return r;
     },
-    /** Seated on a dock edge at dusk: behind the shoulders, looking out at the sea and the sky. */
+    /** Seated on a dock edge at dusk: behind the shoulders, looking out at the sea and the sky (by hand only since 11 nov). */
     dusk() {
       if (ctx.time?.day === duskDay) return null;
       const p = player();
@@ -244,9 +247,8 @@ export function init(ctx) {
   // ------------------------------------------------------------------ events
   const bus = ctx.bus;
   bus.on('fishing:catch', e => shots.catch(e));
-  bus.on('fishing:bite', () => { if (rig()?.shotActive) rig().cancelShots('bite'); waitArmed = false; });
-  bus.on('fishing:strike', () => { if (rig()?.shotActive) rig().cancelShots('bite'); waitArmed = false; });
-  bus.on('fishing:state', e => { waitArmed = e?.state === 'wait'; waitT = 0; });
+  bus.on('fishing:bite', () => { if (rig()?.shotActive) rig().cancelShots('bite'); });
+  bus.on('fishing:strike', () => { if (rig()?.shotActive) rig().cancelShots('bite'); });
   // The catch chores (player.chore: unroll_mat, lay_on_mat, clean_fish, show_to_cat) are framed when their clip
   // STARTS (watched in the loop below); the bus events come at the end of a chore, so they are only a fallback
   // for builds without the player's chores.
@@ -276,10 +278,6 @@ export function init(ctx) {
       shots.cook(pc.e);
     }, 350);
   });
-  bus.on('zone:enter', e => shots.zone(e));
-  bus.on('sit:dusk', () => shots.dusk());
-  // fallback when no one emits sit:dusk: sitting down on a dock edge at dusk
-  bus.on('player:sit', e => { if (e?.kind !== 'bench' && ctx.time?.phase === 'dusk') setTimeout(() => shots.dusk(), 1200); });
   bus.on('ui:sheet', e => { if (e?.open && rig()?.shotInfo?.id === 'wait') rig().cancelShots('sheet'); });
   bus.on('camera:shot', e => { bars(e?.phase === 'start'); if (e?.phase === 'end') ctx.save?.commit?.(); });
 
@@ -300,10 +298,6 @@ export function init(ctx) {
       else if (ch === 'lay_on_mat') shots.mat({});
       else if (ch === 'clean_fish') shots.clean({});
       else if (ch === 'show_to_cat') shots.cat('show', {});
-    }
-    if (waitArmed && ctx.systems?.fishing?.state === 'wait') {
-      waitT += dt;
-      if (waitT > 7) { waitArmed = false; shots.wait(); }
     }
     // a panel opening over a shot: let the shot finish under it, but never start the next one
     if (r?.shotActive && !enabled()) r.cancelShots('off');
