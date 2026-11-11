@@ -179,3 +179,5 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
   rebuilt in place, character.swapLook). Italian text agrees through {g|maschile|femminile} (6 lines needed it: Pina,
   grandpa's letter, Gino, camera setting, the "amico/amica" fallback name). Old saves stay a man.
   Scenario tools/scenarios/player-gender.mjs.
+- [x] (11 nov, r29) Small buttons floating mid-screen (Luca's screenshot at Rosa's counter): empty slots were only
+  invisible and still took their room, so "Talk" sat high up. Empty slots now take no room; the order stays fixed.
