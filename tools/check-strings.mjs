@@ -10,7 +10,7 @@ import * as core from '../src/core/strings.js';
 const IT = { ...it, ...core.it, ...ui.it, ...sys.it };
 const EN = { ...en, ...core.en, ...ui.en, ...sys.en };
 const problems = [];
-const ph = s => (typeof s === 'string' ? [...s.matchAll(/\{(\w+)(?:\|[^}]*)?\}/g)].map(m => m[1]).sort().join(',') : '');
+const ph = s => (typeof s === 'string' ? [...s.matchAll(/\{(\w+)(?:\|[^}]*)?\}/g)].map(m => m[1]).filter(k => k !== 'g').sort().join(',') : '');
 // words the two languages share (names, brands, short labels) are fine when identical
 const SAME_OK = /^(ok|menu|stop|extra|\d|[-+×%:·/ ]+$)/i;
 

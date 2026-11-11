@@ -21,11 +21,13 @@ export const HAT_COLORS = {
   hat_pirate: { color: '#2a2a2a', band: '#e8e8e8' },
 };
 
-/** The fisherman. */
-export function playerLook() {
+/** The fisherman, or [11 nov] the fisherwoman (gender 'f'): same skeleton and clothes, own hair, lashes and figure. */
+export function playerLook(gender = 'm') {
+  const f = gender === 'f';
   return {
-    id: 'player', build: 'normal', height: 1, skin: '#f2c29b', eyes: '#2a1d14', blush: '#f09a86',
-    hair: { style: 'short', color: '#5a3a24' }, beard: { style: 'none' },
+    id: 'player', build: 'normal', height: 1, skin: '#f2c29b', eyes: '#2a1d14', blush: f ? '#f28f86' : '#f09a86',
+    hair: f ? { style: 'braids', color: '#8a4424' } : { style: 'short', color: '#5a3a24' }, beard: { style: 'none' },
+    figure: f ? 'f' : null, lashes: f,
     hat: { type: 'straw', color: '#e8c872', band: '#b8423a' },
     shirt: { style: 'vest', color: '#5f8a4e', color2: '#f3ead2' },
     pants: { style: 'trousers', color: '#4d6f9c', cuff: '#86a3c8', belt: '#6b4430' },
@@ -68,6 +70,7 @@ export function normalizeLook(raw = {}, id = 'npc') {
     apron: L.apron ? { color: c(L.apron.color, '#ffffff'), trim: c(L.apron.trim, null) } : null,
     glasses: L.glasses ? { color: c(L.glasses.color, '#3a3a3a'), shape: L.glasses.shape === 'square' ? 'square' : 'round' } : null,
     boots: c(typeof L.boots === 'string' ? L.boots : null, '#5a3a28'),
+    figure: L.figure === 'f' ? 'f' : null, lashes: !!L.lashes,
     pack: L.pack ? { color: c(L.pack.color, '#c9a25e'), strap: c(L.pack.strap, '#6b4430') } : null,
     rod: L.rod ? { ...ROD_MODELS.rod_bamboo, ...L.rod } : null,
     props: Array.isArray(L.props) ? L.props.filter(p => ['net', 'broom', 'hammer', 'ladle', 'notebook', 'spyglass'].includes(p)) : [],

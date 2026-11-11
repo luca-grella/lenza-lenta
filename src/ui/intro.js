@@ -103,6 +103,18 @@ export function createIntro(ui) {
         enterkeyhint: 'done', placeholder: t('ui.name.placeholder'), 'aria-label': t('ui.name.title') });
       input.value = playerName();
       const ok = h('button.btn.gold.big.name-ok', { type: 'button' }, h('span', { html: icon('check') }), t('ui.name.ok'));
+      // [11 nov] man or woman (Luca's 9 nov feedback): same skeleton and animations, Italian text agrees ({g|..|..})
+      let gender = ctx.save.state.player?.gender === 'f' ? 'f' : 'm';
+      const gBtn = (g, key) => {
+        const b = h('button.lang-btn.paper.gender-btn' + (gender === g ? '.on' : ''), { type: 'button', 'aria-pressed': String(gender === g), 'data-g': g },
+          h('span.lang-name', t(key)));
+        onTap(b, () => {
+          gender = g; ui.sfx('ui_tap'); ui.haptic(8);
+          for (const x of picks.children) { const on = x.dataset.g === g; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); }
+        });
+        return b;
+      };
+      const picks = h('div.lang-btns.gender-pick', gBtn('m', 'ui.name.man'), gBtn('f', 'ui.name.woman'));
       const sync = () => { ok.disabled = !clean(input.value); };
       input.addEventListener('input', sync); sync();
       const done = () => {
@@ -111,7 +123,10 @@ export function createIntro(ui) {
         input.blur();
         ctx.save.state.player ||= {};
         ctx.save.state.player.name = v;
+        const changed = (ctx.save.state.player.gender || 'm') !== gender;
+        ctx.save.state.player.gender = gender;
         ctx.save.commit();
+        if (changed) ctx.bus.emit('player:gender', { gender });
         ctx.bus.emit('player:name', { name: v });
         ui.sfx('ui_tap'); ui.haptic(10);
         if (opts.overlay) { card.remove(); ui.setBusy('name', false); }
@@ -124,7 +139,7 @@ export function createIntro(ui) {
           h('div.lang-ic', { html: icon('hand') }),
           h('h2.lang-title', t('ui.name.title')),
           h('div.lang-sub.muted', t('ui.name.sub')),
-          input, ok));
+          input, h('div.lang-sub.muted.gender-q', t('ui.name.who')), picks, ok));
       if (opts.overlay) { el.append(card); ui.setBusy('name', true); requestAnimationFrame(() => card.classList.add('in')); }
       else mount(card);
       setTimeout(() => { try { input.focus(); } catch { /* ignore */ } }, 350);

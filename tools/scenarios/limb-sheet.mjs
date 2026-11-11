@@ -1,10 +1,11 @@
 // Contact sheet of every player clip from four sides [11 nov]: Luca saw shots where the player seemed to miss an arm.
 // Each row = one clip at two moments x four views (front, right, back, left), rendered close like the cinematics.
-// Env CLIPS=a,b,c to pick clips, DIST (default 2.4).
+// Env CLIPS=a,b,c to pick clips, DIST (default 2.4), TW/TH tile size, PER rows per sheet, GENDER=f for the fisherwoman.
 import fs from 'node:fs';
 import path from 'node:path';
 export default async function (play) {
   await play.onboard();
+  if (process.env.GENDER === 'f') await play.eval(() => { const c = window.__lenza.ctx; c.save.state.player.gender = 'f'; c.bus.emit('player:gender', { gender: 'f' }); return true; });
   const names = (process.env.CLIPS || 'idle,walk,cast_windup,cast_release,fish_wait,strike,reel,reel_struggle,catch_show,catch_hold,catch_happy,catch_proud,fail_shrug,sit_down,sit_idle,stand_up,sit_boat,row,crouch_pick,pet,eat,wave,talk,sleep,wake,lay_on_mat,clean_fish,cook_stir,cook_counter,put_in_bucket,show_to_cat,unroll_mat,roll_mat,nod,flinch,idle_hat,idle_yawn').split(',');
   const per = Number(process.env.PER || 10);
   for (let g = 0; g < names.length; g += per) {

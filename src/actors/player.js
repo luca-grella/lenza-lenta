@@ -25,11 +25,17 @@ export function init(ctx) {
   const save = () => ctx.save?.state || {};
 
   // ---- look from the save (hat cosmetic, rod) ----
-  const look = playerLook();
+  const look = playerLook(save().player?.gender);
   applyEquip(look, save().equip);
   const ch = createCharacter(ctx, look, { id: 'player' });
   const obj = ch.object;
   ctx.scene.add(obj);
+  // [11 nov] man or woman, chosen with the name (first start, Settings › Name): rebuild the body on the same skeleton
+  ctx.bus?.on?.('player:gender', ({ gender } = {}) => {
+    const lk = playerLook(gender);
+    applyEquip(lk, save().equip);
+    ch.swapLook(lk);
+  });
 
   // ---- controller state ----
   let facing = 0, facingGoal = 0, speed = 0, turnRate = 0, accel = 0, control = true, state = 'idle';

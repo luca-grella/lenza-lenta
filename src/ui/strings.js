@@ -1,5 +1,5 @@
 // Player-visible strings owned by App & UI (registered with ctx.i18n.addStrings in init).
-// Keys start with `ui.`. Italian is the primary voice: warm, simple, never assumes the player's gender.
+// Keys start with `ui.`. Italian is the primary voice: warm, simple, never assumes the player's gender (where it must, {g|man|woman} picks the form).
 
 export const it = {
   // ── title & language ──
@@ -261,11 +261,14 @@ export const it = {
   'ui.name.sub': 'In paese ti chiameranno così. Puoi cambiarlo quando vuoi dalle Impostazioni.',
   'ui.name.placeholder': 'Il tuo nome',
   'ui.name.ok': 'Conferma',
-  'ui.name.fallback': 'amico',
-  'ui.set.name': 'Nome',
+  'ui.name.fallback': '{g|amico|amica}',
+  'ui.name.who': 'Chi sei?',
+  'ui.name.man': 'Pescatore',
+  'ui.name.woman': 'Pescatrice',
+  'ui.set.name': 'Nome e personaggio',
   'ui.set.name_change': 'Cambia',
   'ui.set.cam': 'Distanza della camera',
-  'ui.set.cam_desc': 'Quanto lontano vedi il pescatore mentre giochi.',
+  'ui.set.cam_desc': 'Quanto lontano vedi {g|il pescatore|la pescatrice} mentre giochi.',
   'ui.set.cam_near': 'Vicina',
   'ui.set.cam_mid': 'Media',
   'ui.set.cam_far': 'Lontana',
@@ -630,10 +633,13 @@ export const en = {
   'ui.name.placeholder': 'Your name',
   'ui.name.ok': 'Confirm',
   'ui.name.fallback': 'friend',
-  'ui.set.name': 'Name',
+  'ui.name.who': 'Who are you?',
+  'ui.name.man': 'Fisherman',
+  'ui.name.woman': 'Fisherwoman',
+  'ui.set.name': 'Name and character',
   'ui.set.name_change': 'Change',
   'ui.set.cam': 'Camera distance',
-  'ui.set.cam_desc': 'How far away you see the fisherman while playing.',
+  'ui.set.cam_desc': 'How far away you see the {g|fisherman|fisherwoman} while playing.',
   'ui.set.cam_near': 'Close',
   'ui.set.cam_mid': 'Medium',
   'ui.set.cam_far': 'Far',

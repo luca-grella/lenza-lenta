@@ -52,7 +52,12 @@ export function buildCharacter(look) {
   const bellyK = y => 1 + (B.belly - 1) * sstep(0.5, 0.72, y) * (1 - sstep(0.9, 1.04, y));
   const chestK = y => 1 + (B.chest - 1) * sstep(0.88, 1.05, y) * (1 - sstep(1.18, 1.26, y));
   const bellyFwd = y => 0.025 * B.belly * Math.exp(-((y - 0.8) ** 2) / 0.012);
-  const torsoRows = prof.map(([y, r]) => { const rx = r * bellyK(y) * chestK(y); return [y, rx, rx * B.depth, 0, bellyFwd(y)]; });
+  // [11 nov] women's figure (geometry only, same bones): narrower waist, a bit more hip, a small bust, less belly
+  const fem = L.figure === 'f';
+  const gs = (y, c, w) => Math.exp(-((y - c) ** 2) / w);
+  const figK = y => (fem ? (1 - 0.09 * gs(y, 0.86, 0.006)) * (1 + 0.05 * gs(y, 0.58, 0.006)) * (1 - 0.05 * gs(y, 0.74, 0.01)) : 1);
+  const bustFwd = y => (fem ? 0.03 * gs(y, 1.06, 0.0035) - 0.02 * gs(y, 0.8, 0.008) : 0);
+  const torsoRows = prof.map(([y, r]) => { const rx = r * bellyK(y) * chestK(y) * figK(y); return [y, rx, rx * B.depth, 0, bellyFwd(y) + bustFwd(y)]; });
   /** torso front surface z at (x, y) (used to drape the apron and place straps). */
   const torsoAt = (y) => { let i = 0; while (i < torsoRows.length - 2 && torsoRows[i + 1][0] < y) i++; const a = torsoRows[i], b = torsoRows[i + 1]; const t = Math.min(1, Math.max(0, (y - a[0]) / (b[0] - a[0] || 1))); return { rx: a[1] + (b[1] - a[1]) * t, rz: a[2] + (b[2] - a[2]) * t, oz: a[4] + (b[4] - a[4]) * t }; };
   const frontZ = (x, y) => { const r = torsoAt(y); const k = 1 - (x / Math.max(1e-3, r.rx)) ** 2; return k <= 0 ? r.oz : r.oz + r.rz * Math.sqrt(k); };
@@ -222,6 +227,12 @@ export function buildCharacter(look) {
     RB.add(ellipsoid({ c: [e[0] + 0.011, e[1] + 0.017, e[2] + 0.016], r: [0.011, 0.013, 0.006], seg: [8, 6], rot: [0, yaw, 0] }), { part: 'face', color: 0xffffff, bone: `eye_${side}` });
     // brows
     const bk = side === 'L' ? 1 : -1;
+    // [11 nov] lashes: three small strokes on the upper outer edge of the eye
+    if (L.lashes) for (const a of [0.55, 0.95, 1.3]) {
+      const ca = Math.cos(a) * bk, sa = Math.sin(a);
+      const base = [e[0] + ca * 0.03, e[1] + sa * 0.046, e[2] + 0.008], tip = [base[0] + ca * 0.024, base[1] + sa * 0.018 + 0.006, base[2] + 0.004];
+      RB.add(limb({ a: base, b: tip, radii: [[0, 0.0055], [1, 0.0035]], seg: 5, rings: 2 }), { part: 'face', color: () => col(L.eyes), bone: `eye_${side}` });
+    }
     RB.add(limb({ a: [e[0] - 0.032 * bk, HC[1] + 0.075 + 0.007, e[2] - 0.002], b: [e[0] + 0.036 * bk, HC[1] + 0.075 - 0.003, e[2] - 0.014], radii: [[0, 0.012], [1, 0.011]], seg: 6, rings: 3 }),
       { part: 'face', color: () => mix(L.hair.style === 'bald' ? L.beard.color : L.hair.color, '#000', 0.1), bone: 'brows' });
   }
@@ -229,7 +240,7 @@ export function buildCharacter(look) {
   {
     const m = J.jaw; const fullBeard = L.beard.style === 'full';
     RB.add(ellipsoid({ c: [m[0], m[1], m[2] + (fullBeard ? 0.045 : 0.008)], r: [0.05, 0.017, 0.012], seg: [14, 8], deform: (v) => { v.y += 9 * v.x * v.x; } }),
-      { part: 'face', color: 0x6a2a24, bone: 'jaw' });
+      { part: 'face', color: L.lashes ? 0x8a3436 : 0x6a2a24, bone: 'jaw' });
   }
 
   // ---- hair ----------------------------------------------------------------------------------
@@ -249,6 +260,23 @@ export function buildCharacter(look) {
   if (hs === 'ponytail') {
     RB.add(ellipsoid({ c: Hp(0, 0.25, -1.02), r: [0.08, 0.08, 0.07], seg: [10, 8] }), { part: 'hair', color: hairC, bone: 'hair' });
     RB.add(ellipsoid({ c: Hp(0, -0.25, -1.08), r: [0.075, 0.17, 0.07], seg: [12, 10] }), { part: 'hair', color: hairC, bone: 'hair' });
+  }
+  // [11 nov] the fisherwoman: two braids from behind the ears over the shoulders, readable from the usual camera
+  if (hs === 'braids') {
+    const tie = '#e8453a';
+    for (const k of [1, -1]) {
+      const P0 = [0.27 * k, 1.42, -0.07], P1 = [0.33 * k, 1.27, 0.07], P2 = [0.22 * k, 1.11, 0.24];
+      const at = (t) => P0.map((a, i) => (1 - t) ** 2 * a + 2 * (1 - t) * t * P1[i] + t * t * P2[i]);
+      const wts = (p) => { const a = sstep(1.16, 1.36, p.y); return [['head', a], ['chest', 1 - a]]; };
+      for (let i = 0; i <= 6; i++) {
+        const t = i / 6, c = at(t), r = 0.047 - 0.012 * t;
+        c[0] += (i % 2 ? 0.012 : -0.012) * k;
+        RB.add(ellipsoid({ c, r: [r, r * 1.15, r], seg: [10, 8] }), { part: 'hair', color: hairC, weights: wts });
+      }
+      const e = at(1);
+      RB.add(ellipsoid({ c: [e[0], e[1] - 0.035, e[2] + 0.01], r: [0.03, 0.022, 0.03], seg: [10, 6] }), { part: 'hair', color: () => col(tie), weights: wts });
+      RB.add(ellipsoid({ c: [e[0], e[1] - 0.075, e[2] + 0.015], r: [0.034, 0.045, 0.03], seg: [10, 8] }), { part: 'hair', color: hairC, weights: wts });
+    }
   }
   if (hs === 'long') RB.add(ellipsoid({ c: Hp(0, -0.55, -0.62), r: [0.26, 0.26, 0.11], seg: [16, 12], rot: [-0.25, 0, 0] }), { part: 'hair', color: hairC, bone: 'hair' });
   if (hs === 'curly') {

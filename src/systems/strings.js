@@ -1,5 +1,5 @@
 // Gameplay system messages (Italian + English). Registered by src/systems/index.js with ctx.i18n.addStrings(it, en).
-// Voice: warm, simple, a little playful; the Italian never assumes the player's gender.
+// Voice: warm, simple, a little playful; the Italian never assumes the player's gender (where it must, {g|man|woman} picks the form).
 
 export const it = {
   // ── context actions (action button) ──

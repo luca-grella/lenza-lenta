@@ -17,8 +17,12 @@ export function createI18n({ save, bus }) {
   const saved = save?.state?.lang;
   let lang = LANGS.includes(saved) ? saved : detect();
 
+  // [11 nov] the player can be a man or a woman: {g|pescatore|pescatrice} picks by save.state.player.gender ('f' = woman)
+  const female = () => save?.state?.player?.gender === 'f';
   function interpolate(str, vars) {
-    if (!vars || typeof str !== 'string') return str;
+    if (typeof str !== 'string') return str;
+    if (str.includes('{g|')) str = str.replace(/\{g\|([^}|]*)\|([^}]*)\}/g, (m, man, woman) => (female() ? woman : man));
+    if (!vars) return str;
     return str.replace(/\{(\w+)(?:\|([^}|]*)\|([^}]*))?\}/g, (m, k, one, many) => {
       const v = vars[k];
       if (one !== undefined) return Number(v) === 1 ? one : many; // {n|pesce|pesci}
@@ -26,7 +30,7 @@ export function createI18n({ save, bus }) {
     });
   }
 
-  const playerName = () => String(save?.state?.player?.name || '').trim() || tables[lang]['ui.name.fallback'] || 'friend';
+  const playerName = () => String(save?.state?.player?.name || '').trim() || interpolate(tables[lang]['ui.name.fallback'] || 'friend');
 
   const i18n = {
     get lang() { return lang; },

@@ -1,6 +1,6 @@
 // Italiano — testi dei dati di gioco (pesci, oggetti, abitanti, missioni, zone…).
 // Chiavi piatte con punti; en.js ha esattamente le stesse chiavi. Variabili tra graffe: {n}, {item}, {what}.
-// Voce: calda, semplice, un po' giocosa. Il giocatore non ha genere: niente aggettivi al maschile/femminile riferiti a lui/lei.
+// Voce: calda, semplice, un po' giocosa. Il giocatore può essere uomo o donna: meglio frasi neutre, altrimenti {g|maschile|femminile}.
 
 export default {
   // ───────── Enumerazioni ─────────
@@ -564,7 +564,7 @@ export default {
 
   "npc.pina.name": "Nonna Pina",
   "npc.pina.role": "Cuoca della Trattoria",
-  "npc.pina.hello.1": "Ciao, cucciolo! Hai mangiato? Hai la faccia di chi salta i pasti!",
+  "npc.pina.hello.1": "Ciao, {g|cucciolo|cucciola}! Hai mangiato? Hai la faccia di chi salta i pasti!",
   "npc.pina.hello.2": "{player}! Vieni, siediti! C'è sempre un piatto caldo per te.",
   "npc.pina.hello.3": "Che gioia vederti! Il sugo è sul fuoco da stamattina.",
   "npc.pina.chat.1": "Un pesce, un rametto di rosmarino e un po' di brace: la felicità è semplice.",
@@ -578,7 +578,7 @@ export default {
   "npc.pina.rain.1": "Piove? Allora zuppa! È la legge della cucina.",
   "npc.pina.night.1": "Di notte la Trattoria è il posto più caldo del paese. Accomodati.",
   "npc.pina.thanks.1": "Che tesoro! Stasera menù speciale, grazie a te.",
-  "npc.pina.thanks.2": "Grazie, cucciolo. Vieni, che ti do una fetta di torta.",
+  "npc.pina.thanks.2": "Grazie, {g|cucciolo|cucciola}. Vieni, che ti do una fetta di torta.",
   "npc.pina.legend.1": "Una leggenda?! Non preoccuparti, non te la cucino. Però ci facciamo una festa!",
 
   "npc.marta.name": "Marta",
@@ -622,7 +622,7 @@ export default {
   // ───────── Storia ─────────
   "q.q_first_catch.title": "Una canna e una lettera",
   "q.q_first_catch.goal": "Pesca il tuo primo pesce",
-  "q.q_first_catch.offer.1": "Caro {player}, se stai leggendo, vuol dire che Porto Lento ti ha trovato. Ne sono felice.",
+  "q.q_first_catch.offer.1": "{g|Caro|Cara} {player}, se stai leggendo, vuol dire che Porto Lento ti ha trovato. Ne sono felice.",
   "q.q_first_catch.offer.2": "Ti lascio la mia vecchia canna di bambù. È testarda come me, ma non mi ha mai tradito.",
   "q.q_first_catch.offer.3": "Vai sul pontile, lancia e aspetta. Il segreto della pesca è non avere fretta.",
   "q.q_first_catch.offer.4": "Il primo pesce non si scorda mai. Un abbraccio salato, il Nonno.",
@@ -632,7 +632,7 @@ export default {
 
   "q.q_sell.title": "Al mercato!",
   "q.q_sell.goal": "Vendi del pesce a Gino, alla Pescheria",
-  "q.q_sell.offer.1": "Ohé! Tu devi essere il nuovo arrivo! Hai gli stessi occhi del vecchio pescatore!",
+  "q.q_sell.offer.1": "Ohé! Tu devi essere {g|il nuovo arrivo|la nuova arrivata}! Hai gli stessi occhi del vecchio pescatore!",
   "q.q_sell.offer.2": "Il cestino si riempie presto, eh? Portalo qui e te lo trasformo in monete.",
   "q.q_sell.offer.3": "Pago bene e peso giusto. Parola di Gino!",
   "q.q_sell.hint.1": "Il cestino è pieno di pesci che aspettano solo me. Vieni alla Pescheria!",

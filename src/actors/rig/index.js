@@ -42,6 +42,7 @@ export function createCharacter(ctx, rawLook, opts = {}) {
   if (rawLook?.rod && !look.rod) look.rod = rawLook.rod;
   const built = buildCharacter(look);
   const { mesh, bones: B, spec } = built;
+  let paint = built;   // the build whose geometry is on the mesh (swapLook replaces it)
   const object = new THREE.Group(); object.name = `Character:${look.id}`;
   const model = new THREE.Group(); model.name = 'model'; model.scale.setScalar(look.height);
   object.add(model); model.add(mesh);
@@ -109,10 +110,28 @@ export function createCharacter(ctx, rawLook, opts = {}) {
     },
     get held() { return st.held; },
     /** Recolour a part after changing look fields (e.g. look.hat.color). */
-    recolor: (part) => built.recolor(part),
+    recolor: (part) => paint.recolor(part),
+    /** The normalised look (read only; change it through swapLook / recolor). */
+    get look() { return look; },
+    /**
+     * [11 nov] Rebuild the body for a new look on the same skeleton (man ↔ woman): only the geometry changes, bones,
+     * clips and procedural layers stay. The build must not change (it shapes the skeleton).
+     */
+    swapLook(raw) {
+      const nl = normalizeLook(raw, look.id);
+      if (nl.build !== look.build) { console.warn('[rig] swapLook: build differs, skipped'); return false; }
+      if (raw?.rod && look.rod) nl.rod = { ...look.rod, ...raw.rod };
+      for (const k of Object.keys(nl)) look[k] = nl[k];
+      const nb = buildCharacter(look);
+      if (nb.skeleton.bones.length !== built.skeleton.bones.length) { console.warn('[rig] swapLook: skeleton differs'); return false; }
+      mesh.geometry.dispose(); mesh.geometry = nb.mesh.geometry; mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1.1, 0), 2.8);
+      paint = nb;
+      jig.hair = ['bun', 'ponytail', 'long'].includes(look.hair.style) ? new Jiggle(B.hair, new THREE.Vector3(0, -0.3, -0.05), { k: 90, damp: 0.25, max: 0.3 }) : null;
+      return true;
+    },
     setRodModel(m) {
       if (!look.rod || !m) return;
-      Object.assign(look.rod, m); built.recolor('rod');
+      Object.assign(look.rod, m); paint.recolor('rod');
       st.rodLen = Math.max(0.6, ((m.length || 2.2) - 0.68) / 1.53);
     },
     /** Snap springs (after teleports). */

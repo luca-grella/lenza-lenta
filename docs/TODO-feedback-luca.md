@@ -91,7 +91,7 @@ Non provati qui (limiti headless): margini safe-area, audio e vibrazione, il fog
 - [x] (10 nov, r9) Mappa: segnare TUTTI i luoghi utili al gioco e alle missioni (negozi, paesani, punti di pesca, zone, posti dove sedersi/cucinare, obiettivi delle missioni), non solo alcuni.
 - [x] (10 nov, r9) Mappa: le missioni con più obiettivi devono avere un pin su OGNI obiettivo ancora da fare (non uno solo), che sparisce quando quell'obiettivo è completato.
 - [x] (10 nov, r10) Nome del personaggio scelto all'inizio: i paesani e i testi del gioco lo chiamano per nome (IT/EN), modificabile dalle Impostazioni; salvataggi vecchi chiedono il nome al primo avvio senza perdere i progressi.
-- [ ] Scelta maschio/femmina all'inizio: modello femminile del pescatore (corpo, capelli, vestiti; stesso scheletro e stesse animazioni), testi declinati al genere giusto in italiano (pescatore/pescatrice, benvenuto/benvenuta…), modificabile dopo; salvataggi vecchi restano maschio.
+- [x] (11 nov, r28) Scelta maschio/femmina all'inizio: modello femminile del pescatore (corpo, capelli, vestiti; stesso scheletro e stesse animazioni), testi declinati al genere giusto in italiano (pescatore/pescatrice, benvenuto/benvenuta…), modificabile dopo; salvataggi vecchi restano maschio.
 
 - [x] (10 nov, r11) Tasti delle risposte nei dialoghi con i paesani da rivedere tutti (dialog.js + testi in i18n), Luca segnala tutti e quattro i problemi:
   - non si capisce cosa fa il tasto: ogni scelta deve dire chiaramente cosa succede ("Compra l'esca (20 monete)", "Accetta la missione", "Non ora");
@@ -168,3 +168,8 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
   hand goes in front of the belly and both elbows point outward. Contact sheet of every clip: tools/scenarios/limb-sheet.mjs.
 - Order asked by Luca on 11 nov: FEMALE CHARACTER first (Feedback 9 nov), then camera cuts only for given actions, then
   cat on the boat.
+- [x] (11 nov, r28) Fisherwoman: the name card (first start and Settings › "Nome e personaggio") has Pescatore /
+  Pescatrice. She has braids with red ties, lashes, a slimmer waist; same skeleton, clothes and animations (the body is
+  rebuilt in place, character.swapLook). Italian text agrees through {g|maschile|femminile} (6 lines needed it: Pina,
+  grandpa's letter, Gino, camera setting, the "amico/amica" fallback name). Old saves stay a man.
+  Scenario tools/scenarios/player-gender.mjs.

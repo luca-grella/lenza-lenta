@@ -419,3 +419,9 @@ button.pill:active { transform: translateY(2px); }
   -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; touch-action: auto; pointer-events: auto; }
 #ui .name-input:focus { outline: 3px solid var(--sea-l); outline-offset: 1px; }
 .name-ok[disabled] { opacity: .5; filter: grayscale(.4); }
+/* [11 nov] man / woman */
+.gender-pick { width: min(320px, 100%); }
+.gender-btn { padding: 12px 8px; border: 3px solid transparent; }
+.gender-btn .lang-name { font-size: 17px; }
+.gender-btn.on { border-color: var(--gold, #f5c542); box-shadow: 0 0 0 3px rgba(245,197,66,.35); }
+.name-card .gender-q { margin-top: 2px; }
