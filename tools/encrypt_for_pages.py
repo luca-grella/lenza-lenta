@@ -2,7 +2,9 @@
 
 Used by .github/workflows/pages.yml. The repo keeps the plain index.html; only the published copy is encrypted
 (StatiCrypt, same password and salt as the site's other private pages, so "Ricordami" on one opens them all).
-The wrapper keeps the game's manifest, icons and Home screen tags, so the game can still be installed before unlocking.
+The wrapper keeps the game's manifest, icons and Home screen tags, so the game can still be installed before unlocking,
+and the game's own viewport tag: StatiCrypt writes the game over the wrapper, and on iPhone a different viewport (no
+viewport-fit=cover) left touches offset by the status bar height (Luca, 11 Nov 2026).
 
 Usage: STATICRYPT_PASSWORD=... python3 tools/encrypt_for_pages.py <out_dir>   (needs npx)
 """
@@ -35,6 +37,9 @@ subprocess.run(["npx", "-y", STATICRYPT, str(src / "index.html"), "-p", os.envir
 wrap = (tmp / "index.html").read_text()
 anchor = '<meta charset="utf-8" />'
 assert wrap.count(anchor) == 1
+viewport = re.search(r'<meta name="viewport"[^>]*>', plain).group(0)
+wrap, n = re.subn(r'<meta name="viewport"[^>]*>', lambda m: viewport, wrap, count=1)
+assert n == 1
 head = "\n    ".join(['<meta name="robots" content="noindex, nofollow" />'] + keep)
 (out / "index.html").write_text(wrap.replace(anchor, anchor + "\n    " + head, 1))
 shutil.rmtree(tmp)
