@@ -63,3 +63,10 @@ pesci, icone, musica ed effetti sonori sono generati proceduralmente in JavaScri
 WebAudio). Nessun modello, texture, font o file audio scaricato.
 
 Unica libreria esterna: [three.js](https://threejs.org) (licenza MIT), inclusa in `vendor/`.
+
+## Publishing (password)
+
+Since 11 Nov 2026 the game is private while in development: GitHub Pages is published by `.github/workflows/pages.yml`,
+which copies the repo and encrypts `index.html` with StatiCrypt (`tools/encrypt_for_pages.py`), using the shared password
+of the private pages of luca-grella.github.io (repo secret `STATICRYPT_PASSWORD`). The repo keeps the plain `index.html`,
+so local testing does not change.

@@ -1,0 +1,41 @@
+name: Pages (password protected)
+
+# Publishes the game on GitHub Pages with index.html behind the shared password of luca-grella.github.io
+# (Luca, 11 Nov 2026: the games stay private while in development). The password is the repo secret STATICRYPT_PASSWORD.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Only this repo publishes the encrypted copy. The mirror luca-grella/lenza-lenta-v2 gets the same commits and
+    # keeps publishing the plain game from its branch (Luca's partner plays there), so the job is skipped there.
+    if: github.repository == 'luca-grella/lenza-lenta'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Copy the site and encrypt index.html
+        run: python3 tools/encrypt_for_pages.py "$RUNNER_TEMP/site"
+        env:
+          STATICRYPT_PASSWORD: ${{ secrets.STATICRYPT_PASSWORD }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+      - id: deployment
+        uses: actions/deploy-pages@v4
