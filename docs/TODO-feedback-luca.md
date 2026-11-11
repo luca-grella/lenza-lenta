@@ -145,7 +145,8 @@ Luca asked to re-check two items (10 nov afternoon, stopped at the 38% cap):
 - [ ] Cooking: show the cooking action (animation at the fire/stove).
 - [ ] Camera: shot changes feel random; use them always and only for given actions.
 - [ ] Dolphins: show them with a change of shot (see Feedback 3 nov, sightings).
-- [ ] Fishing line goes through objects (e.g. on the cliff).
+- [x] (11 nov, r24: line points kept above the ground and above boulders, sphere model of each 'rock' collider;
+  tools/scenarios/line-cliff.mjs; to try on the iPhone) Fishing line goes through objects (e.g. on the cliff).
 - [x] (10 nov, r17: dialogue, then banner, then the new goal; scenario goal-hud.mjs) Objective done: do not swing the camera to the next objective right away; if it means talking to someone,
   finish the conversation calmly, then say the objective is complete.
 - [x] (10 nov, r17) Objective card at the top: small icon while walking and playing, expands on tap (now it covers part of the screen).
